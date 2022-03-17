@@ -89,12 +89,13 @@ public defn get? (cards : Cards, card-id : Int) -> Card|False :
    get?(c(cards), card-id)
 
 defmethod print (o: OutputStream, cards : Cards) :
-   print(o, c(cards) )
+    for card in c(cards) do :
+        println(o, card )
 
-defmethod print ( o: OutputStream, xs: HashTable<Int,Card>) :
-   for x in xs do :
-      val k = key(x)
-      val v = value(x)
-      println(o, "%_: %_" % [k, v])
+;defmethod print ( o: OutputStream, xs: HashTable<Int,Card>) :
+;   for x in xs do :
+;      val k = key(x)
+;      val v = value(x)
+;      println(o, "%_: %_" % [k, v])
 
 public val cards = to-cards(cards_tuple)

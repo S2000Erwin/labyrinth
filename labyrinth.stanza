@@ -6,11 +6,49 @@ defpackage labyrinth :
 defn doLog (log : True|False) -> False :
    println("doLog %_" % [log])
 
+defstruct Country :
+   name  : String
+   attrs : HashTable<String,?>
+
+defn remove (country : Country, key : String ) :
+   remove(attrs(country), key)
+
+defmethod print (o : OutputStream, country : Country ) :
+   print("%_ : [" % [name(country)])
+   for attr in attrs(country) do :
+      val k = key(attr)
+      val v = value(attr)
+      print("  %_: %_" % [k, v] )
+   println("  ]")
+
+defn to-country (name : String, xs : Tuple<KeyValue<String,?>>) -> Country :
+   val h = HashTable<String,?>()
+   for x in xs do :
+      h[key(x)] = value(x)
+   val country = Country(name, h)
+   country
+
 defstruct Countries :
-   c : HashTable<String,?>
+   c : HashTable<String,Country>
+
+defn to-countries ( kvs : Tuple<KeyValue<String,?>> ) -> Countries :
+   val t = Countries(HashTable<String,?>())
+   for kv in kvs do :
+      val name = key(kv)
+      val country = to-country(name, value(kv))
+      t[name] = country
+   t
+
+defn get (countries : Countries, name : String) -> Country|False :
+   c(countries)[name]
+
+defn set (countries : Countries, name : String, country : Country) -> False :
+   set(c(countries), name, country)
 
 defmethod print (o : OutputStream, countries : Countries ) :
-   print-countries(o, c(countries))
+   val country-hash = c(countries)
+   for country in country-hash do :
+      print(o, value(country) )
 
 val baseRoutes = [
    ["syria", "iraq"], ["iraq", "saudiarabia"], ["saudiarabia", "yemen"],
@@ -189,7 +227,7 @@ defstruct Labyrinth :
    jihadistplayer : String
    board : Countries with : (setter => set-board)
    countries : Countries with : (setter => set-countries)
-   routes : Tuple<[String,String]> with : (setter => set-routes)
+   routes : Vector<[String,String]> with : (setter => set-routes)
    deck : Tuple<Int> with : (setter => set-deck)
    abort : True|False with : (setter => set-abort)
    reshuffled : True|False with : (setter => set-reshuffled)
@@ -255,7 +293,7 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         jihadistplayer,
                         to-countries(board_tuple), 
                         Countries(HashTable<String,?>()),
-                        [],
+                        Vector<[String,String]>(),
                         [], 
                         false,
                         false,      ; reshuffled
@@ -308,45 +346,43 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
 
 
 ; to-do : complete reset
+defn same-route? ( x : [String,String], y : [String,String] ) -> True|False :
+   if ( x[0] == y[0] and x[1] == y[1] ) or ( x[0] == y[1] and x[1] == y[0] ) :
+      true
+   else :
+      false
+      
 defn reset (lab : Labyrinth) :
    println("Reset Game")
    if scenario(lab) == "Surge":
       set-awakening(lab, false)
-      set-countries(lab, board(lab))
-      set-routes(lab, baseRoutes)
-      clear(eventNotUsed(lab))
-      add-all(eventNotUsed(lab), deck(lab))
+   set-countries(lab, board(lab))
+   set-routes(lab, to-vector<[String,String]>(baseRoutes))
+   if awakening(lab) :
+      for c in awakenBoard_tuple do :
+         val cs = countries(lab) 
+         val k = key(c) as String
+         val v = value(c)
+         cs[k] = to-country(k, v)
+      val cs = countries(lab)
+      val syria = cs["syria"]
+      match(syria) : ( (syria : Country) : remove(syria, "sunni") )
+      for route in awakenRoutes do :
+         val result = find( fn ( x : [String,String], y : [String,String] ) -> True|False : (
+                              if ( x[0] == y[0] and x[1] == y[1] ) or ( x[0] == y[1] and x[1] == y[0] ) :
+                                 true
+                              else :
+                                 false )
+                              routes(lab)
+                              [route] )
+         match(result) : ((result:False) : add(routes(lab), route) )
+      
+
+   clear(eventNotUsed(lab))
+   add-all(eventNotUsed(lab), deck(lab))
    print(lab)
    print(cards)
    val gcard = get?(cards, 10)
    if gcard is-not False :
       println(gcard)
    println("End Reset Game")
-      
-defn print-countries ( o: OutputStream, xs: HashTable<String,?>) :
-   for x in xs do :
-      val k = key(x)
-      val v = value(x)
-      print(o, "%_ => " % [k])
-      match(v):
-         (v: HashTable<String,?>) : (print(o, "[ "), print-countries(o, v), println(o, "]"))
-         (v) : ( print(o, v), print(o, ", ") )
-
-defn to-hashtable ( t : HashTable<String,?>, kvs : Tuple<KeyValue<?,?>> ) -> False :
-   for kv in kvs do :
-      val k = key(kv)
-      val v = value(kv)
-      match(k) :
-         (k : String) : 
-            match(v) :
-               (v : Tuple<?>) :
-                  var d : HashTable<String,?> = HashTable<String,?>()
-                  to-hashtable(d, v)
-                  t[k] = d
-               (v) : t[k] = v               
-
-defn to-countries ( kvs : Tuple<KeyValue<String,?>> ) -> Countries :
-   val t = Countries(HashTable<String,?>())
-   to-hashtable(c(t), kvs)
-   t
-
