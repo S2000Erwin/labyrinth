@@ -1,6 +1,7 @@
 defpackage labyrinth :
    import core
    import collections
+   import cards
 
 defn doLog (log : True|False) -> False :
    println("doLog %_" % [log])
@@ -95,7 +96,7 @@ val board_tuple = [
    "algeria" => ["name" => "algeria", "muslim" => true, "resource" => 2, "oil" => true, "sunni" => true, "african" => true],
    "morocco" => ["name" => "morocco", "muslim" => true, "resource" => 2, "sunni" => true, "african" => true]
 ]
-val gboard = to-countries(board_tuple)
+
 
 val awakenBoard_tuple = [
    "mali" => ["name" => "mali" "muslim" => true "resource" => 1, "sunni" => true "african" => true ]
@@ -103,12 +104,10 @@ val awakenBoard_tuple = [
    "syria" => [ "name" => "syria" "muslim" => true "resource" => 2 "arsenal" => 2 ]
    "iran" => ["name" => "iran" "arsenal" => 1]
 ]
-val awakenBoard = to-countries(awakenBoard_tuple)
 
 val ISILHMBoard_tuple = [
    "nigeria" => [ "name" => "nigeria" "muslim" => true "resource" => 2 "sunni" => true "african" => true ]
 ]
-val ISILHMBoard = to-countries(ISILHMBoard_tuple)
 
 val random_muslim_country = [
       ["morocco", "syria", "-"],
@@ -177,38 +176,10 @@ val ISILHMSetup_tuple = [
       "posture" => "hard"
    ]
 ]
-val ISILHMSetup = to-countries(ISILHMSetup_tuple)
 
 val awakenRoutes = [
    ["mali", "morocco"], ["mali", "algeria"], ["mali", "nigeria"], ["nigeria", "sudan"], ["nigeria", "kenya"]
 ]
-
-defstruct Card :
-   id : Int
-   ops : Int
-   association : String
-   title : String
-
-; to-do : complete the card list
-val cards_tuple = [
-   [10 1 "US" "Special Forces"]
-   [12 2 "US" "Al-Azhar"]
-   [13 2 "US" "Anbar Awakening"]
-   [15 2 "US" "Ethiopia Strikes"]
-   [16 2 "US" "Euro-Islam"]
-   [18 2 "US" "Intel Community"]
-   [19 2 "US" "Kemalist Republic"]
-   [20 2 "US" "King Abdullah"]
-]  
-val cards = HashTable<Int, Card>()
-for ct in cards_tuple do :
-   cards[ct[0] as Int] = Card(ct[0] as Int, ct[1] as Int, ct[2] as String, ct[3] as String)
-
-defmethod print ( o: OutputStream, xs: HashTable<Int,Card>) :
-   for x in xs do :
-      val k = key(x)
-      val v = value(x)
-      println(o, "%_: %_ %_ [%_]" % [k, ops(v), association(v), title(v)])
 
 defstruct Labyrinth :
    awakening : True|False with : (setter => set-awakening)
@@ -282,7 +253,7 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         scenario,
                         usplayer,
                         jihadistplayer,
-                        gboard, 
+                        to-countries(board_tuple), 
                         Countries(HashTable<String,?>()),
                         [],
                         [], 
@@ -330,11 +301,11 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
    doLog(lab, log)   
    ; var gameBoard
    ; var comm   
+   ; gameBoard = make-GameBoardGraphics(lab)
+   ; comm = make-Communicator(lab, usplayer, jihadistplayer, terminal, log)
    reset(lab)
    lab
 
-   ;gameBoard = make-GameBoardGraphics(labyrinth)
-   ;comm = make-Communicator(labyrinth, _usplayer, _jihadistplayer, _terminal, _log)
 
 ; to-do : complete reset
 defn reset (lab : Labyrinth) :
@@ -346,6 +317,10 @@ defn reset (lab : Labyrinth) :
       clear(eventNotUsed(lab))
       add-all(eventNotUsed(lab), deck(lab))
    print(lab)
+   print(cards)
+   val gcard = get?(cards, 10)
+   if gcard is-not False :
+      println(gcard)
    println("End Reset Game")
       
 defn print-countries ( o: OutputStream, xs: HashTable<String,?>) :
@@ -375,5 +350,3 @@ defn to-countries ( kvs : Tuple<KeyValue<String,?>> ) -> Countries :
    to-hashtable(c(t), kvs)
    t
 
-print(cards)   
-val labyrinth = make-labyrinth(false, false, "Surge", "human", "human", true, 1)

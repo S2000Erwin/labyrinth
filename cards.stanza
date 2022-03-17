@@ -1,0 +1,100 @@
+defpackage cards :
+    import core
+    import collections
+
+defstruct Card :
+   card-id : Int
+   ops : Int
+   association : String
+   title : String
+
+defmethod print (o: OutputStream, card : Card ) :
+   print(o, "%_: %_ %_ [%_]" % [card-id(card), ops(card), association(card), title(card)])
+
+; to-do : complete the card list
+val cards_tuple = [
+   [1 1 "US" "Backlash"]
+   [10 1 "US" "Special Forces"]
+   [12 2 "US" "Al-Azhar"]
+   [13 2 "US" "Anbar Awakening"]
+   [15 2 "US" "Ethiopia Strikes"]
+   [16 2 "US" "Euro-Islam"]
+   [18 2 "US" "Intel Community"]
+   [19 2 "US" "Kemalist Republic"]
+   [20 2 "US" "King Abdullah"]
+   [21 2 "US" "Let's Roll!"]
+   [22 2 "US" "Mossad & Shin Bet"]
+   [24 2 "US" "Predator"]
+   [25 2 "US" "Predator"]
+   [28 2 "US" "Sharia"]
+   [29 2 "US" "Tony Blair"]
+   [30 2 "US" "UN Nation Building"]
+   [32 3 "US" "Back Channel"]
+   [33 3 "US" "Benazir Bhutto"]
+   [35 3 "US" "Hijab"]
+   [36 3 "US" "Indo-Pakistani Talks"]
+   [40 3 "US" "Mass Turnout"]
+   [42 3 "US" "Pakistani Offensive"]
+   [45 3 "US" "Safer Now"]
+   [46 3 "US" "Sistani"]
+   [49 1 "Jihadist" "Al-Ittihad Al-Islami"]
+   [50 1 "Jihadist" "Ansar Al-Islam"]
+   [52 1 "Jihadist" "IEDs"]
+   [53 1 "Jihadist" "Madrassas"]
+   [60 2 "Jihadist" "Bhutto Shot"]
+   [63 2 "Jihadist" "Gaza War"]
+   [68 2 "Jihadist" "Jemaah Islamiya"]
+   [70 2 "Jihadist" "Lashkar-e-Tayyiba"]
+   [72 2 "Jihadist" "Opium"]
+   [73 2 "Jihadist" "Pirates"]
+   [74 2 "Jihadist" "Schengen Visas"]
+   [77 3 "Jihadist" "Al Jazerra"]
+   [78 3 "Jihadist" "Axis of Evil"]
+   [79 3 "Jihadist" "Clean Operatives"]
+   [81 3 "Jihadist" "Foreign Fighters"]
+   [82 3 "Jihadist" "Jihadist Videos"]
+   [83 3 "Jihadist" "Kashmir"]
+   [89 3 "Jihadist" "Martyrdom Operation"]
+   [90 3 "Jihadist" "Quagmire"]
+   [91 3 "Jihadist" "Regional Al-Qaeda"]
+   [93 3 "Jihadist" "Taliban"]
+   [95 3 "Jihadist" "Wahhabism"]
+   [97 1 "Unassociated" "Fatwa"]
+   [100 1 "Unassociated" "Hizb Ut-Tahrir"]
+   [101 1 "Unassociated" "Kosovo"]
+   [103 2 "Unassociated" "Hizballah"]
+   [105 2 "Unassociated" "Iran"]
+   [106 2 "Unassociated" "Jaysh Al-Mahdi"]
+   [107 2 "Unassociated" "Kurdistan"]
+   [108 2 "Unassociated" "Musharraf"]
+   [111 2 "Unassociated" "Zawahiri"]
+   [112 3 "Unassociated" "Bin Ladin"]
+   [113 3 "Unassociated" "Dafur"]
+   [118 3 "Unassociated" "Oil Price Spike"]
+   [119 3 "Unassociated" "Saleh"]
+   [120 3 "Unassociated" "US Election"]
+]
+
+defstruct Cards :
+   c : HashTable<Int, Card>
+
+defn to-cards (xs : Tuple<[Int,Int,String,String]>) -> Cards :
+   val cards = Cards(HashTable<Int,Card>())
+   val ct = c(cards)
+   for x in xs do :
+      ct[x[0] as Int] = Card(x[0] as Int, x[1] as Int, x[2] as String, x[3] as String)
+   cards
+
+public defn get? (cards : Cards, card-id : Int) -> Card|False :
+   get?(c(cards), card-id)
+
+defmethod print (o: OutputStream, cards : Cards) :
+   print(o, c(cards) )
+
+defmethod print ( o: OutputStream, xs: HashTable<Int,Card>) :
+   for x in xs do :
+      val k = key(x)
+      val v = value(x)
+      println(o, "%_: %_" % [k, v])
+
+public val cards = to-cards(cards_tuple)

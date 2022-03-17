@@ -1,0 +1,5 @@
+defpackage main :
+    import labyrinth
+    
+
+val labyrinth = make-labyrinth(false, false, "Surge", "human", "human", true, 1)

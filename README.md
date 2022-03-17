@@ -2,8 +2,16 @@ Copyright 2022 Erwin Lau
 
 Labyrinth in Stanza
 
+Usage
+=====
+To compile: 1. download Stanza in labstanza.org
+            2. stanza main.stanza labyrinth.stanza -o labyrinth
+To play: ./labrinth (or labyrinth.exe in Windows)
+
 This is my first attempt to use Stanza in a non-trivial coding project.
 
+Design
+======
 I choose to re-implement one of my past projects Labyrinth.
 It is a computerized play of a traditional board game from GMT Games.
 Interested parties should check out www.gmtgames.com to look for this elegant game about War on Terror since 2001.
@@ -18,6 +26,7 @@ A thing that occupies my mind is how to use HashTable effectively for country st
 Now I need to initialize with a Tuple to KeyValue pairs and use it to translate to HashTable. The more I use it the more I prefer to do a late conversion. i.e. stay in Tuples until someone uses it. At that time, convert to HashTable until next time the game state is changed again. (Is it a good method? I don't know. I need to learn more about Stanza to tell.)
 
 A sample of countries tuples is shown here.
+
     [
     "uk" => [ "name" => "uk" "govern" => "good" "recruit" => 3 ]
     "spain" => [ "name" => "spain" "govern" => "good" "schengen" => true "recruit" => 2 ]
