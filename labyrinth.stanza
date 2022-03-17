@@ -1,0 +1,358 @@
+defpackage labyrinth :
+   import core
+   import collections
+
+defn doLog (log : True|False) -> False :
+   println("doLog %_" % [log])
+
+defstruct Countries :
+   c : HashTable<String,?>
+
+defmethod print (o : OutputStream, countries : Countries ) :
+   print-countries(o, c(countries))
+
+val baseRoutes = [["syria", "iraq"], ["iraq", "saudiarabia"], ["saudiarabia", "yemen"],
+         ["saudiarabia", "gulfstates"], ["gulfstates", "iran"], ["afghanistan", "pakistan"],
+         ["iraq", "gulfstates"], ["gulfstates", "pakistan"], ["afghanistan", "iran"],
+         ["afghanistan", "centralasia"],
+         ["centralasia", "iran"], ["iran", "turkey"], ["iraq", "iran"], ["iran", "pakistan"],
+         ["syria", "turkey"], ["syria", "lebanon"], ["syria", "jordan"],
+         ["turkey", "serbia"], ["turkey", "schengen"], ["turkey", "russia"], ["turkey", "iraq"],
+         ["caucasus", "iran"], ["caucasus", "turkey"], ["caucasus", "centralasia"],
+         ["caucasus", "russia"],
+         ["centralasia", "china"], ["centralasia", "russia"],
+         ["russia", "serbia"], ["russia", "schengen"],
+         ["lebanon", "schengen"], ["lebanon", "israel"],
+         ["jordan", "israel"], ["jordan", "iraq"], ["jordan", "saudiarabia"],
+         ["israel", "egypt"],
+         ["yemen", "somalia"],
+         ["egypt", "libya"], ["egypt", "sudan"],
+         ["libya", "sudan"], ["libya", "schengen"], ["libya", "algeria"],
+         ["somalia", "kenya"], ["somalia", "sudan"],
+         ["sudan", "kenya"],
+         ["algeria", "schengen"], ["algeria", "morocco"],
+         ["morocco", "schengen"],
+         ["serbia", "schengen"],
+         ["uk", "canada"], ["uk", "schengen"], ["uk", "us"],
+         ["canada", "schengen"], ["canada", "us"],
+         ["us", "schengen"], ["us", "philippines"],
+         ["philippines", "thailand"], ["philippines", "indonesia"],
+         ["indonesia", "thailand"], ["indonesia", "india"], ["indonesia", "pakistan"],
+         ["indea", "pakistan"],
+         ["thailand", "china"]
+         ]
+
+; Don't reorder this table. It is according to Random Schengen Table
+val schengens = ["scandinavia", "benelux", "germany", "france", "spain", "italy", "easterneurope"]
+
+; Shia-mix Country table (9.5)
+val shiamixTable_tuple = [ 3 => "syria", 4 => "syria", 5 => "syria", 6 => "syria",
+                     7 => "iran", 8 => "saudiarabia", 9 => "turkey", 10 => "iraq",
+                     11 => "gulfstates", 12 => "yemen", 13 => "pakistan", 14 => "lebanon",
+                     15 => "afghanistan", 16 => "afghanistan", 17 => "afghanistan", 18 => "afghanistan"]
+val shiamixTable = HashTable<Int, String>()
+for s in shiamixTable_tuple do :
+   shiamixTable[key(s)] = value(s)
+
+val usmarkers = [ "advisors", "unscr1973", "nato", "maerskalabama" ]
+val jihadistmarkers = ["scsc", "qataricrisis", "trainingcamps", "bloodythursday", "3cupsoftea", "censorshop" ]
+
+val board_tuple = 
+[ "us" => ["name" => "us", "govern" => "good"]
+   "canada" => [ "name" => "canada" "govern" => "good" ]
+   "uk" => [ "name" => "uk" "govern" => "good" "recruit" => 3 ]
+   "spain" => [ "name" => "spain" "govern" => "good" "schengen" => true "recruit" => 2 ]
+   "france" => [ "name" => "france" "govern" => "good" "schengen" => true "recruit" => 2 ]
+   "italy" => [ "name" => "italy" "govern" => "good" "schengen" => true ]
+   "benelux"=> ["name"=> "benelux", "govern"=> "good", "schengen"=> true],
+   "germany"=> ["name"=> "germany", "govern"=> "good", "schengen"=> true],
+   "scandinavia"=> ["name"=> "scandinavia", "govern"=> "good", "schengen"=> true],
+   "easterneurope"=> ["name"=> "easterneurope", "govern"=> "good", "schengen"=> true],
+   "serbia"=> ["name"=> "serbia", "govern"=> "good"],
+   "russia"=> ["name"=> "russia", "govern"=> "fair"],
+   "caucasus"=> ["name"=> "caucasus", "govern"=> "fair"],
+   "iran"=> ["name"=> "iran", "govern"=> "fair"],
+   "israel"=> ["name"=> "israel", "govern"=> "good", "posture"=> "hard", "permposture"=> true],
+   "india"=> ["name"=> "india", "govern"=> "good"],
+   "china"=> ["name"=> "china", "govern"=> "fair"],
+   "thailand"=> ["name"=> "thailand", "govern"=> "fair"],
+   "philippines"=> ["name"=> "philippinse", "govern"=> "fair", "recruit"=> 3],
+   "kenya"=> ["name"=> "kenya", "govern"=> "fair", "african"=> true],
+
+   ; Muslim countries
+   "indonesia"=> ["name"=> "indonesia", "muslim"=> true, "resource"=> 3, "oil"=> true, "sunni"=> true],
+   "pakistan"=> ["name"=> "pakistan", "muslim"=> true, "resource"=> 2, "arsenal"=> 3],
+   "afghanistan"=> ["name"=> "afghanistan", "muslim"=> true, "resource"=> 1],
+   "centralasia"=> ["name"=> "centralasia", "muslim"=> true, "resource"=> 2, "sunni"=> true],
+   "gulfstates"=> ["name"=> "gulfstates", "muslim"=> true, "resource"=> 3, "oil"=> true],
+   "yemen"=> ["name"=> "yemen", "muslim"=> true, "resource"=> 1],
+   "iraq"=> ["name"=> "iraq", "muslim"=> true, "resource"=> 3, "oil"=> true],
+   "saudiarabia"=> ["name"=> "saudiarabia", "muslim"=> true, "resource"=> 3, "oil"=> true],
+   "somalia"=> ["name"=> "somalia", "muslim"=> true, "resource"=> 1, "sunni"=> true, "african"=> true],
+   "syria"=> ["name"=> "syria", "muslim"=> true, "resource"=> 2, "sunni"=> true],
+   
+   "jordan"=> ["name"=> "jordan", "muslim"=> true, "resource"=> 1, "sunni"=> true],
+   "turkey"=> ["name"=> "turkey", "muslim"=> true, "resource"=> 2],
+   "lebanon"=> ["name"=> "lebanon", "muslim"=> true, "resource"=> 1],
+   "egypt"=> ["name"=> "egypt", "muslim"=> true, "resource"=> 3, "sunni"=> true],
+   "sudan"=> ["name"=> "sudan", "muslim"=> true, "resource"=> 1, "oil"=> true, "sunni"=> true, "african"=> true],
+   "libya"=> ["name"=> "libya", "muslim"=> true, "resource"=> 1, "oil"=> true, "sunni"=> true, "african"=> true],
+   "algeria"=> ["name"=> "algeria", "muslim"=> true, "resource"=> 2, "oil"=> true, "sunni"=> true, "african"=> true],
+   "morocco"=> ["name"=> "morocco", "muslim"=> true, "resource"=> 2, "sunni"=> true, "african"=> true]
+]
+val gboard = to-countries(board_tuple)
+
+val awakenBoard_tuple = [
+   "mali" => ["name" => "mali" "muslim" => true "resource" => 1, "sunni" => true "african" => true ]
+   "nigeria" => [ "name" => "algeria" "govern" => "poor" "african" => true ]
+   "syria" => [ "name" => "syria" "muslim" => true "resource" => 2 "arsenal" => 2 ]
+   "iran" => ["name" => "iran" "arsenal" => 1]
+]
+val awakenBoard = to-countries(awakenBoard_tuple)
+
+val ISILHMBoard_tuple = [
+   "nigeria" => [ "name" => "nigeria" "muslim" => true "resource" => 2 "sunni" => true "african" => true ]
+]
+val ISILHMBoard = to-countries(ISILHMBoard_tuple)
+
+defstruct Card :
+   id : Int
+   ops : Int
+   association : String
+   title : String
+
+defstruct Labyrinth :
+   awakening : True|False with : (setter => set-awakening)
+   foreverwar : True|False with : (setter => set-foreverwar)
+   scenario : String
+   usplayer : String
+   jihadistplayer : String
+   board : Countries with : (setter => set-board)
+   countries : Countries with : (setter => set-countries)
+   routes : Tuple<[String,String]> with : (setter => set-routes)
+   deck : Tuple<Int> with : (setter => set-deck)
+   abort : True|False with : (setter => set-abort)
+
+defmethod print (o : OutputStream, lab : Labyrinth) :
+   println(o, deck(lab))
+   println(o, countries(lab))
+   println(o, routes(lab))
+   println(o, scenario(lab))
+   
+defmulti get-cards (Labyrinth) -> HashTable<Int,Card>
+defmulti print-countries (OutputStream, Labyrinth) -> False
+defmulti doLog (Labyrinth, log : Int) -> False
+
+public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, scenario : String, 
+                              usplayer : String, jihadistplayer : String, 
+                              _terminal: True|False, _log: Int ) -> Labyrinth :
+   val lab = Labyrinth( awakening, 
+                        foreverwar,
+                        scenario,
+                        usplayer,
+                        jihadistplayer,
+                        gboard, 
+                        Countries(HashTable<String,?>()),
+                        [],
+                        [], 
+                        false,
+                         )
+   
+   ; var gameBoard
+   ; var comm
+
+   val random_muslim_country = [
+      ["morocco", "syria", "-"],
+      ["algeria", "jordan", "indonesia"],
+      ["libya", "turkey", "lebanon"],
+      ["egypt", "saudiarabia", "iraq"],
+      ["sudan", "gulfstates", "afghanistan"],
+      ["somalia", "yemen", "pakistan"]
+   ]
+   val random_muslim_country2 = ["centralasia", "centralasia", "iraq", "mali", "nigeria", "nigeria"]
+
+   val personalities = [110, 111, 112, 115, 116, 215, 216, 219, 225, 237, 328, 329, 338, 342, 352]
+
+   val ISILHMSetup_tuple = [
+      "syria"=> ["name"=> "syria",
+                  "align"=> "neutral",
+                  "govern"=> "fair",
+                  "caliphate"=> "capital",
+                  "civilwar"=> true,
+                  "militia"=> 3,
+                  "activecell"=> 5],
+      "iraq"=> ["name"=> "iraq",
+               "align"=> "neutral",
+               "govern"=> "poor",
+               "caliphate"=> "country",
+               "civilwar"=> true,
+               "militia"=> 3,
+               "activecell"=> 4],
+      "yemen"=> ["name"=> "yemen",
+                  "align"=> "neutral",
+                  "govern"=> "poor",
+                  "civilwar"=> true,
+                  "militia"=> 2,
+                  "sleepercell"=> 2],
+      "gulfstates"=> ["name"=> "gulfstates",
+                     "align"=> "ally",
+                     "govern"=> "fair",
+                     "troop"=> 2],
+      "afghanistan"=> ["name"=> "afghanistan",
+                        "align"=> "ally",
+                        "govern"=> "poor",
+                        "troop"=> 2,
+                        "sleepercell"=> 1
+                        ],
+      "nigeria"=> ["name"=> "nigeria",
+                  "muslim"=> true,
+                  "sunni"=> true,
+                  "align"=> "neutral",
+                  "govern"=> "poor",
+                  "resource"=> 2,
+                  "sleepercell"=> 1,
+                  "african"=> true],
+      "uk"=> ["name"=> "uk",
+               "posture"=> "hard"]
+   ]
+
+      val awakenRoutes = [
+      ["mali", "morocco"], ["mali", "algeria"], ["mali", "nigeria"],
+      ["nigeria", "sudan"], ["nigeria", "kenya"]
+   ]
+
+   val countries = HashTable<String,?>()
+   var decks = Vector<Vector<Int>>()
+
+   var routes = Vector<[String,String]>()
+   var reshuffled : True|False = false
+   var currentplayer = "jihadist"
+   var currentphase = 0
+   var firstPlot : True|False = false
+   var firstPlotCard = 0
+   var heldCard : True|False = false
+   var lapsing = Vector<Int>()
+   var plots = Vector<Int|String>()
+   var usedPlots = Vector<Int|String>()
+   var spentUnits = Vector<String>()
+   var cellcamps = 0
+   var maxcamps = 0
+   var lesscell = 0
+   var plotSuccess : True|False = false
+   var plotAvailables = to-vector<Int>([1, 1, 1, 2, 2, 3])
+   var nbDeck = 3
+   var turn = 1
+   var trooptrack = 15
+   var offmap = 0
+   var funding = 7
+   var celltrack = 15
+   var prestige = 6
+   var markers = Vector<String>()
+        
+   ; loadedDeck is for testing only
+   ; self.loadedDeck = [79]
+   var loadedDeck = Vector<Int>()
+
+   var winMethod = ""
+   var currentphaseCountries = Vector<String>()
+   var lastphaseCountries = Vector<String>()
+   var discard = Vector<Int>()
+   var removed = Vector<Int>()
+   var ushand = Vector<Int>()
+   var jihadisthand = Vector<Int>()
+   var eventNotUsed = deck
+   var eventUsed = Vector<Int>()
+   var eventAsEvent = Vector<Int>()
+   var usreserve = 0
+   var jihadistreserve = 0
+   var gameend : True|False = false
+   var reason = ""
+   var currentcard = 0
+   var cards_tuple = [
+      [10 1 "US" "Special Forces"]
+      [12 2 "US" "Al-Azhar"]
+      [13 2 "US" "Anbar Awakening"]
+      [15 2 "US" "Ethiopia Strikes"]
+      [16 2 "US" "Euro-Islam"]
+      [18 2 "US" "Intel Community"]
+      [19 2 "US" "Kemalist Republic"]
+      [20 2 "US" "King Abdullah"]
+   ]  
+   val cards = HashTable<Int, Card>()
+   for ct in cards_tuple do :
+      cards[ct[0] as Int] = Card(ct[0] as Int, ct[1] as Int, ct[2] as String, ct[3] as String)
+         
+   
+   
+   val labyrinth = new Labyrinth :
+      defmethod doLog (this, log : Int) :
+         if log > 0 :
+            doLog(true)
+         else:
+            doLog(false)
+      defmethod print ( o : OutputStream, this ) :
+         ; val b = get-board(this)
+         ; print(b)
+         val c = get-cards(this)
+         print(c)
+      defmethod get-cards (this) -> HashTable<Int, Card> :
+         cards
+   doLog(labyrinth, _log)
+   reset(lab)
+      
+   labyrinth
+
+   ;gameBoard = make-GameBoardGraphics(labyrinth)
+   ;comm = make-Communicator(labyrinth, _usplayer, _jihadistplayer, _terminal, _log)
+
+defn reset (lab : Labyrinth) :
+   println("Reset Game")
+   if scenario(lab) == "Surge":
+      set-awakening(lab, false)
+      set-countries(lab, board(lab))
+      set-routes(lab, baseRoutes)
+   print(lab)
+   println("End Reset Game")
+      
+defmethod print ( o: OutputStream, xs: HashTable<Int,Card>) :
+   for x in xs do :
+      val k = key(x)
+      val v = value(x)
+      println(o, "%_: %_ %_ [%_]" % [k, ops(v), association(v), title(v)])
+
+defmethod print-countries ( o: OutputStream, xs: HashTable<String,?>) :
+   for x in xs do :
+      val k = key(x)
+      val v = value(x)
+      print(o, "%_ => " % [k])
+      match(v):
+         (v: HashTable<String,?>) : (print(o, "[ "), print-countries(o, v), println(o, "]"))
+         (v) : ( print(o, v), print(o, ", ") )
+
+
+defn to-hashtable ( t : HashTable<String,?>, kvs : Tuple<KeyValue<?,?>> ) -> False :
+   for kv in kvs do :
+      val k = key(kv)
+      val v = value(kv)
+      match(k) :
+         (k : String) : 
+            match(v) :
+               (v : Tuple<?>) :
+                  var d : HashTable<String,?> = HashTable<String,?>()
+                  to-hashtable(d, v)
+                  t[k] = d
+               (v) : t[k] = v               
+  
+
+defn to-countries ( kvs : Tuple<KeyValue<String,?>> ) -> Countries :
+   val t = Countries(HashTable<String,?>())
+   to-hashtable(c(t), kvs)
+   t
+   
+
+val labyrinth = make-labyrinth(false, false, "Surge", "human", "human", true, 1)
+print(labyrinth)
+;val b = get-board(labyrinth)
+;print(b)
+
+

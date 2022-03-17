@@ -1,0 +1,25 @@
+defpackage sdl2 :
+   import core
+   
+lostanza deftype SDL_version :
+   major: byte
+   minor: byte
+   patch: byte
+
+extern SDL_GetVersion: (ptr<SDL_version>) -> int
+extern SDL_Init: int -> int
+
+lostanza defn call-SDL_version () -> ref<Int> :
+   val v = new SDL_version{100Y, 100Y, 100Y}
+   call-c SDL_GetVersion(addr!([v])) 
+   return new Int{v.major}
+
+lostanza defn call-SDL_Init (a:ref<Int>) -> ref<False> :
+   call-c SDL_Init(a.value)
+   return false
+
+defn test () :
+  println("Calling SDL_Init()")
+  println(call-SDL_version())
+  call-SDL_Init(1)
+  println("Done calling SDL_Init()")
