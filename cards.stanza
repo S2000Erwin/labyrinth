@@ -92,10 +92,4 @@ defmethod print (o: OutputStream, cards : Cards) :
     for card in c(cards) do :
         println(o, card )
 
-;defmethod print ( o: OutputStream, xs: HashTable<Int,Card>) :
-;   for x in xs do :
-;      val k = key(x)
-;      val v = value(x)
-;      println(o, "%_: %_" % [k, v])
-
 public val cards = to-cards(cards_tuple)

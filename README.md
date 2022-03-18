@@ -14,8 +14,11 @@ Usage
 =====
 To compile: 
 1. download Stanza in labstanza.org
-2. In main.stanza, modify usplayer and/or jihadistplayer to "human", "bot", "ai", or "web" ("ai" and "web" are not supported in Stanza Labyrinth) 
-3. Once setup is done, in a Terminal type: stanza main.stanza labyrinth.stanza cards.stanza -o labyrinth
+2. download SDL2 in libsdl.org
+3. In main.stanza, modify usplayer and/or jihadistplayer to "human", "bot", "ai", or "web" ("ai" and "web" are not supported in Stanza Labyrinth) 
+4. Once setup is done, in a Terminal type: 
+    stanza main.stanza labyrinth.stanza gameBoardGraphics.stanza cards.stanza SDL2.stanza -ccfiles libSDL2.dll.a -o labyrinth
+
 
 To play: ./labrinth (or labyrinth.exe in Windows)
 

@@ -2,6 +2,7 @@ defpackage labyrinth :
    import core
    import collections
    import cards
+   import GameBoardGraphics
 
 defn doLog (log : True|False) -> False :
    println("doLog %_" % [log])
@@ -10,8 +11,13 @@ defstruct Country :
    name  : String
    attrs : HashTable<String,?>
 
-defn remove (country : Country, key : String ) :
-   remove(attrs(country), key)
+defn remove (country : Country|False, key : String ) -> True|False :
+   match(country) :
+      (c : Country) : remove(attrs(c), key)
+      (f) : false
+
+defn set (country : Country, k : String, v : ?) -> False :
+   set(attrs(country), k, v)
 
 defmethod print (o : OutputStream, country : Country ) :
    print("%_ : [" % [name(country)])
@@ -219,7 +225,7 @@ val awakenRoutes = [
    ["mali", "morocco"], ["mali", "algeria"], ["mali", "nigeria"], ["nigeria", "sudan"], ["nigeria", "kenya"]
 ]
 
-defstruct Labyrinth :
+public defstruct Labyrinth :
    awakening : True|False with : (setter => set-awakening)
    foreverwar : True|False with : (setter => set-foreverwar)
    scenario : String
@@ -243,7 +249,7 @@ defstruct Labyrinth :
    cellcamps : Int with : (setter => set-cellcamps)
    maxcamps : Int with : (setter => set-maxcamps)
    lesscell : Int with : (setter => set-lesscell)
-   plotSuccess : True|False with : (setter => set-plotsuccess)
+   plotSuccess : True|False with : (setter => set-plotSuccess)
    plotAvailables : Vector<Int> 
    nbDeck : Int with : (setter => set-nbDeck)
    turn : Int with : (setter => set-turn)
@@ -269,6 +275,7 @@ defstruct Labyrinth :
    gameend : True|False with : (setter => set-gameend)
    reason : String with : (setter => set-reason)
    currentcard : Int with : (setter => set-currentcard)
+   gameBoard : GameBoardGraphics|False with : (setter => set-gameBoard)
 
 defmethod print (o : OutputStream, lab : Labyrinth) :
    println(o, deck(lab))
@@ -335,9 +342,10 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         false
                         ""
                         0
+                        false          ; gameBoardGraphics
                      )
    doLog(lab, log)   
-   ; val gameBoard = make-GameBoardGraphics(lab)
+   set-gameBoard(lab, make-GameBoardGraphics(lab))
    ; var comm = make-Communicator(lab, usplayer, jihadistplayer, terminal, log)
    reset(lab)
    lab
@@ -368,10 +376,53 @@ defn reset (lab : Labyrinth) :
                               routes(lab)
                               [route] )
          match(result) : ((result:False) : add(routes(lab), route) )
-      
-
+   if scenario(lab) == "ISILHM":
+      val cs = countries(lab)
+      for c in ISILHMBoard_tuple do :
+         cs[key(c)] = to-country(key(c), value(c))
+      for kv in ISILHMSetup_tuple do :
+         val name = key(kv)
+         val attrs = value(kv)
+         for attr in attrs do:
+            match( cs[name] ) :
+               (c : Country) : set(c, key(attr), value(attr))
+      remove(cs["iran"], "arsenal")
+      remove(cs["syria"], "arsenal")
+         
+   ; gprint("scenario=%_" % [scenario(lab)])
+   ; loadedDeck is for testing only
+   clear(loadedDeck(lab))
+   ; add(loadedDeck(lab), [195])
+   clear(currentphaseCountries(lab))
+   clear(lastphaseCountries(lab))
+   clear(discard(lab))
+   clear(removed(lab))
+   clear(ushand(lab))
+   clear(jihadisthand(lab))
    clear(eventNotUsed(lab))
    add-all(eventNotUsed(lab), deck(lab))
+   clear(eventNotUsed(lab))
+   clear(eventUsed(lab))
+   clear(eventAsEvent(lab))
+   set-usreserve(lab, 0)
+   set-jihadistreserve(lab, 0)
+   set-gameend(lab, false)
+   set-reason(lab, "")
+   clear(lapsing(lab))
+   clear(plots(lab))
+   clear(usedPlots(lab))
+   clear(spentUnits(lab))
+   set-cellcamps(lab, 0)
+   set-maxcamps(lab, 0)
+   set-lesscell(lab, 0)
+   set-plotSuccess(lab, false)
+   clear(plotAvailables(lab))
+   add-all(plotAvailables(lab), to-vector<Int>([1, 1, 1, 2, 2, 3]))
+   set-nbDeck(lab, 3)
+   set-turn(lab, 1)
+   clear(markers(lab))
+   set-offmap(lab, 0)
+
    print(lab)
    print(cards)
    val gcard = get?(cards, 10)

@@ -1,5 +1,10 @@
 defpackage sdl2 :
    import core
+
+val SDL_INIT_AUDIO : Int = 16
+val SDL_INIT_VIDEO : Int = 32
+val SDL_WINDOWPOS_UNDEFINED : Int = 0x1fff0000
+val SDL_WINDOW_SHOWN : Int = 4
    
 lostanza deftype SDL_version :
    major: byte
@@ -8,18 +13,51 @@ lostanza deftype SDL_version :
 
 extern SDL_GetVersion: (ptr<SDL_version>) -> int
 extern SDL_Init: int -> int
+extern SDL_CreateWindow: (ptr<byte>, int, int, int, int, int) -> long
+extern SDL_GetWindowSurface: (long) -> long
+extern SDL_FillRect: (long, long, int) -> int
+extern SDL_UpdateWindowSurface : (long) -> int
 
 lostanza defn call-SDL_version () -> ref<Int> :
-   val v = new SDL_version{100Y, 100Y, 100Y}
+   val v = new SDL_version{0Y, 0Y, 0Y}
    call-c SDL_GetVersion(addr!([v])) 
    return new Int{v.major}
 
-lostanza defn call-SDL_Init (a:ref<Int>) -> ref<False> :
-   call-c SDL_Init(a.value)
-   return false
+lostanza defn call-SDL_Init (a:ref<Int>) -> ref<Int> :
+   val result = call-c SDL_Init(a.value)
+   return new Int{result}
 
-defn test () :
-  println("Calling SDL_Init()")
-  println(call-SDL_version())
-  call-SDL_Init(1)
-  println("Done calling SDL_Init()")
+lostanza defn call-SDL_CreateWindow (name : ref<String>) -> ref<Long> :
+   val p = call-c SDL_CreateWindow(
+                           addr!(name.chars), 
+                           0x1fff0000, 0x1fff0000, 
+                           640, 480, 
+                           2)
+   return new Long{p}
+
+lostanza defn call-SDL_GetWindowSurface (p : ref<Long>) -> ref<Long> :
+   val ws = call-c SDL_GetWindowSurface(p.value)
+   return new Long{ws}
+
+lostanza defn call-SDL_FillRect (p : ref<Long>) -> ref<Int> :
+   val result = call-c SDL_FillRect(p.value, 0, 0x00800080)
+   return new Int{result}
+
+lostanza defn call-SDL_UpdateWindowSurface (window : ref<Long>) -> ref<Int> :
+   val result = call-c SDL_UpdateWindowSurface(window.value)
+   return new Int{result}
+
+public defn test-sdl2 () :
+   println("Calling SDL_Init()")
+   println(call-SDL_version())
+   val result = call-SDL_Init(SDL_INIT_VIDEO)
+   println("Done calling SDL_Init(): %_" % [result])
+   val p = call-SDL_CreateWindow("Labyrinth")
+   println("SDL_CreateWindow: %_" % [p])
+   val ws = call-SDL_GetWindowSurface(p)
+   println("SDL_GetWindowSurface: %_" % [ws])
+   val fr = call-SDL_FillRect(ws)
+   val up = call-SDL_UpdateWindowSurface(p)
+   while true :
+      println("%_ %_ %_ %_" % [p, ws, fr, up])
+

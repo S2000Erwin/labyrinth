@@ -1,0 +1,12 @@
+defpackage GameBoardGraphics :
+    import core
+    import sdl2
+    import labyrinth
+
+public defstruct GameBoardGraphics :
+    lab : Labyrinth
+
+public defn make-GameBoardGraphics (lab : Labyrinth) -> GameBoardGraphics :
+    val gbg = GameBoardGraphics( lab )
+    ;test-sdl2()
+    gbg

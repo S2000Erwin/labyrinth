@@ -1,1 +1,3 @@
-labyrinth.exe
+*.exe
+*.a
+*.dll
