@@ -14,19 +14,21 @@ Usage
 =====
 To compile: 
 1. download Stanza in labstanza.org
-2. download SDL2 in libsdl.org
-3. In main.stanza, modify usplayer and/or jihadistplayer to "human", "bot", "ai", or "web" ("ai" and "web" are not supported in Stanza Labyrinth) 
-4. Once setup is done, in a Terminal type: 
-    stanza main.stanza labyrinth.stanza gameBoardGraphics.stanza cards.stanza SDL2.stanza -ccfiles libSDL2.dll.a -o labyrinth
-
+2. download SDL2 (or runtime) in libsdl.org
+3. download SDL_Image 2.0 in https://www.libsdl.org/projects/SDL_image/
+4. Go to VASSL to download the "Labyrinth" module. (located here as if this writing: https://vassalengine.org/wiki/Module:Labyrinth:_The_War_on_Terror). Extract the images and put in a subfolder "vassalimages". Please note that .vmod file is just a .zip file. You can rename and uncompress to extract the image files. 
+5. In main.stanza, modify usplayer and/or jihadistplayer to "human", "bot", "ai", or "web" ("ai" and "web" are not supported in Stanza Labyrinth) 
+6. Once setup is done, in a Terminal type: 
+    stanza main.stanza labyrinth.stanza cards.stanza gameBoardGraphics.stanza  SDL2.stanza -ccfiles libSDL2.dll.a libSDL2_image.dll.a -o labyrinth
+    
 
 To play: ./labrinth (or labyrinth.exe in Windows)
 
 This is my first attempt to use Stanza in a non-trivial coding project.
 I am still exploring the features of Stanza language. Any suggestions to make the code better and in better functional programming style are welcome.  
 
-Design
-======
+Design Notes
+============
 I choose to re-implement one of my past projects Labyrinth.
 It is a computerized play of a traditional board game from GMT Games.
 Interested parties should check out www.gmtgames.com to look for this elegant game about War on Terror since 2001.
@@ -40,6 +42,8 @@ A thing that occupies my mind is how to use HashTable effectively for country st
 
 Now I need to initialize with a Tuple to KeyValue pairs and use it to translate to HashTable. The more I use it the more I prefer to do a late conversion. i.e. stay in Tuples until someone uses it. At that time, convert to HashTable until next time the game state is changed again. (Is it a good method? I don't know. I need to learn more about Stanza to tell.)
 
+Dynamic Data struture
+---------------------
 A sample of countries tuples is shown here.
 
     [
@@ -80,10 +84,23 @@ This reduces a lot of compiler complain about Ambiguous choices of overloaded fu
     defstruct Countries :
         c : HashTable<String,Country>
 
-
-
-
 March 17, 2022
 
+NULL Pointer
+------------
+0L Long type can be used as ptr<?> in lostanza
+
+    lostanza defn call-SDL_FillRect (p : ref<Long>, rect : ref<SDL_Rect|False>, argb : ref<Int>) -> ref<Int> :
+    var pRect : ptr<SDL_Rect>
+    match(rect) :
+        (rect : ref<SDL_Rect>) : pRect = addr!([rect])
+        (rect) : pRect = 0L as ptr<SDL_Rect>
+    val result = call-c SDL_FillRect(p.value, pRect, argb.value)
+    return new Int{result}
+
+SDL Hiccup
+----------
+It turns out that the built lib has the functions SDL_BlitSurface and SDL_BlitScaled missing. Luckily they are just aliases of SDL_UpperBlit and SDL_UpperBlitScaled. Work around is done in SDL2.stanza
+See https://github.com/BindBC/bindbc-sdl/issues/15
 
 

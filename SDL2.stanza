@@ -5,18 +5,42 @@ val SDL_INIT_AUDIO : Int = 16
 val SDL_INIT_VIDEO : Int = 32
 val SDL_WINDOWPOS_UNDEFINED : Int = 0x1fff0000
 val SDL_WINDOW_SHOWN : Int = 4
-   
+val IMG_INIT_JPG : Int = 1
+val IMG_INIT_PNG : Int = 2
+val IMG_INIT_TIF : Int = 4
+val IMG_INIT_WEBP : Int = 8
+
 lostanza deftype SDL_version :
    major: byte
    minor: byte
    patch: byte
 
+lostanza deftype SDL_Rect :
+   x: int
+   y: int
+   w: int
+   h: int
+
+lostanza defn SDL_Rect (x:ref<Int>, y:ref<Int>, w:ref<Int>, h:ref<Int>) -> ref<SDL_Rect> :
+   return new SDL_Rect{x.value, y.value, w.value, h.value}
+
+lostanza defn SDL_RGBA (r:ref<Byte>, g:ref<Byte>, b:ref<Byte>, a:ref<Byte>) -> ref<Int> :
+   return new Int{a.value << 24 + r.value << 16 + g.value << 8 + b.value}
+
 extern SDL_GetVersion: (ptr<SDL_version>) -> int
 extern SDL_Init: int -> int
 extern SDL_CreateWindow: (ptr<byte>, int, int, int, int, int) -> long
 extern SDL_GetWindowSurface: (long) -> long
-extern SDL_FillRect: (long, long, int) -> int
-extern SDL_UpdateWindowSurface : (long) -> int
+extern SDL_FreeSurface: (long) -> int
+extern SDL_ConvertSurface: (long, long, int) -> long
+extern SDL_UpperBlit: (long, ptr<SDL_Rect>, long, ptr<SDL_Rect>) -> int
+extern SDL_UpperBlitScaled: (long, ptr<SDL_Rect>, long, ptr<SDL_Rect>) -> int
+extern SDL_FillRect: (long, ptr<SDL_Rect>, int) -> int
+extern SDL_UpdateWindowSurface: (long) -> int
+extern IMG_Init: int -> int
+extern IMG_Quit: () -> int
+extern IMG_Load: (ptr<byte>) -> long
+
 
 lostanza defn call-SDL_version () -> ref<Int> :
    val v = new SDL_version{0Y, 0Y, 0Y}
@@ -39,13 +63,77 @@ lostanza defn call-SDL_GetWindowSurface (p : ref<Long>) -> ref<Long> :
    val ws = call-c SDL_GetWindowSurface(p.value)
    return new Long{ws}
 
-lostanza defn call-SDL_FillRect (p : ref<Long>) -> ref<Int> :
-   val result = call-c SDL_FillRect(p.value, 0, 0x00800080)
+lostanza defn call-SDL_FillRect (p : ref<Long>, rect : ref<SDL_Rect|False>, argb : ref<Int>) -> ref<Int> :
+   var pRect : ptr<SDL_Rect>
+   match(rect) :
+      (rect : ref<SDL_Rect>) : pRect = addr!([rect])
+      (rect) : pRect = 0L as ptr<SDL_Rect>
+   val result = call-c SDL_FillRect(p.value, pRect, argb.value)
    return new Int{result}
 
 lostanza defn call-SDL_UpdateWindowSurface (window : ref<Long>) -> ref<Int> :
    val result = call-c SDL_UpdateWindowSurface(window.value)
    return new Int{result}
+
+lostanza defn call-SDL_FreeSurface (surface : ref<Long> ) -> ref<False> :
+   call-c SDL_FreeSurface(surface.value)
+   return false
+
+lostanza defn call-SDL_ConvertSurface (surface : ref<Long>, dst_surface : ref<Long>) -> ref<Long> :
+   ; NOTE!!!!!! this function is not the same as that in SDL
+   ; the trick is
+   ; * format is right after Unit32 flags
+   ; dst_surface.value + 8 points to the *format pointer
+   ; [dst_surface.value+8] is the value we want
+   ; 
+   ; 
+   val ad = dst_surface.value + 8     ; skip the flags (internal). Assume 64-bit. Change this to 4 in 32-bit
+   val p : ptr<long> = ad as ptr<long>
+   val result = call-c SDL_ConvertSurface(surface.value, [p], 0)
+   return new Long{result}
+
+lostanza defn pRect (rect : ref<SDL_Rect|False>) -> ptr<SDL_Rect> :
+   match(rect) :
+      (rect : ref<SDL_Rect>) : return addr!([rect])
+      (rect) : return 0L as ptr<SDL_Rect>
+   
+; See this issue: https://github.com/BindBC/bindbc-sdl/issues/15
+; Use SDL_UpperBlit and SDL_UpperBlitScaled
+lostanza defn call-SDL_BlitSurface (src : ref<Long>, src-rect : ref<SDL_Rect|False>, 
+                                    dst : ref<Long>, dst-rect : ref<SDL_Rect|False>) -> ref<True|False> :
+   val p-src-rect = pRect(src-rect)
+   val p-dst-rect = pRect(dst-rect)
+   val result = call-c SDL_UpperBlit( src.value, p-src-rect, dst.value, p-dst-rect )
+   if result == 0 :
+      return true
+   else :
+      return false
+
+lostanza defn call-SDL_BlitScaled  (src : ref<Long>, src-rect : ref<SDL_Rect|False>, 
+                                    dst : ref<Long>, dst-rect : ref<SDL_Rect|False>) -> ref<True|False> :
+   val p-src-rect = pRect(src-rect)
+   val p-dst-rect = pRect(dst-rect)
+   val result = call-c SDL_UpperBlitScaled( src.value, p-src-rect, dst.value, p-dst-rect )
+   if result == 0 :
+      return true
+   else :
+      return false
+
+lostanza defn call-IMG_Init (flags : ref<Int>) -> ref<True|False> :
+   val result = call-c IMG_Init(flags.value)
+   if ( result & flags.value ) == flags.value :
+      return true
+   else :
+      return false
+
+lostanza defn call-IMG_Quit () -> ref<False> :
+   call-c IMG_Quit()
+   return false
+
+lostanza defn call-IMG_Load (filename : ref<String>) -> ref<Long> :
+   val result = call-c IMG_Load(addr!(filename.chars))
+   return new Long{result} 
+   
 
 public defn test-sdl2 () :
    println("Calling SDL_Init()")
@@ -56,8 +144,29 @@ public defn test-sdl2 () :
    println("SDL_CreateWindow: %_" % [p])
    val ws = call-SDL_GetWindowSurface(p)
    println("SDL_GetWindowSurface: %_" % [ws])
-   val fr = call-SDL_FillRect(ws)
+   val rect = SDL_Rect(50,50,50,50)
+   val red = SDL_RGBA(255Y, 0Y, 0Y, 255Y)
+   val fr = call-SDL_FillRect(ws, false, red)
+   val green = SDL_RGBA(0Y, 255Y, 0Y, 255Y)
+   call-SDL_FillRect(ws, rect, green)
    val up = call-SDL_UpdateWindowSurface(p)
+   println("SDL_UpdateWindowSurface:%_ %_" % [fr up])
+   val ii = call-IMG_Init(IMG_INIT_JPG|IMG_INIT_PNG)
+   if ii :
+      val img_surface = call-IMG_Load("vassalimages/LabyrinthSplash.jpg")
+      println("IMG_Load:%_" %[img_surface])
+      if img_surface != 0 :
+         val opt_surface = call-SDL_ConvertSurface(img_surface, ws)
+         println("SDL_ConvertSurface:%_" % [opt_surface])
+         call-SDL_FreeSurface(img_surface)
+         ; start blitting
+         val opt-rect = SDL_Rect(100, 100, 400, 600)
+         val bs = call-SDL_BlitScaled(opt_surface, false, ws, opt-rect )
+         println("SDL_BlitSurface:%_" % [bs])
+         call-SDL_UpdateWindowSurface(p)
+         call-SDL_FreeSurface(opt_surface)
+   
    while true :
-      println("%_ %_ %_ %_" % [p, ws, fr, up])
+      println("%_ %_ %_" % [p, ws, ii])
+   call-IMG_Quit()
 
