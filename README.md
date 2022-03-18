@@ -1,12 +1,21 @@
-Copyright 2022 Erwin Lau
-
+2022 Erwin Lau
 Labyrinth in Stanza
+
+Disclaimer
+==========
+This is a work-in-progress project as of now.
+Labyrinth is a game published by GMT Games. www.gmtgames.com
+GMT Games publishes a lot of strategic games with deep insights. This designer is merely one of their many customers.
+Their games give my endless enjoyable experience.
+This designer is not affiliated with GMT Games and is not claiming any copyrights of the game.
+The graphic files of the game used in this project can be found in VASSAL Labyrinth module www.vassal.org
 
 Usage
 =====
 To compile: 
 1. download Stanza in labstanza.org
-2. Once setup is done, in a Terminal type: stanza main.stanza labyrinth.stanza cards.stanza -o labyrinth
+2. In main.stanza, modify usplayer and/or jihadistplayer to "human", "bot", "ai", or "web" ("ai" and "web" are not supported in Stanza Labyrinth) 
+3. Once setup is done, in a Terminal type: stanza main.stanza labyrinth.stanza cards.stanza -o labyrinth
 
 To play: ./labrinth (or labyrinth.exe in Windows)
 
