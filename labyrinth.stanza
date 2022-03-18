@@ -337,21 +337,13 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         0
                      )
    doLog(lab, log)   
-   ; var gameBoard
-   ; var comm   
-   ; gameBoard = make-GameBoardGraphics(lab)
-   ; comm = make-Communicator(lab, usplayer, jihadistplayer, terminal, log)
+   ; val gameBoard = make-GameBoardGraphics(lab)
+   ; var comm = make-Communicator(lab, usplayer, jihadistplayer, terminal, log)
    reset(lab)
    lab
 
 
 ; to-do : complete reset
-defn same-route? ( x : [String,String], y : [String,String] ) -> True|False :
-   if ( x[0] == y[0] and x[1] == y[1] ) or ( x[0] == y[1] and x[1] == y[0] ) :
-      true
-   else :
-      false
-      
 defn reset (lab : Labyrinth) :
    println("Reset Game")
    if scenario(lab) == "Surge":

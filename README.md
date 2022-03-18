@@ -4,11 +4,14 @@ Labyrinth in Stanza
 
 Usage
 =====
-To compile: 1. download Stanza in labstanza.org
-            2. stanza main.stanza labyrinth.stanza -o labyrinth
+To compile: 
+1. download Stanza in labstanza.org
+2. Once setup is done, in a Terminal type: stanza main.stanza labyrinth.stanza cards.stanza -o labyrinth
+
 To play: ./labrinth (or labyrinth.exe in Windows)
 
 This is my first attempt to use Stanza in a non-trivial coding project.
+I am still exploring the features of Stanza language. Any suggestions to make the code better and in better functional programming style are welcome.  
 
 Design
 ======
@@ -54,6 +57,19 @@ To convert it to HashTable, I use
 To run recursively.
 
 There must be a better way to do this in Stanza I have not explored.
+
+Later, I found that encapuslating the HashTable inside the struct might be a better approach.
+This reduces a lot of compiler complain about Ambiguous choices of overloaded functions.
+
+    defstruct Country :
+        name  : String
+        attrs : HashTable<String,?>
+    
+    defstruct Countries :
+        c : HashTable<String,Country>
+
+
+
 
 March 17, 2022
 
