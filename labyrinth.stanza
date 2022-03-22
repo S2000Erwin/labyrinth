@@ -4,6 +4,11 @@ defpackage labyrinth :
    import cards
    import GameBoardGraphics
 
+; stub
+; todo: use mprint later
+defn gprint<?T> (s : ?T ) :
+   println(s)
+
 defn doLog (log : True|False) -> False :
    println("doLog %_" % [log])
 
@@ -225,6 +230,20 @@ val awakenRoutes = [
    ["mali", "morocco"], ["mali", "algeria"], ["mali", "nigeria"], ["nigeria", "sudan"], ["nigeria", "kenya"]
 ]
 
+val surge-decks = [ 
+   [
+      1, 10, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24, 25, 28, 29, 
+      30, 32, 33, 35, 36, 40, 42, 45, 46, 49, 50, 52, 53, 60, 63, 
+      68, 70, 72, 73, 74, 77, 78, 79, 81, 82, 83, 89, 90, 91, 93, 
+      95, 97, 100, 101, 103, 105, 106, 107, 108, 111, 112, 113, 118, 119, 120
+   ], [
+      123, 124, 127, 128, 130, 131, 134, 135, 136, 139, 140, 141, 143, 146, 148,
+      153, 154, 160, 161, 162, 163, 164, 168, 170, 172, 175, 176, 177, 179, 185,
+      186, 190, 191, 195, 196, 197, 198, 199, 200, 202, 203, 205, 206, 207, 208,
+      210, 211, 212, 213, 214, 219, 220, 221, 223, 227, 228, 229, 230, 237, 239
+   ] 
+]
+
 public defstruct Labyrinth :
    awakening : True|False with : (setter => set-awakening)
    foreverwar : True|False with : (setter => set-foreverwar)
@@ -253,7 +272,7 @@ public defstruct Labyrinth :
    plotAvailables : Vector<Int> 
    nbDeck : Int with : (setter => set-nbDeck)
    turn : Int with : (setter => set-turn)
-   trooptrack : Int with : (setter => trooptrack)
+   trooptrack : Int with : (setter => set-trooptrack)
    offmap : Int with : (setter => set-offmap)
    funding : Int with : (setter => set-funding)
    celltrack : Int with : (setter => set-celltrack)
@@ -276,8 +295,10 @@ public defstruct Labyrinth :
    reason : String with : (setter => set-reason)
    currentcard : Int with : (setter => set-currentcard)
    gameBoard : GameBoardGraphics|False with : (setter => set-gameBoard)
+   decks : Tuple<Tuple<Int>>|False with : (setter => set-decks)
 
 defmethod print (o : OutputStream, lab : Labyrinth) :
+   println(o, decks(lab))
    println(o, deck(lab))
    println(o, countries(lab))
    println(o, routes(lab))
@@ -343,6 +364,7 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         ""
                         0
                         false          ; gameBoardGraphics
+                        false          ; decks
                      )
    doLog(lab, log)   
    set-gameBoard(lab, make-GameBoardGraphics(lab))
@@ -423,9 +445,337 @@ defn reset (lab : Labyrinth) :
    clear(markers(lab))
    set-offmap(lab, 0)
 
+   if scenario(lab) == "Surge":
+      set-awakening(lab, false)
+      set-foreverwar(lab, false)
+      set-nbDeck(lab, 1)
+      set-prestige(lab, 4)
+      setPosture(lab, "us", "hard")
+      set-trooptrack(lab, 5)
+      set-funding(lab, 6)
+      set-celltrack(lab, 15)
+      setGovern(lab, "libya", "poor")
+      setAlign(lab, "libya", "adversary")
+      setGovern(lab, "syria", "fair")
+      setAlign(lab, "syria", "adversary")
+      addOneCell(lab, "syria", "recruit", true)
+      setGovern(lab, "iraq", "poor")
+      setAlign(lab, "iraq", "ally")
+      setTroop(lab, "iraq", 5)
+      addOneCell(lab, "iraq", "recruit", true)
+      addOneCell(lab, "iraq", "recruit", true)
+      addOneCell(lab, "iraq", "recruit", true)
+      setRegimeChange(lab, "iraq", "tan")
+      setMarker(lab, "iraq", "sadr", true)
+      setMarker(lab, "iraq", "alanbar", true)
+      addOneCell(lab, "iran", "recruit", true)
+      setGovern(lab, "saudiarabia", "poor")
+      setAlign(lab, "saudiarabia", "ally")
+      addOneCell(lab, "saudiarabia", "recruit", true)
+      setGovern(lab, "gulfstates", "fair")
+      setAlign(lab, "gulfstates", "ally")
+      setTroop(lab, "gulfstates", 2)
+      setGovern(lab, "pakistan", "fair")
+      setAlign(lab, "pakistan", "ally")
+      addOneCell(lab, "pakistan", "recruit", true)
+      setMarker(lab, "pakistan", "fata", true)
+      setGovern(lab, "afghanistan", "poor")
+      setAlign(lab, "afghanistan", "ally")
+      setTroop(lab, "afghanistan", 3)
+      for i in 0 to 2 do :
+         addOneCell(lab, "afghanistan", "recruit", true)
+      addOneAid(lab, "afghanistan", false)
+      setRegimeChange(lab, "afghanistan", "tan")
+      setMarker(lab, "afghanistan", "nato", 1)
+      setGovern(lab, "somalia", "poor")
+      setAlign(lab, "somalia", "neutral")
+      addOneCell(lab, "somalia", "recruit", true)
+      setBesiegedRegime(lab, "somalia")
+      setGovern(lab, "indonesia", "fair")
+      setAlign(lab, "indonesia", "neutral")
+      addOneCell(lab, "indonesia", "recruit", true)
+      setPosture(lab, "uk", "hard")
+      setPosture(lab, "scandinavia", "soft")
+      set-decks(lab, surge-decks)   
+
    print(lab)
    print(cards)
    val gcard = get?(cards, 10)
    if gcard is-not False :
       println(gcard)
    println("End Reset Game")
+
+defn setAttr (lab: Labyrinth, name: String, attr: String, value: String|Int|True|False) -> True|False :
+   val country = countries(lab)[name]
+   match(country) :
+      (country : Country) : 
+         val attrs = attrs(country)
+         match(value):
+            (f:False) : remove(attrs, attr)
+            (v:Int) :
+               if v == 0:
+                  remove(attrs, attr)
+               else :
+                  attrs[attr] = value
+            (value) : attrs[attr] = value
+         addCountryToCurrentPhase(lab, name)
+         gprint(country)
+         true
+      (country) : false
+
+defn getAttr (lab: Labyrinth, name : String, attr: String) -> String|Int|True|False :
+   val country = countries(lab)[name]
+   match(country):
+      (country : Country) :
+         val value = get?(attrs(country), attr)
+         match(value):
+            (value : False): false
+            (value) : value
+      (f) : false
+
+defn setPosture (lab : Labyrinth, name: String, posture : String) :
+   if setAttr(lab, name, "posture", posture) :
+      gprint("%_ is %_. World=%_" % [name, getPosture(lab, name), getGWOTHard(lab)])
+         
+
+defn setGovern (lab : Labyrinth, name: String, govern : String) :
+   setAttr(lab, name, "govern", govern)
+
+defn setAlign (lab : Labyrinth, name: String, align : String) :
+   setAttr(lab, name, "align", align)
+   if align == "adversary":
+      removeAllAdvisors(lab, name)
+
+defn addOneCell (lab: Labyrinth, name : String, reason : String, event: True|False ) :
+   ; check Cell Track
+   var result = ""
+   label<False> break :
+      if reason == "recruit":
+         if cellAvailable(lab, event) <= 0 :
+            break
+      if isCaliphate(lab, name):
+         val cell = getActiveCell(lab, name, false) + 1
+         setActiveCell(lab, name, cell)
+         gprint("one active cell is added in %_ to %_" % [name cell])
+         result = "activecell"
+      else:
+         val cell = getSleeperCell(lab, name, false) + 1
+         setSleeperCell(lab, name, cell)
+         gprint("one sleeper cell is added in %_ to %_" % [name cell])
+         result = "sleepercell"
+      if reason != "travelto":
+         removeCadre(lab, name)
+      if reason == "recruit":
+         if celltrack(lab) > 0:
+            val cell = celltrack(lab) - 1
+            set-celltrack(lab, cell)
+         else:
+            val cell = cellcamps(lab) - 1
+            set-cellcamps(lab, cell)
+      gprint(countries(lab)[name])
+      testCountry(lab, name)
+      addCountryToCurrentPhase(lab, name)
+   result
+
+defn setTroop (lab : Labyrinth, name : String, troop : Int) :
+   label<False> break :
+      if name == "track" :
+         set-trooptrack(lab, troop)
+         break
+
+      val country = countries(lab)[name]
+      match(country):
+         (country : Country) :
+            if troop == 0:
+               remove(attrs(country), "troop")
+            else:
+               setAttr(lab, name, "troop", troop)
+               removeAllAdvisors(lab, name)
+            addCountryToCurrentPhase(lab, name)
+
+defn setRegimeChange (lab : Labyrinth, name : String, color : String) :
+   if setAttr(lab, name, "regimechange", color) :
+      if color == "green" :
+         connectCaliphate(lab, name)
+      
+defn setMarker (lab : Labyrinth, name : String, marker : String, value : String|True|Int) :
+   if name == "markers" :
+      add(markers(lab), marker)
+   else :
+      setAttr(lab, name, marker, value)
+
+defn addOneAid (lab : Labyrinth, name : String, event: True|False) :
+   label<False> break :
+      var aid = getAid(lab, name)
+      if aid >= 1 and event == false:
+         break
+      aid = aid + 1
+      setAttr(lab, name, "aid", aid)
+      gprint("Aid=%_ in %_" % [aid name])
+
+defn setBesiegedRegime (lab : Labyrinth, name : String) :
+   setAttr(lab, name, "besiegedregime", true)
+
+defn addCountryToCurrentPhase (lab : Labyrinth, name : String) :
+   val cpc = currentphaseCountries(lab)
+   val f = find(fn (x : String) : x == name, cpc)
+   if f is False :
+      add(cpc, name)
+
+defn getPosture (lab : Labyrinth, name : String):
+   val posture = getAttr(lab, name, "posture")
+   match(posture) :
+      (posture : String) : posture
+      (f) : "untested"
+
+defn getGWOTHard (lab : Labyrinth) :
+   ; count hard as 1 and soft as -1
+   var gwot = 0
+   for country in c(countries(lab)) do:
+      val name = key(country)
+      if not (name == "us" or isMuslim(lab, name) or name == "iran"):
+         val posture = getPosture(lab, name)
+         if posture == "hard":
+               gwot = gwot + 1
+         else if posture == "soft":
+               gwot = gwot - 1
+   if gwot > 3:
+      gwot = 3
+   if gwot < (- 3):
+      gwot = (- 3)
+   gwot
+
+defn removeAllAdvisors (lab : Labyrinth, name : String) :
+   if setAttr(lab, name, "advisors", false) :
+      gprint("Remove All Advisors in %_" % [name])
+
+defn cellAvailable (lab : Labyrinth, event: True|False) :
+   var result = 0
+   label<False> break:
+      if event:
+         result = celltrack(lab) + cellcamps(lab)
+         break
+      var buildable = 0
+      if funding(lab) <= 3:
+         buildable = celltrack(lab) - 10
+      else if funding(lab) <= 6:
+         buildable = celltrack(lab) - 5
+      else if funding(lab) <= 8:
+         buildable = celltrack(lab)
+      else if funding(lab) == 9:
+         buildable = celltrack(lab) + cellcamps(lab)
+      result = buildable
+   result
+
+defn isCaliphate (lab : Labyrinth, name : String) -> True|False:
+   val ic = getAttr(lab, name, "caliphate")
+   match(ic):
+      (ic:True) : ic
+      (ic) : false
+   
+
+defn getActiveCell (lab : Labyrinth, name : String, withMarkers: True|False) :
+   var cell = 0
+   val ac = getAttr(lab, name, "activecell")
+   match(ac):
+      (ac : Int) : cell = cell + ac
+   if withMarkers:
+      match( getAttr(lab, name, "sadr") ):
+         (t : True) : cell = cell + 1
+   cell
+
+defn setActiveCell (lab : Labyrinth, name : String, cell : Int) :
+   setAttr(lab, name, "activecell", cell)
+   
+defn getSleeperCell (lab : Labyrinth, name : String, withMarkers : True|False) -> Int:
+   val sc = getAttr(lab, name, "sleepercell")
+   match(sc):
+      (sc:Int) : sc
+      (f) : 0
+      
+
+defn setSleeperCell (lab : Labyrinth, name : String, cell : Int) :
+   setAttr(lab, name, "sleepercell", cell)
+
+defn removeCadre (lab : Labyrinth, name : String) :
+   if setAttr(lab, name, "cadre", false) :
+      gprint("Cadre removed in %_" % [name])
+
+defn testCountry (lab : Labyrinth, name : String) -> False :
+   label<False> break:
+      if not isUntested(lab, name):
+         break
+      if isMuslim(lab, name):
+         rollGovern(lab, name)
+         setAlign(lab, name, "neutral")
+         gprint("%_ is a %_ %_" % [name getAlign(lab,name) getGovern(lab,name)])
+      else:
+         if name == "iran":
+               break
+         rollPosture(lab, name, 0)
+
+defn getAlign (lab : Labyrinth, name : String) -> String :
+   val a = getAttr(lab, name, "align")
+   match(a):
+      (a : String) : a
+      (a) : "untested"
+
+defn getGovern (lab : Labyrinth, name : String) -> String :
+   val g = getAttr(lab, name, "govern")
+   match(g):
+      (g: String) : g
+      (g) : ""
+
+defn isMuslim (lab : Labyrinth, name : String) -> True|False :
+   val im = getAttr(lab, name, "muslim")
+   match(im) :
+      (im:True) : true
+      (im) : false
+      
+defn isUntested (lab : Labyrinth, name : String) -> True|False:
+   if isMuslim(lab, name):
+      if getGovern(lab, name) == "":
+            true
+      else:
+            false
+   else:
+      if getPosture(lab, name) == "untested":
+            true
+      else:
+            false
+
+defn getAid (lab : Labyrinth, name : String) :
+   val a = getAttr(lab, name, "aid")
+   match(a):
+      (a : Int) : a
+      (a) : 0
+
+defn rollGovern (lab : Labyrinth, name : String) :
+   val die = rollOnce(lab)
+   if die <= 4:
+      setGovern(lab, name, "poor")
+   else:
+      setGovern(lab, name, "fair")
+   gprint("Country %_ is %_" % [name getGovern(lab,name)])
+
+defn rollPosture (lab : Labyrinth, name : String, drm:Int) :
+   gprint("Roll Posture for %_" % [name])
+   var die = rollOnce(lab) + drm
+   if name == "us":
+      die = die + 1
+   if die <= 4:
+      gprint("soft")
+      setPosture(lab, name, "soft")
+   else:
+      gprint("hard")
+      setPosture(lab, name, "hard")
+
+defn rollOnce (lab : Labyrinth) :
+   val dice = rand(6) + 1
+   gprint("Rolled: %_" % [dice])
+   dice
+
+; todo: cater for Caliphate later
+defn connectCaliphate (lab : Labyrinth, name : String) :
+   false
+   

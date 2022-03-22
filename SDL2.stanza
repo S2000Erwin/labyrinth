@@ -55,7 +55,7 @@ lostanza defn call-SDL_CreateWindow (name : ref<String>) -> ref<Long> :
    val p = call-c SDL_CreateWindow(
                            addr!(name.chars), 
                            0x1fff0000, 0x1fff0000, 
-                           640, 480, 
+                           1024, 768, 
                            2)
    return new Long{p}
 
@@ -67,7 +67,7 @@ lostanza defn call-SDL_FillRect (p : ref<Long>, rect : ref<SDL_Rect|False>, argb
    var pRect : ptr<SDL_Rect>
    match(rect) :
       (rect : ref<SDL_Rect>) : pRect = addr!([rect])
-      (rect) : pRect = 0L as ptr<SDL_Rect>
+      (rect) : pRect = null as ptr<SDL_Rect>
    val result = call-c SDL_FillRect(p.value, pRect, argb.value)
    return new Int{result}
 
@@ -86,7 +86,6 @@ lostanza defn call-SDL_ConvertSurface (surface : ref<Long>, dst_surface : ref<Lo
    ; dst_surface.value + 8 points to the *format pointer
    ; [dst_surface.value+8] is the value we want
    ; 
-   ; 
    val ad = dst_surface.value + 8     ; skip the flags (internal). Assume 64-bit. Change this to 4 in 32-bit
    val p : ptr<long> = ad as ptr<long>
    val result = call-c SDL_ConvertSurface(surface.value, [p], 0)
@@ -95,7 +94,7 @@ lostanza defn call-SDL_ConvertSurface (surface : ref<Long>, dst_surface : ref<Lo
 lostanza defn pRect (rect : ref<SDL_Rect|False>) -> ptr<SDL_Rect> :
    match(rect) :
       (rect : ref<SDL_Rect>) : return addr!([rect])
-      (rect) : return 0L as ptr<SDL_Rect>
+      (rect) : return null as ptr<SDL_Rect>
    
 ; See this issue: https://github.com/BindBC/bindbc-sdl/issues/15
 ; Use SDL_UpperBlit and SDL_UpperBlitScaled
@@ -161,7 +160,7 @@ public defn test-sdl2 () :
          call-SDL_FreeSurface(img_surface)
          ; start blitting
          val opt-rect = SDL_Rect(100, 100, 400, 600)
-         val bs = call-SDL_BlitScaled(opt_surface, false, ws, opt-rect )
+         val bs = call-SDL_BlitSurface(opt_surface, false, ws, opt-rect )
          println("SDL_BlitSurface:%_" % [bs])
          call-SDL_UpdateWindowSurface(p)
          call-SDL_FreeSurface(opt_surface)
