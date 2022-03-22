@@ -1,0 +1,31 @@
+defpackage communicator :
+    import core
+    import labyrinth
+
+var term : True|False
+
+public defstruct Communicator :
+    game : Labyrinth
+    ;jbot :
+    ;usbot :
+    ;answersOrBounds : String
+    ;validAnswers : Tuple<String>
+    ;display : Tuple<String>
+    ;tooltips : Tuple<String>
+    ;webdata_ready :
+    ;webanswer : String
+    ;webanswer_ready :
+    
+
+
+public defn make-communicator (lab : Labyrinth, usplayer : String, jihadistplayer : String, terminal : True|False, log : Int) :
+    term = terminal
+    val comm = Communicator(
+        lab
+    )
+    comm
+
+public defn queryGeneric (comm : Communicator, who : String, msg : String, validAnswers : Tuple<String>, reason : String, 
+                            displays : Tuple<String>, tooltips : Tuple<String>|False, canNull : True|False):
+    "n"
+    

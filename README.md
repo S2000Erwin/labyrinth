@@ -98,9 +98,19 @@ NULL Pointer
     val result = call-c SDL_FillRect(p.value, pRect, argb.value)
     return new Int{result}
 
+There is a null defined in lostanza. Switch to using null instead of 0L -- March 23, 2022
+
 SDL Hiccup
 ----------
 It turns out that the built lib has the functions SDL_BlitSurface and SDL_BlitScaled missing. Luckily they are just aliases of SDL_UpperBlit and SDL_UpperBlitScaled. Work around is done in SDL2.stanza
 See https://github.com/BindBC/bindbc-sdl/issues/15
 
+[March 23, 2022]
+Optional Function Arguments
+---------------------------
+It looks like there is no provision for optional argument. T|False is used. In the caller side, false is needed.
+
+Use match() to determine function call success
+----------------------------------------------
+Instead of checking return value, use match to filter out return of type False which indicates unsuccessful call or not-found.
 

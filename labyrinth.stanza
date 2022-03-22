@@ -3,6 +3,7 @@ defpackage labyrinth :
    import collections
    import cards
    import GameBoardGraphics
+   import communicator
 
 ; stub
 ; todo: use mprint later
@@ -295,6 +296,7 @@ public defstruct Labyrinth :
    reason : String with : (setter => set-reason)
    currentcard : Int with : (setter => set-currentcard)
    gameBoard : GameBoardGraphics|False with : (setter => set-gameBoard)
+   comm : Communicator|False with : (setter => set-comm)
    decks : Tuple<Tuple<Int>>|False with : (setter => set-decks)
 
 defmethod print (o : OutputStream, lab : Labyrinth) :
@@ -313,7 +315,7 @@ defn doLog (lab : Labyrinth, log : Int) -> False :
 
 public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, scenario : String, 
                               usplayer : String, jihadistplayer : String, 
-                              _terminal: True|False, log: Int ) -> Labyrinth :
+                              terminal: True|False, log: Int ) -> Labyrinth :
    val lab = Labyrinth( awakening, 
                         foreverwar,
                         scenario,
@@ -364,11 +366,12 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         ""
                         0
                         false          ; gameBoardGraphics
+                        false          ; communicator
                         false          ; decks
                      )
    doLog(lab, log)   
    set-gameBoard(lab, make-GameBoardGraphics(lab))
-   ; var comm = make-Communicator(lab, usplayer, jihadistplayer, terminal, log)
+   set-comm(lab, make-communicator(lab, usplayer, jihadistplayer, terminal, log))
    reset(lab)
    lab
 
@@ -775,7 +778,205 @@ defn rollOnce (lab : Labyrinth) :
    gprint("Rolled: %_" % [dice])
    dice
 
-; todo: cater for Caliphate later
 defn connectCaliphate (lab : Labyrinth, name : String) :
-   false
+   var region = adjacentRegion(lab, [name])
+   region = extract(lab, fn (x : String) : isCaliphate(lab, x), region)
+   if length(region) > 0:
+      setCaliphateCountry(lab, name)
+
+defn adjacentRegion (lab : Labyrinth, origins : Tuple<String>) -> Tuple<String> :
+   val adjs = to-vector<String>(origins)
+   for country in c(countries(lab)) do :
+      val name = key(country)
+      if not contains?(origins, name):
+         label<False> break:
+            for c in origins do:
+               if isAdjacent(lab, name, c, false):
+                  add(adjs, name)
+                  break
+   to-tuple(adjs)
+
+defn isAdjacent (lab : Labyrinth, fromname : String, toname : String, travel : True|False) :
+   label<True|False> return:
+      if fromname == toname:
+         return(true)
+      if contains?(schengens, fromname) and contains?(schengens, toname) and not (contains?(lapsing(lab), 169) and travel):
+         return(true)
+      if isMarker(lab, "gulfstates", "qataricrisis"):
+         val gang = ["iran", "gulfstates", "saudiarabia", "yemen"]
+         if contains?(gang, fromname) and contains?(gang, toname) :
+               return(true)
+
+      for route in routes(lab) do:
+         val src = route[0]
+         val dst = route[1]
+         if src == fromname and dst == toname:
+               return(true)
+         else if src == toname and dst == fromname:
+               return(true)
+
+         ; one in schengens
+         if contains?(schengens, fromname):
+               if src == toname and dst == "schengen" and not (contains?(lapsing(lab), 169) and travel):
+                  return(true)
+               if dst == toname and src == "schengen":
+                  return(true)
+         if contains?(schengens, toname):
+               if src == fromname and dst == "schengen" and not (contains?(lapsing(lab), 169) and travel):
+                  return(true)
+               if dst == fromname and src == "schengen":
+                  return(true)
+      return(false)
+
+defn isMarker (lab : Labyrinth, name : String, marker : String) :
+   if name == "markers":
+      contains?(markers(lab), marker)
+   else:
+      val result = getAttr(lab, name, marker)
+      match(result):
+         (result:False) : false
+         (result) : true
+
+defn removeMarker (lab : Labyrinth, name : String, marker : String, value : True|Int):
+   match(value):
+      (value:True) :
+         if name == "markers":
+            remove-item(markers(lab), marker)
+         else:
+            setAttr(lab, name, marker, false)
+      (value:Int) :
+         var a = getMarker(lab, name, marker)
+         match(a) :
+            (a : Int) :
+               var b = a
+               b = b - 1
+               if b == 0:
+                  if name == "markers":
+                     remove-item(markers(lab), marker)
+                  else:
+                     setAttr(lab, name, marker, false)
+               else:
+                     setMarker(lab, name, marker, b)
+
+defn getMarker (lab : Labyrinth, name : String, marker : String) -> True|False|Int :
+   if name == "markers":
+      contains?(markers(lab), marker)
+   else :
+      val attr = getAttr(lab, name, marker)
+      match(attr):
+         (attr:True|False|Int) : attr
+         (attr) : false
+
+defn setCaliphateCountry (lab : Labyrinth, name : String) :
+   setAttr(lab, name, "caliphate", "country")
+   gprint("%_ becomes Caliphate Country" % [name])
+
+defn setCaliphateCapital (lab : Labyrinth, name : String) :
+   setAttr(lab, name, "caliphate", "capital")
+   gprint("%_ becomes Caliphate Capital" % [name])
+
+defn isCaliphateCapital (lab : Labyrinth, name : String) :
+   val value = getAttr(lab, name, "caliphate")
+   match(value) :
+      (value : String) : if value == "capital" : true
+      (value) : false
+      
+defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|None):
+   val v = Vector<String>()
+   match(candidates) :
+      (candidates:Tuple<String>) :
+         for name in candidates do :
+            if func(name):
+               if not (name is String and isMarker(lab, name, "truce") and not mayEndTruce(lab, name)):
+                  add(v, name)
+      (candidates):
+         for country in c(countries(lab)) do:
+            val name = key(country)
+            if func(name):
+               if isMarker(lab, name, "truce"):
+                  if mayEndTruce(lab, name):
+                     add(v, name)
+   to-tuple(v)
+
+defn mayEndTruce (lab : Labyrinth, name : String) -> True|False :
+   label<True|False> return:
+      if not isMarker(lab, name, "truce"):
+         return(true)
+      val resources = getResource(lab, name)
+
+      if currentplayer(lab) == "us" and prestige(lab) > resources or currentplayer(lab) == "jihadist" and funding(lab) > resources:
+         val comm = comm(lab)
+         match(comm):
+            (comm:Communicator) :
+               val ans = queryGeneric(comm, currentplayer(lab), to-string("End Truce in %_?"%[name]), ["y", "n"], "endtruce",
+                                             [to-string("Yes, end Truce in %_" % [name]), "No"], false, false )
+               if ans == "y":
+                  if currentplayer(lab) == "us":
+                     changePrestige(lab, (- resources))
+                  else:
+                     changeFunding(lab, (- resources))
+                  removeMarker(lab, name, "truce", true)
+                  remove(lapsing(lab), 239)
+                  return(true)
+      else:
+         return(false)
+
+defn getResource (lab : Labyrinth, name : String) -> Int :
+   val country = c(countries(lab))[name]
+   match(country):
+      (country: Country) :
+         val attrs = attrs(country)
+         var resources = attrs["resource"]
+         match(resources) :
+            (r : Int) :
+               if isCaliphateCapital(lab, name):
+                     resources = resources + 1
+               if contains?(lapsing(lab), 356) and isOil(lab, name):
+                     resources = resources - 1
+               if contains?(lapsing(lab), 117) and isOil(lab, name):
+                     resources = resources + 1
+               if contains?(lapsing(lab), 118) and isOil(lab, name):
+                     resources = resources + 1
+               if contains?(lapsing(lab), 236) and isOil(lab, name):
+                     resources = resources + 1
+               if contains?(lapsing(lab), 289):
+                     val gang = ["iran", "iraq", "gulfstates", "saudiarabia"]
+                     if contains?(gang, name):
+                        resources = resources - 1
+                     else if isOil(lab, name):
+                        resources = resources + 1
+               if resources < 0: resources = 0
+               resources
+            (resources) : 0
+      (f) : 0
+
+defn isOil (lab : Labyrinth, name : String) -> True|False :
+   val oil = getAttr(lab, name, "oil")
+   match(oil):
+      (oil:False) : false
+      (oil) : true
+
+defn changeFunding (lab : Labyrinth, inc : Int) :
+   val oFunding = funding(lab)
+   set-funding(lab, funding(lab) + inc)
+   if funding(lab) > 9 :
+      set-funding(lab, 9)
+   if funding(lab) < 1 :
+      set-funding(lab, 1)
+   gprint("Change Funding from %_ by %_ to %_" % [oFunding, inc, funding(lab)])
+
+defn changePrestige (lab : Labyrinth, inc : Int) :
+   val oPrestige = prestige(lab)
+   set-prestige(lab, prestige(lab) + inc)
+   if prestige(lab) > 12 :
+      set-prestige(lab, 12)
+   if prestige(lab) < 1 :
+      set-prestige(lab, 1)
+   gprint("Change Prestige from %_ by %_ to %_" % [oPrestige inc prestige(lab)])
+
+
+
+
+
    
+      
