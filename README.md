@@ -6,7 +6,7 @@ Disclaimer
 This is a work-in-progress project as of now.
 Labyrinth is a game published by GMT Games. www.gmtgames.com
 GMT Games publishes a lot of strategic games with deep insights. This designer is merely one of their many customers.
-Their games give my endless enjoyable experience.
+Their games give me endless enjoyable experience.
 This designer is not affiliated with GMT Games and is not claiming any copyrights of the game.
 The graphic files of the game used in this project can be found in VASSAL Labyrinth module www.vassal.org
 
@@ -19,7 +19,9 @@ To compile:
 4. Go to VASSL to download the "Labyrinth" module. (located here as if this writing: https://vassalengine.org/wiki/Module:Labyrinth:_The_War_on_Terror). Extract the images and put in a subfolder "vassalimages". Please note that .vmod file is just a .zip file. You can rename and uncompress to extract the image files. 
 5. In main.stanza, modify usplayer and/or jihadistplayer to "human", "bot", "ai", or "web" ("ai" and "web" are not supported in Stanza Labyrinth) 
 6. Once setup is done, in a Terminal type: 
-    stanza main.stanza labyrinth.stanza cards.stanza gameBoardGraphics.stanza  SDL2.stanza -ccfiles libSDL2.dll.a libSDL2_image.dll.a -o labyrinth
+    make
+   to build. Currently only Windows is targeted. Change "makefile" to suit your system and architecture
+7. To play type "./labyrinth" or "labyrinth.exe" in Windows
     
 
 To play: ./labrinth (or labyrinth.exe in Windows)
@@ -113,4 +115,19 @@ It looks like there is no provision for optional argument. T|False is used. In t
 Use match() to determine function call success
 ----------------------------------------------
 Instead of checking return value, use match to filter out return of type False which indicates unsuccessful call or not-found.
+
+All match cases must be exhausted
+---------------------------------
+    match(x):
+        (x : String) : x
+        (x) : false
+
+where default (x) must be there in Stanza
+
+Empty String cannot be used to check
+------------------------------------
+It loosk like expression likes:
+    if s == "" :
+
+does not seem to work. Use return false and match for String instead for empty String.
 
