@@ -158,6 +158,11 @@ val awakenBoard_tuple = [
    "syria" => [ "name" => "syria" "muslim" => true "resource" => 2 "arsenal" => 2 ]
    "iran" => ["name" => "iran" "arsenal" => 1]
 ]
+val awakenBoard : HashTable<String, Country> = HashTable<String, Country>()
+for c in awakenBoard_tuple do :
+   val k = key(c) as String
+   val v = value(c)
+   awakenBoard[k] = to-country(k, v)
 
 val ISILHMBoard_tuple = [
    "nigeria" => [ "name" => "nigeria" "muslim" => true "resource" => 2 "sunni" => true "african" => true ]
@@ -253,12 +258,12 @@ public defstruct Labyrinth :
    awakening : True|False with : (setter => set-awakening)
    foreverwar : True|False with : (setter => set-foreverwar)
    scenario : String
-   usplayer : String
-   jihadistplayer : String
+   usplayer : String with : (setter => set-usplayer)
+   jihadistplayer : String with : (setter => set-jihadistplayer)
    board : Countries with : (setter => set-board)
    countries : Countries with : (setter => set-countries)
    routes : Vector<[String,String]> with : (setter => set-routes)
-   deck : Tuple<Int> with : (setter => set-deck)
+   deck : Vector<Int>
    abort : True|False with : (setter => set-abort)
    reshuffled : True|False with : (setter => set-reshuffled)
    currentplayer : String with : (setter => set-currentplayer)
@@ -274,7 +279,7 @@ public defstruct Labyrinth :
    maxcamps : Int with : (setter => set-maxcamps)
    lesscell : Int with : (setter => set-lesscell)
    plotSuccess : True|False with : (setter => set-plotSuccess)
-   plotAvailables : Vector<Int> 
+   plotAvailables : Vector<String|Int> 
    nbDeck : Int with : (setter => set-nbDeck)
    turn : Int with : (setter => set-turn)
    trooptrack : Int with : (setter => set-trooptrack)
@@ -302,6 +307,8 @@ public defstruct Labyrinth :
    gameBoard : GameBoardGraphics|False with : (setter => set-gameBoard)
    comm : Communicator|False with : (setter => set-comm)
    decks : Tuple<Tuple<Int>>|False with : (setter => set-decks)
+   finalWin : True|False with : (setter => set-finalWin)
+   winner : String with : (setter => set-winner)
 
 defmethod print (o : OutputStream, lab : Labyrinth) :
    println(o, decks(lab))
@@ -328,7 +335,7 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         to-countries(board_tuple), 
                         Countries(HashTable<String,?>()),
                         Vector<[String,String]>(),
-                        [], 
+                        Vector<Int>(),    ; deck 
                         false,
                         false,      ; reshuffled
                         "jihadist"
@@ -372,6 +379,8 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         false          ; gameBoardGraphics
                         false          ; communicator
                         false          ; decks
+                        false          ; finalWin
+                        ""             ; winner
                      )
    doLog(lab, log)   
    set-gameBoard(lab, make-GameBoardGraphics(lab))
@@ -504,7 +513,6 @@ defn reset (lab : Labyrinth) :
       setPosture(lab, "uk", "hard")
       setPosture(lab, "scandinavia", "soft")
       set-decks(lab, surge-decks) 
-   
    clear(currentphaseCountries(lab))
    clear(lastphaseCountries(lab))
    gprint(countries(lab))
@@ -515,6 +523,115 @@ defn reset (lab : Labyrinth) :
    set-currentphase(lab, 0)
    set-turn(lab, 0)  
    println("End Reset Game")
+
+defn stopOneGame (lab : Labyrinth) :
+   set-abort(lab, true)
+
+defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplayer : String|False) :
+   match(usplayer):
+      (u : String) : set-usplayer(lab, u)
+      (u) : u
+   match(jihadistplayer):
+      (j : String) : set-jihadistplayer(lab, j)
+      (j) : j
+   clear(eventNotUsed(lab))
+   add-all(eventNotUsed(lab), deck(lab))
+   shuffleDeck(lab)
+   gprintln("Shuffled Deck=%_" % [deck] )
+   dealHands(lab)
+   set-finalWin(lab, false)
+   ; todo: try except is used in "web" ui
+   ;try:
+   label<False> break :
+      while true :
+         set-turn(lab, turn(lab)+1)
+         gprintln("Turn %_" % [ turn(lab) ])
+         if checkAutoWin(lab) :
+            break
+         if playOneTurn(lab):
+            break
+   ;except WebAbort:
+   ;   return False, '', '', self.turn, ''
+   ; determine winner
+   set-reason(lab, "Auto Win")
+   if finalWin(lab) == true:
+      set-reason(lab, "Final Score")
+   gprint(countries(lab))
+   report(lab)
+   endOneGame(comm(lab) as Communicator)
+   [true, winner(lab), reason(lab), turn(lab), winMethod(lab)]
+
+defn playOneTurn (lab : Labyrinth) :
+   ; play one turn
+   set-reshuffled(lab, false)
+   set-currentplayer(lab, "jihadist")
+   ; set-currentplayer(lab, "us")   ; testing only
+   set-currentphase(lab, 0)
+   set-firstPlot(lab, false)
+   set-firstPlotCard(lab, 0)
+   set-heldCard(lab, false)
+   label<True|False> return :
+      while not ((length(ushand(lab)) == 0 and length(jihadisthand(lab)) == 0)
+                  or (heldCard(lab) and length(ushand(lab)) == 1 and length(jihadisthand(lab)) == 0)):
+         playOneCard(lab)
+         checkTrainingCamps(lab)
+         if gameend(lab):
+               return(true)
+      endTurn(lab)
+
+defn playOneCard (lab : Labyrinth) -> False:
+   false
+
+defn endTurn (lab : Labyrinth) -> True|False :
+   gprintln("End Turn")
+   if not isPirates(lab):
+      gprintln("Jihadist Funding -1")
+      changeFunding(lab, (- 1))
+   if countIRCountries(lab) > 0:
+      gprintln("IR Country")
+      changePrestige(lab, (- 1))
+   if (getGWOTHard(lab) >= 3 and getPosture(lab, "us") == "hard") or (
+         getGWOTHard(lab) <= (- 3) and getPosture(lab, "us") == "soft"):
+      gprintln("US Posture same as World S3/H3")
+      changePrestige(lab, 1)
+   if usplayer(lab) != "bot":
+      set-usreserve(lab, 0)
+   if jihadistplayer(lab) != "bot":
+      set-jihadistreserve(lab, 0)
+   add-all(plotAvailables(lab), usedPlots(lab))
+   clear(usedPlots(lab))
+   polarization(lab)
+   attrition(lab)
+   label<True|False> return :
+      if checkAutoWin(lab):
+         return(true)
+      if dealHands(lab):
+         set-reshuffled(lab, true)
+      if reshuffled(lab):
+         set-nbDeck(lab, nbDeck(lab) - 1)
+         if nbDeck(lab) == 0:
+            set-gameend(lab, true)
+            determineFinalWinner(lab)
+            return(true)
+      if isMarker(lab, "china", "scsc"):
+         if getPosture(lab, "us") == getPosture(lab, "china"):
+               set-trooptrack(lab, trooptrack(lab) + 2)
+               set-offmap(lab, offmap(lab) - 2)
+               removeMarker(lab, "china", "scsc", true)
+               gprintln("2 Troops from South China Sea Crisis return")
+      if contains?(lapsing(lab), 179):
+         set-trooptrack(lab, trooptrack(lab) + 2)
+         set-offmap(lab, offmap(lab) - 2)
+         gprintln("2 Troops from Korean Crisis return")
+      if contains?(lapsing(lab), 239):
+         for country in c(countries(lab)) do:
+            setAttr(lab, key(country), "truce", false)
+      clear(lapsing(lab))
+      flipRegimeChange(lab)
+      gprint(countries(lab))
+      report(lab)
+      false
+
 
 
 defn report (lab : Labyrinth) :
@@ -555,6 +672,48 @@ defn report (lab : Labyrinth) :
    gprintln("CurrentPhaseCountries=%_" % [ currentphaseCountries(lab) ] )
    gprintln("LastPhaseCountries=%_" % [ lastphaseCountries(lab) ] )
 
+
+defn determineFinalWinner (lab : Labyrinth) :
+   gprintln("Determine Final Winner")
+   var ir = getIslamResource(lab)
+   var gr = getGoodResource(lab)
+   var green = 0
+   for country in c(countries(lab)) do:
+      val name = key(country)
+      if isGreenRegimeChange(lab, name):
+            green  = green + getResource(lab, name)
+   if scenario(lab) == "ISILHM":
+      var cc = false
+      let :
+         label<False> break:
+            for country in c(countries(lab)) do:
+               val name = key(country)
+               if isCaliphateCapital(lab, name):
+                  ir = ir + 1
+                  cc = true
+                  break
+      if not cc:
+         gr = gr + 2
+   else if scenario(lab) == "Surge":
+      val v = extract(
+               lab, 
+               fn (x:String) : getGovern(lab, x) == "islamrule" or isRegimeChange(lab, x),
+               ["afghanistan" "iraq"]
+            )
+      if length(v) > 0:
+         gprintln("Bonus +1 IR in %_ for %_ in Islamist Rule or Regime Change" % [scenario(lab) v])
+         ir = ir + 1
+   gprintln("Good Resource=%_" % [gr])
+   gprintln("Islamic Resource=%_" % [ir])
+   gprintln("Green Regime Change Resource=%_" % [green])
+   if gr > (ir + green) * 2:
+      set-winner(lab, "us")
+      set-winMethod(lab, "GR > 2x (IR + Green RC)")
+   else:
+      set-winner(lab, "jihadist")
+      set-winMethod(lab, "GR <= 2x (IR + Green RC)")
+   gprintln("Winner is: %_" % [winner(lab)])
+   set-finalWin(lab, true)
 
 defn setAttr (lab: Labyrinth, name: String, attr: String, value: String|Int|True|False) -> True|False :
    val country = countries(lab)[name]
@@ -743,6 +902,9 @@ defn getSleeperCell (lab : Labyrinth, name : String, withMarkers : True|False) -
    match(sc):
       (sc:Int) : sc
       (f) : 0
+
+defn getCell (lab : Labyrinth, name : String, includeMarkers : True|False) :
+   getSleeperCell(lab, name, includeMarkers) + getActiveCell(lab, name, includeMarkers)
       
 
 defn setSleeperCell (lab : Labyrinth, name : String, cell : Int) :
@@ -751,6 +913,12 @@ defn setSleeperCell (lab : Labyrinth, name : String, cell : Int) :
 defn removeCadre (lab : Labyrinth, name : String) :
    if setAttr(lab, name, "cadre", false) :
       gprintln("Cadre removed in %_" % [name])
+
+defn isCadre (lab : Labyrinth, name : String) -> True|False :
+   val cadre = getAttr(lab, name, "cadre")
+   match(cadre):
+      (c : True) : true
+      (c) : false
 
 defn testCountry (lab : Labyrinth, name : String) -> False :
    label<False> break:
@@ -1117,6 +1285,258 @@ defn getReact (lab : Labyrinth, name : String) -> Int:
    match(react) :
       (react : Int) : react
       (react) : 0
+
+defn shuffleDeck (lab : Labyrinth) :
+   val newdeck = Vector<Int>()
+   if decks(lab) is-not False :
+      for d in decks(lab) as Tuple<Tuple<Int>> do:
+         val d-v = to-vector<Int>(d)
+         while length(d-v) > 0 :
+            var index = rand(length(d-v))
+            val card = get(d-v, index)
+            remove(d-v, index)
+            add(newdeck, card)
+      clear(deck(lab))
+      add-all(deck(lab), loadedDeck(lab))
+      add-all(deck(lab), newdeck)
+
+defn dealHands (lab : Labyrinth) :
+   var reshuffled = false
+   val [j, u] = getCardDraw(lab)
+   var toJihadist : Int = j as Int
+   var toUS : Int = u as Int
+   while toJihadist > 0 or toUS > 0:
+      if toJihadist > 0:
+            reshuffled = reshuffled or drawOneCard(lab, "jihadist")
+            toJihadist = toJihadist - 1
+      if toUS > 0:
+            reshuffled = reshuffled or drawOneCard(lab, "us")
+            toUS = toUS - 1
+   gprintln("JihadistHand=%_" % [jihadisthand(lab)])
+   gprintln("USHand=%_" % [ushand(lab)])
+   gprintln("Deck=%_" % [deck(lab)])
+   gprintln("NumberOfDecks=%_" % [nbDeck(lab)])
+   reshuffled
+
+defn getCardDraw (lab : Labyrinth) :
+   var toUS = 9
+   var toJihadist = 9
+   switch { getTroopLevel(lab) == _ } :
+      "low" : toUS = 9
+      "war" : toUS = 8
+      else  : toUS = 7
+   switch { funding(lab) <= _ } :
+      3 : toJihadist = 7
+      6 : toJihadist = 8
+      else : toJihadist = 9
+   if contains?(lapsing(lab), 273) :
+      gprintln("US draws two more cards")
+      toUS = toUS + 2
+   [toJihadist, toUS]
+
+defn drawOneCard (lab : Labyrinth, player : String) :
+   label<True|False> return:
+      var reshuffled = false
+      if length(deck(lab)) == 0:
+         reshuffleDeck(lab)
+         reshuffled = true
+         set-reshuffled(lab, true)
+      if length(deck(lab)) == 0:
+         gprintln("No cards in Deck")
+         return(true)
+      val card = deck(lab)[0]
+      remove(deck(lab), 0)
+      if not awakening(lab) and scenario(lab) == "Surge" and card > 120:
+         set-awakening(lab, true)
+         setAttr(lab, "syria", "sunni", false)
+         c(countries(lab))["mali"] = awakenBoard["mali"]
+         c(countries(lab))["nigeria"] = awakenBoard["nigeria"]
+         for route in awakenRoutes do :
+            val result = find( fn ( x : [String,String], y : [String,String] ) -> True|False : (
+                                 if ( x[0] == y[0] and x[1] == y[1] ) or ( x[0] == y[1] and x[1] == y[0] ) :
+                                    true
+                                 else :
+                                    false )
+                                 routes(lab)
+                                 [route] )
+            match(result) : 
+               (result:False) : add(routes(lab), route)
+               (result) : result
+         convergence(lab, "awaken")
+      gprint("Card %_ is dealt to %_" % [card player])
+      if player == "us":
+         val original = ushand(lab)
+         clear(ushand(lab))
+         add(ushand(lab), card)
+         add-all(ushand(lab), original)
+      else:
+         val original = jihadisthand(lab)
+         clear(jihadisthand(lab))
+         add(jihadisthand(lab), card)
+         add-all(jihadisthand(lab), original)
+      reshuffled
+
+defn reshuffleDeck (lab : Labyrinth) :
+   gprintln("Reshuffle Deck")
+   clear(deck(lab))
+   add-all(deck(lab), discard(lab))
+   clear(discard(lab))
+   val newdeck = Vector<Int>()
+   while length(deck(lab)) > 0 :
+      val index = rand(length(deck(lab)))
+      val card = get(deck(lab), index)
+      add(newdeck, card)
+      remove(deck(lab), index)
+   add-all(deck(lab), newdeck)
+
+defn isPirates (lab : Labyrinth) -> True|False :
+   if not isMarker(lab, "markers", "pirates"):
+      false
+   else if getGovern(lab, "somalia") == "islamrule" or getGovern(lab, "yemen") == "islamrule":
+      true
+   else :
+      false
+
+defn checkAutoWin (lab : Labyrinth) -> True|False :
+   gprintln("Check AutoWin")
+   val ir = getIslamResource(lab)
+   if ir >= 6:
+      gprintln("Islamic Resource=%_" % [ir])
+      ; check adjacency
+      if jihadistplayer(lab) == "bot":
+            set-gameend(lab, true)
+            set-winner(lab, "jihadist")
+            set-winMethod(lab, "IR >= 6")
+            true
+   false
+
+defn flipRegimeChange (lab : Labyrinth):
+   for country in c(countries(lab)) do:
+      val name = key(country)
+      if isRegimeChange(lab, name):
+            setRegimeChange(lab, name, "tan")
+
+defn isRegimeChange (lab : Labyrinth, name : String) -> True|False:
+   val color = getAttr(lab, name, "regimechange")
+   match(color):
+      (color:String) : true
+      (color) : false
+
+defn isGreenRegimeChange (lab : Labyrinth, name : String) -> True|False :
+   val rc = getAttr(lab, name, "regimechange")
+   match(rc):
+      (rc : String) : true when rc == "green" else false
+      (rc) : false
+        
+
+defn findTrainingCamps (lab : Labyrinth) -> String :
+   val validCountries = extract(lab, fn (x:String) : isMarker(lab, x, "trainingcamps"), false)
+   if length(validCountries) == 0:
+      ""
+   else:
+      validCountries[0]
+
+defn checkTrainingCamps (lab : Labyrinth) :
+   val name = findTrainingCamps(lab)
+   var newCell = 0
+   label<False> break:
+      if name == "":
+         break
+      if getCell(lab, name, true) == 0 and not isCadre(lab, name):
+         removeTrainingCamps(lab, name)
+         break
+      if isCaliphate(lab, name) and maxcamps(lab) == 3:
+         set-maxcamps(lab, 5)
+         newCell = 2
+         while lesscell(lab) > 0 and newCell > 0:
+            set-lesscell(lab, lesscell(lab) - 1)
+            newCell = newCell - 1
+         set-cellcamps(lab, cellcamps(lab) + newCell)
+      else if not isCaliphate(lab, name) and maxcamps(lab) == 5:
+         set-maxcamps(lab, 3)
+         newCell = 2
+         while cellcamps(lab) > 0 and newCell > 0:
+            set-cellcamps(lab, cellcamps(lab) - 1)
+            newCell = newCell - 1
+         set-lesscell(lab, lesscell(lab) + newCell)
+
+defn removeTrainingCamps (lab : Labyrinth, name : String) :
+   if isMarker(lab, name, "trainingcamps"):
+      val lessCell = maxcamps(lab) - cellcamps(lab)
+      set-maxcamps(lab, 0)
+      set-cellcamps(lab, 0)
+      set-lesscell(lab, lesscell(lab) + lessCell)
+      gprintln("Remove Training Camps in %_ lessCell=%_" % [name lesscell(lab)])
+      removeMarker(lab, name, "trainingcamps", true)
+
+defn countIRCountries (lab : Labyrinth) :
+   var count = 0
+   for country in c(countries(lab)) do:
+      val name = key(country)
+      if getGovern(lab, name) == "islamrule":
+            count = count + 1
+   count
+
+      
+; todo: implement later
+defn convergence (lab : Labyrinth, who : String) -> False :
+   false
+   
+   ; if not self.awakening:
+   ;    return
+   ; gprint("Convergence")
+   ; gprint('Tan dr', end=' ')
+   ; tan = self.rollOnce()
+   ; gprint('Black dr', end=' ')
+   ; black = self.rollOnce()
+   ; black = (black + 1) // 2
+   ; if tan == 1 and black == 3:
+   ;    # special case, use table2
+   ;    while True:
+   ;          gprint('Use Random Muslim Country Table 2')
+   ;          die = self.rollOnce()
+   ;          country = self.random_muslim_country2[die - 1]
+   ;          gprint(f'Rolled country={country}')
+   ;          # test iraq and nigeria cases
+   ;          if country == 'iraq' or country == 'nigeria':
+   ;             if not self.canAwakeReact(country):
+   ;                continue
+   ;          break
+   ; else:
+   ;    # normal case
+   ;    country = self.random_muslim_country[tan - 1][black - 1]
+   ;    gprint(f'Rolled country={country}')
+   ; # country established
+   ; if not self.canAwakeReact(country):
+   ;    adjCountries = self.findAdjacentCountries(country)
+   ;    # remove countries not eligible
+   ;    for adj in adjCountries:
+   ;          if not self.canAwakeReact(adj):
+   ;             adjCountries.remove(adj)
+   ;    if len(adjCountries) == 0:
+   ;          return
+   ;    gprint(f"Random Pick from these Countries:{adjCountries}")
+   ;    country = self.randomPick(adjCountries)
+   ;    gprint(f'Randomly picked country={country}')
+   ; # finally a valid country is found
+   ; if who == 'awaken':
+   ;    self.setAwaken(country, self.getAwaken(country) + 1)
+   ; elif who == 'react':
+   ;    self.setReact(country, self.getReact(country) + 1)
+   ; gprint(self.countries[country])
+
+defn polarization (lab : Labyrinth) -> Labyrinth :
+   val a = lab
+   a
+
+
+defn attrition (lab : Labyrinth) -> Labyrinth:
+   lab
+
+
+
+
+
    
 
    

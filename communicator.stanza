@@ -8,10 +8,10 @@ public defstruct Communicator :
     game : Labyrinth
     ;jbot :
     ;usbot :
-    ;answersOrBounds : String
-    ;validAnswers : Tuple<String>
+    answersOrBounds : String with : (setter => set-answersOrBounds)
+    validAnswers : Tuple<String> with : (setter => set-validAnswers)
     ;display : Tuple<String>
-    ;tooltips : Tuple<String>
+    tooltips : Tuple<String> with : (setter => set-tooltips)
     ;webdata_ready :
     ;webanswer : String
     ;webanswer_ready :
@@ -22,6 +22,9 @@ public defn make-communicator (lab : Labyrinth, usplayer : String, jihadistplaye
     term = terminal
     val comm = Communicator(
         lab
+        ""      ; answersOrBounds
+        []      ; validAnswers
+        []      ; tooltips
     )
     comm
 
@@ -29,3 +32,8 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                             displays : Tuple<String>, tooltips : Tuple<String>|False, canNull : True|False):
     "n"
     
+public defn endOneGame (comm : Communicator) :
+    set-answersOrBounds(comm, "")
+    set-validAnswers(comm, [])
+    set-tooltips(comm, [])
+    ; self.webdata_ready.set()
