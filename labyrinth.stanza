@@ -8,7 +8,11 @@ defpackage labyrinth :
 ; stub
 ; todo: use mprint later
 defn gprint<?T> (s : ?T ) :
+   print(s)
+
+defn gprintln<?T> (s : ?T ) :
    println(s)
+
 
 defn doLog (log : True|False) -> False :
    println("doLog %_" % [log])
@@ -499,14 +503,58 @@ defn reset (lab : Labyrinth) :
       addOneCell(lab, "indonesia", "recruit", true)
       setPosture(lab, "uk", "hard")
       setPosture(lab, "scandinavia", "soft")
-      set-decks(lab, surge-decks)   
-
-   print(lab)
-   print(cards)
-   val gcard = get?(cards, 10)
-   if gcard is-not False :
-      println(gcard)
+      set-decks(lab, surge-decks) 
+   
+   clear(currentphaseCountries(lab))
+   clear(lastphaseCountries(lab))
+   gprint(countries(lab))
+   gprint(routes(lab))
+   gprint(decks(lab))
+   report(lab)
+   set-currentplayer(lab, "jihadist")
+   set-currentphase(lab, 0)
+   set-turn(lab, 0)  
    println("End Reset Game")
+
+
+defn report (lab : Labyrinth) :
+   gprint( "GR=%_ IR=%_ FGC=%_ PIC=%_ P=%_ F=%_",
+      % [ getGoodResource(lab) getIslamResource(lab) getFGC(lab) getPIC(lab) prestige(lab) funding(lab)]
+   )
+   gprint(
+      "T=%_ C=%_ US=%_ World="
+      % [ getTroopLevel(lab) getCellOnMap(lab) getPosture(lab, "us")]
+   )
+   var gwot = getGWOTHard(lab)
+   var worldStr : String = ""
+   if gwot > 0:
+      worldStr = "Hard "
+   else if gwot < 0:
+      worldStr = "Soft "
+   else:
+      worldStr = ""
+   worldStr = append(worldStr, to-string(abs(gwot)))
+   gprintln("%_" % [worldStr])
+   gprintln( "Awakening=%_ Reaction=%_ TroopsOnTrack=%_ Off-map=%_ CellsOnTrack=%_"
+      % [countAwaken(lab) countReact(lab) trooptrack(lab) offmap(lab) celltrack(lab)]
+   )
+   gprintln("CellsInCamps=%_ CampsCapacity=%_ LessCells=%_"
+      % [cellcamps(lab) maxcamps(lab) lesscell(lab)]
+   )
+   gprintln("CurrentPlots=%_ AvailablePlots=%_ UsedPlots=%_"
+      % [plots(lab) plotAvailables(lab) usedPlots(lab)]
+   )
+   gprintln("USReserve=%_ JihadistReserve=%_" % [usreserve(lab) jihadistreserve(lab)] )
+   gprintln("Lapsing=%_" % [ lapsing(lab) ])
+   gprintln("Deck=%_" % [ deck(lab) ])
+   gprintln("Discard=%_" % [ discard(lab) ])
+   gprintln("Removed=%_" % [ removed(lab) ])
+
+   qsort!(eventUsed(lab))
+   gprintln("Events used=%_" % [ eventUsed(lab) ] )
+   gprintln("CurrentPhaseCountries=%_" % [ currentphaseCountries(lab) ] )
+   gprintln("LastPhaseCountries=%_" % [ lastphaseCountries(lab) ] )
+
 
 defn setAttr (lab: Labyrinth, name: String, attr: String, value: String|Int|True|False) -> True|False :
    val country = countries(lab)[name]
@@ -538,7 +586,7 @@ defn getAttr (lab: Labyrinth, name : String, attr: String) -> String|Int|True|Fa
 
 defn setPosture (lab : Labyrinth, name: String, posture : String) :
    if setAttr(lab, name, "posture", posture) :
-      gprint("%_ is %_. World=%_" % [name, getPosture(lab, name), getGWOTHard(lab)])
+      gprintln("%_ is %_. World=%_" % [name, getPosture(lab, name), getGWOTHard(lab)])
          
 
 defn setGovern (lab : Labyrinth, name: String, govern : String) :
@@ -559,12 +607,12 @@ defn addOneCell (lab: Labyrinth, name : String, reason : String, event: True|Fal
       if isCaliphate(lab, name):
          val cell = getActiveCell(lab, name, false) + 1
          setActiveCell(lab, name, cell)
-         gprint("one active cell is added in %_ to %_" % [name cell])
+         gprintln("one active cell is added in %_ to %_" % [name cell])
          result = "activecell"
       else:
          val cell = getSleeperCell(lab, name, false) + 1
          setSleeperCell(lab, name, cell)
-         gprint("one sleeper cell is added in %_ to %_" % [name cell])
+         gprintln("one sleeper cell is added in %_ to %_" % [name cell])
          result = "sleepercell"
       if reason != "travelto":
          removeCadre(lab, name)
@@ -650,7 +698,7 @@ defn getGWOTHard (lab : Labyrinth) :
 
 defn removeAllAdvisors (lab : Labyrinth, name : String) :
    if setAttr(lab, name, "advisors", false) :
-      gprint("Remove All Advisors in %_" % [name])
+      gprintln("Remove All Advisors in %_" % [name])
 
 defn cellAvailable (lab : Labyrinth, event: True|False) :
    var result = 0
@@ -702,7 +750,7 @@ defn setSleeperCell (lab : Labyrinth, name : String, cell : Int) :
 
 defn removeCadre (lab : Labyrinth, name : String) :
    if setAttr(lab, name, "cadre", false) :
-      gprint("Cadre removed in %_" % [name])
+      gprintln("Cadre removed in %_" % [name])
 
 defn testCountry (lab : Labyrinth, name : String) -> False :
    label<False> break:
@@ -759,7 +807,7 @@ defn rollGovern (lab : Labyrinth, name : String) :
       setGovern(lab, name, "poor")
    else:
       setGovern(lab, name, "fair")
-   gprint("Country %_ is %_" % [name getGovern(lab,name)])
+   gprintln("Country %_ is %_" % [name getGovern(lab,name)])
 
 defn rollPosture (lab : Labyrinth, name : String, drm:Int) :
    gprint("Roll Posture for %_" % [name])
@@ -775,7 +823,7 @@ defn rollPosture (lab : Labyrinth, name : String, drm:Int) :
 
 defn rollOnce (lab : Labyrinth) :
    val dice = rand(6) + 1
-   gprint("Rolled: %_" % [dice])
+   gprintln("Rolled: %_" % [dice])
    dice
 
 defn connectCaliphate (lab : Labyrinth, name : String) :
@@ -881,7 +929,7 @@ defn isCaliphateCapital (lab : Labyrinth, name : String) :
       (value : String) : if value == "capital" : true
       (value) : false
       
-defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|None):
+defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False):
    val v = Vector<String>()
    match(candidates) :
       (candidates:Tuple<String>) :
@@ -975,8 +1023,101 @@ defn changePrestige (lab : Labyrinth, inc : Int) :
    gprint("Change Prestige from %_ by %_ to %_" % [oPrestige inc prestige(lab)])
 
 
+defn getGoodResource (lab : Labyrinth):
+   var resources = 0
+   val validCountries = extract(lab, fn (x : String) : isMuslim(lab, x) and getGovern(lab, x) == "good", false)
+   for name in validCountries do:
+      resources = resources + getResource(lab, name)
+   resources
 
+defn getIslamResource (lab : Labyrinth) :
+   var resources = 0
+   val validCountries = extract( lab,
+      fn (x : String) : isMuslim(lab, x) and (getGovern(lab, x) == "islamrule" or isCaliphateCapital(lab, x)), 
+      false)
+   for name in validCountries do:
+      if getGovern(lab, name) == "islamrule":
+            resources = resources + getResource(lab, name)
+      else:
+            resources = resources + 1
+   resources
 
+defn getFGC (lab : Labyrinth) -> Int:
+   var count : Int = 0
+   for country in c(countries(lab)) do:
+      val name = key(country)
+      val muslim = getAttr(lab, name, "muslim")
+      if muslim is True:
+         val govern = getAttr(lab, name, "govern")
+         if govern is String :
+            if govern == "good" or govern == "fair":
+               count = count + 1
+      
+   count
+
+defn getPIC (lab : Labyrinth) -> Int :
+   var count : Int = 0
+   for country in c(countries(lab)) do :
+      val name = key(country)
+      if getAttr(lab, name, "muslim") is True :
+         val govern = getAttr(lab, name, "govern")
+         if govern is String :
+            if govern == "poor" or govern == "islamrule":
+               count = count + 1
+   count
+
+defn getTroopLevel (lab : Labyrinth) -> String :
+   label<String> return :
+   if trooptrack(lab) >= 10:
+      return("low")
+   else if trooptrack(lab) >= 5:
+      return("war")
+   else:
+      return("overstretch")
+
+defn getCellOnMap (lab : Labyrinth) -> Int:
+   var cell = 0
+   for country in c(countries(lab)) do :
+      val name = key(country)
+      val sleepercell = getAttr(lab, name, "sleepercell")
+      match(sleepercell):
+         (s:Int) : 
+            if s > 0 : 
+               cell = cell + s
+         (s) : cell
+      val activecell = getAttr(lab, name, "activecell")
+      match(activecell):
+         (a:Int) :
+            if a > 0: (cell = cell + a)
+         (a) : cell
+   cell
+
+defn countAwaken (lab : Labyrinth) -> Int:
+   var awaken = 0
+   for country in c(countries(lab)) do :
+      val name = key(country)
+      awaken = awaken + getAwaken(lab, name)
+   awaken
+
+defn countReact (lab : Labyrinth) -> Int:
+   var react = 0
+   for country in c(countries(lab)) do :
+      val name = key(country) 
+      react = react + getReact(lab, name)
+   react
+
+defn getAwaken (lab : Labyrinth, name : String) -> Int:
+   val awaken = getAttr(lab, name, "awaken")
+   match(awaken) :
+      (awaken : Int) : awaken
+      (awaken) : 0
+   
+defn getReact (lab : Labyrinth, name : String) -> Int:
+   val react = getAttr(lab, name, "react")
+   match(react) :
+      (react : Int) : react
+      (react) : 0
+   
 
    
       
