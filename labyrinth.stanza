@@ -527,7 +527,7 @@ defn reset (lab : Labyrinth) :
 defn stopOneGame (lab : Labyrinth) :
    set-abort(lab, true)
 
-defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplayer : String|False) :
+public defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplayer : String|False) :
    match(usplayer):
       (u : String) : set-usplayer(lab, u)
       (u) : u
@@ -562,6 +562,7 @@ defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplayer : Str
    [true, winner(lab), reason(lab), turn(lab), winMethod(lab)]
 
 defn playOneTurn (lab : Labyrinth) :
+   gprintln("playOneTurn")
    ; play one turn
    set-reshuffled(lab, false)
    set-currentplayer(lab, "jihadist")
@@ -734,7 +735,9 @@ defn setAttr (lab: Labyrinth, name: String, attr: String, value: String|Int|True
       (country) : false
 
 defn getAttr (lab: Labyrinth, name : String, attr: String) -> String|Int|True|False :
-   val country = countries(lab)[name]
+   val cc = c(countries(lab))
+   ; gprintln("GetAttr: %_ %_" % [name attr])
+   val country = cc[name]
    match(country):
       (country : Country) :
          val value = get?(attrs(country), attr)
@@ -747,7 +750,6 @@ defn setPosture (lab : Labyrinth, name: String, posture : String) :
    if setAttr(lab, name, "posture", posture) :
       gprintln("%_ is %_. World=%_" % [name, getPosture(lab, name), getGWOTHard(lab)])
          
-
 defn setGovern (lab : Labyrinth, name: String, govern : String) :
    setAttr(lab, name, "govern", govern)
 
@@ -883,15 +885,16 @@ defn isCaliphate (lab : Labyrinth, name : String) -> True|False:
       (ic:True) : ic
       (ic) : false
    
-
-defn getActiveCell (lab : Labyrinth, name : String, withMarkers: True|False) :
+defn getActiveCell (lab : Labyrinth, name : String, withMarkers: True|False) -> Int :
    var cell = 0
    val ac = getAttr(lab, name, "activecell")
    match(ac):
       (ac : Int) : cell = cell + ac
+      (ac) : cell = cell
    if withMarkers:
       match( getAttr(lab, name, "sadr") ):
          (t : True) : cell = cell + 1
+         (t) : cell = cell
    cell
 
 defn setActiveCell (lab : Labyrinth, name : String, cell : Int) :
@@ -906,7 +909,6 @@ defn getSleeperCell (lab : Labyrinth, name : String, withMarkers : True|False) -
 defn getCell (lab : Labyrinth, name : String, includeMarkers : True|False) :
    getSleeperCell(lab, name, includeMarkers) + getActiveCell(lab, name, includeMarkers)
       
-
 defn setSleeperCell (lab : Labyrinth, name : String, cell : Int) :
    setAttr(lab, name, "sleepercell", cell)
 
@@ -939,11 +941,11 @@ defn getAlign (lab : Labyrinth, name : String) -> String :
       (a : String) : a
       (a) : "untested"
 
-defn getGovern (lab : Labyrinth, name : String) -> String :
+defn getGovern (lab : Labyrinth, name : String) -> String|False :
    val g = getAttr(lab, name, "govern")
    match(g):
       (g: String) : g
-      (g) : ""
+      (g) : false
 
 defn isMuslim (lab : Labyrinth, name : String) -> True|False :
    val im = getAttr(lab, name, "muslim")
@@ -1426,39 +1428,38 @@ defn isGreenRegimeChange (lab : Labyrinth, name : String) -> True|False :
    val rc = getAttr(lab, name, "regimechange")
    match(rc):
       (rc : String) : true when rc == "green" else false
-      (rc) : false
-        
+      (rc) : false        
 
-defn findTrainingCamps (lab : Labyrinth) -> String :
+defn findTrainingCamps (lab : Labyrinth) -> String|False :
    val validCountries = extract(lab, fn (x:String) : isMarker(lab, x, "trainingcamps"), false)
    if length(validCountries) == 0:
-      ""
+      false
    else:
       validCountries[0]
 
 defn checkTrainingCamps (lab : Labyrinth) :
    val name = findTrainingCamps(lab)
    var newCell = 0
-   label<False> break:
-      if name == "":
-         break
-      if getCell(lab, name, true) == 0 and not isCadre(lab, name):
-         removeTrainingCamps(lab, name)
-         break
-      if isCaliphate(lab, name) and maxcamps(lab) == 3:
-         set-maxcamps(lab, 5)
-         newCell = 2
-         while lesscell(lab) > 0 and newCell > 0:
-            set-lesscell(lab, lesscell(lab) - 1)
-            newCell = newCell - 1
-         set-cellcamps(lab, cellcamps(lab) + newCell)
-      else if not isCaliphate(lab, name) and maxcamps(lab) == 5:
-         set-maxcamps(lab, 3)
-         newCell = 2
-         while cellcamps(lab) > 0 and newCell > 0:
-            set-cellcamps(lab, cellcamps(lab) - 1)
-            newCell = newCell - 1
-         set-lesscell(lab, lesscell(lab) + newCell)
+   match(name):
+      (name : String) :
+         if getCell(lab, name, true) == 0 and not isCadre(lab, name):
+            removeTrainingCamps(lab, name)
+         else :
+            if isCaliphate(lab, name) and maxcamps(lab) == 3:
+               set-maxcamps(lab, 5)
+               newCell = 2
+               while lesscell(lab) > 0 and newCell > 0:
+                  set-lesscell(lab, lesscell(lab) - 1)
+                  newCell = newCell - 1
+               set-cellcamps(lab, cellcamps(lab) + newCell)
+            else if not isCaliphate(lab, name) and maxcamps(lab) == 5:
+               set-maxcamps(lab, 3)
+               newCell = 2
+               while cellcamps(lab) > 0 and newCell > 0:
+                  set-cellcamps(lab, cellcamps(lab) - 1)
+                  newCell = newCell - 1
+               set-lesscell(lab, lesscell(lab) + newCell)
+      (name) : newCell = 0
 
 defn removeTrainingCamps (lab : Labyrinth, name : String) :
    if isMarker(lab, name, "trainingcamps"):
