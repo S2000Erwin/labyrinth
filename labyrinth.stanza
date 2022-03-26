@@ -4,6 +4,7 @@ defpackage labyrinth :
    import cards
    import GameBoardGraphics
    import communicator
+   import events
 
 ; stub
 ; todo: use mprint later
@@ -17,7 +18,7 @@ defn gprintln<?T> (s : ?T ) :
 defn doLog (log : True|False) -> False :
    println("doLog %_" % [log])
 
-defstruct Country :
+public defstruct Country :
    name  : String
    attrs : HashTable<String,?>
 
@@ -55,8 +56,11 @@ defn to-countries ( kvs : Tuple<KeyValue<String,?>> ) -> Countries :
       t[name] = country
    t
 
-defn get (countries : Countries, name : String) -> Country|False :
-   c(countries)[name]
+public defn get (countries : Countries, name : String) -> Country|False :
+   if contains?(c(countries), name):
+      (c(countries))[name]
+   else:
+      false
 
 defn set (countries : Countries, name : String, country : Country) -> False :
    set(c(countries), name, country)
@@ -306,7 +310,7 @@ public defstruct Labyrinth :
    comm : Communicator|False with : (setter => set-comm)
    decks : Tuple<Tuple<Int>>|False with : (setter => set-decks)
    finalWin : True|False with : (setter => set-finalWin)
-   winner : String with : (setter => set-winner)
+   winner : String|False with : (setter => set-winner)
    oppoEventDone : True|False with : (setter => set-oppoEventDone)
    needRemove : True|False with : (setter => set-needRemove)
    plotOp : True|False with : (setter => set-plotOp)
@@ -586,9 +590,9 @@ public defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplaye
          set-turn(lab, turn(lab)+1)
          gprintln("Turn %_" % [ turn(lab) ])
          if checkAutoWin(lab) :
-            break
+            break(false)
          if playOneTurn(lab):
-            break
+            break(false)
    ;except WebAbort:
    ;   return False, '', '', self.turn, ''
    ; determine winner
@@ -612,7 +616,7 @@ defn playOneTurn (lab : Labyrinth) :
    label<True|False> return :
       while not ((length(ushand(lab)) == 0 and length(jihadisthand(lab)) == 0)
                   or (heldCard(lab) and length(ushand(lab)) == 1 and length(jihadisthand(lab)) == 0)):
-         playOneCard(lab)
+         playOneCard(lab, false)
          checkTrainingCamps(lab)
          if gameend(lab):
                return(true)
@@ -625,7 +629,7 @@ defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
    set-needRemove(lab, false)
    set-plotOp(lab, false)
    if currentphase(lab) == 0:
-      clear(lab, currentphaseCountries)
+      clear(currentphaseCountries(lab))
    gprintln("Current Player=%_ CurrentPhase=%_" % [currentplayer(lab) currentphase(lab)])
 
    var hand : Vector<Int>
@@ -638,19 +642,15 @@ defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
 
    if length(hand) > 0:
       val card-id = queryCardPlay(
-                        comm(lab), 
+                        comm(lab) as Communicator, 
                         "Which card to play OR (g)ameboard OR (r)eport OR (c)ards OR countryname?",
-                        hand )
-      gprintln("%_ plays card card-id" % [currentplayer(lab) card-id])
+                        to-tuple(hand) )
+      gprintln("%_ plays card %_" % [currentplayer(lab) card-id])
 
       ; valid play
       remove-item(hand, card-id)
       set-currentcard(lab, card-id)
-      ; ops, assoc, title = self.getCardInfo(id)
-      val card-info = getCardInfo(card-id)
-      val ops = card-info[0]
-      val assoc = card-info[1]
-      val title = card-info[2]
+      val [ops, assoc, title] = getCardInfo(card-id)
       gprintln("%_ %_ %_ %_" % [card-id ops assoc title])
 
       if (assoc == "US" and currentplayer(lab) == "jihadist") or (
@@ -660,65 +660,65 @@ defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
             if currentplayer(lab) == "us" and usplayer(lab) == "bot":
                gprintln("Bot ignores oppoenent's event")
                if card-id == 354 or card-id == 120:
-                  playUSEvent(lab, card-id)
+                  playUSEvent(lab, card-id, false)
                playUSOps(lab, ops, fromEvent)
             else if currentplayer(lab) == "jihadist" and jihadistplayer(lab) == "bot":
                gprintln("Bot ignores opponent's event")
                if card-id == 354 or card-id ==120:
-                  playJihadistEvent(lab, card-id)
-               playJihadistOps(lab, ops)
+                  playJihadistEvent(lab, card-id, false)
+               playJihadistOps(lab, ops, false)
             else:
                ; human or ai player
                val opsFirst = queryPlayOrder( 
-                                 comm(lab), 
+                                 comm(lab) as Communicator, 
                                  "You play first(1) or second(2)?", 
                                  [1, 2] ) 
                if opsFirst == 1:
                   if currentplayer(lab) == "jihadist":
-                        playJihadistOps(lab, ops)
+                        playJihadistOps(lab, ops, false)
                         if not plotOp(lab):
                            if firstPlot(lab):
                               if not oppoEventDone(lab):
-                                    set-needRemove(lab, playUSEvent(lab, card-id))
+                                    set-needRemove(lab, playUSEvent(lab, card-id, false))
                   else:
                         playUSOps(lab, ops, fromEvent)
                         if not oppoEventDone(lab) and not heldCard(lab):
-                           set-needRemove(lab, playJihadistEvent(lab, card-id))
+                           set-needRemove(lab, playJihadistEvent(lab, card-id, false))
                else:
                   if currentplayer(lab) == "jihadist" :
-                        set-needRemove(lab, playUSEvent(lab, card-id))
+                        set-needRemove(lab, playUSEvent(lab, card-id, false))
                         set-oppoEventDone(lab, true)
-                        playJihadistOps(lab, ops)
+                        playJihadistOps(lab, ops, false)
                   else:
-                        set-needRemove(lab, playJihadistEvent(lab, card-id))
+                        set-needRemove(lab, playJihadistEvent(lab, card-id, false))
                         set-oppoEventDone(lab, true)
                         playUSOps(lab, ops, fromEvent)
       else:
             ; not opponent's card
             val play = queryOpsOrEvent( 
-                           comm(lab),
+                           comm(lab) as Communicator,
                            "(o)ps or (e)vent",
-                           ['o', 'e'] )
-            if play == 'o':
+                           ["o", "e"] )
+            if play == "o":
                gprintln("You choose Ops")
                if currentplayer(lab) == "jihadist" :
-                  playJihadistOps(lab, ops)
+                  playJihadistOps(lab, ops, false)
                else:
                   playUSOps(lab, ops, fromEvent)
             else:
                if currentplayer(lab) == "jihadist":
-                  set-needRemove(lab, playJihadistEvent(lab, card-id))
+                  set-needRemove(lab, playJihadistEvent(lab, card-id, false))
                else:
-                  set-needRemove(lab, playUSEvent(lab, card-id))
+                  set-needRemove(lab, playUSEvent(lab, card-id, false))
                finishEvent(
-                  comm(lab),
+                  comm(lab) as Communicator,
                   currentplayer(lab), 
                   card-id)
 
       ; one card play finished, clean up
-      if plotOp(lab) and jihadistplayer(lab) != "bot" :
+      if card-id is Int and plotOp(lab) and jihadistplayer(lab) != "bot" :
             set-firstPlot(lab, true)
-            set-firstPlotCard(lab, card-id)
+            set-firstPlotCard(lab, card-id as Int)
 
       if not heldCard(lab):
             if needRemove(lab) :
@@ -748,6 +748,12 @@ defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
                checkPlots(lab)
                set-currentplayer(lab, "jihadist")
          set-currentphase(lab, 0)
+
+defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
+   false
+
+defn playUSOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
+   false    
 
 
 defn endTurn (lab : Labyrinth) -> True|False :
@@ -817,7 +823,7 @@ defn determineFinalWinner (lab : Labyrinth) :
                if isCaliphateCapital(lab, name):
                   ir = ir + 1
                   cc = true
-                  break
+                  break(false)
       if not cc:
          gr = gr + 2
    else if scenario(lab) == "Surge":
@@ -889,7 +895,7 @@ defn addOneCell (lab: Labyrinth, name : String, reason : String, event: True|Fal
    label<False> break :
       if reason == "recruit":
          if cellAvailable(lab, event) <= 0 :
-            break
+            break(false)
       if isCaliphate(lab, name):
          val cell = getActiveCell(lab, name, false) + 1
          setActiveCell(lab, name, cell)
@@ -918,7 +924,7 @@ defn setTroop (lab : Labyrinth, name : String, troop : Int) :
    label<False> break :
       if name == "track" :
          set-trooptrack(lab, troop)
-         break
+         break(false)
 
       val country = countries(lab)[name]
       match(country):
@@ -929,6 +935,7 @@ defn setTroop (lab : Labyrinth, name : String, troop : Int) :
                setAttr(lab, name, "troop", troop)
                removeAllAdvisors(lab, name)
             addCountryToCurrentPhase(lab, name)
+         (country) : false
 
 defn setRegimeChange (lab : Labyrinth, name : String, color : String) :
    if setAttr(lab, name, "regimechange", color) :
@@ -945,7 +952,7 @@ defn addOneAid (lab : Labyrinth, name : String, event: True|False) :
    label<False> break :
       var aid = getAid(lab, name)
       if aid >= 1 and event == false:
-         break
+         break(false)
       aid = aid + 1
       setAttr(lab, name, "aid", aid)
       gprint("Aid=%_ in %_" % [aid name])
@@ -991,7 +998,7 @@ defn cellAvailable (lab : Labyrinth, event: True|False) :
    label<False> break:
       if event:
          result = celltrack(lab) + cellcamps(lab)
-         break
+         break(false)
       var buildable = 0
       if funding(lab) <= 3:
          buildable = celltrack(lab) - 10
@@ -1050,14 +1057,14 @@ defn isCadre (lab : Labyrinth, name : String) -> True|False :
 defn testCountry (lab : Labyrinth, name : String) -> False :
    label<False> break:
       if not isUntested(lab, name):
-         break
+         break(false)
       if isMuslim(lab, name):
          rollGovern(lab, name)
          setAlign(lab, name, "neutral")
          gprint("%_ is a %_ %_" % [name getAlign(lab,name) getGovern(lab,name)])
       else:
          if name == "iran":
-               break
+               break(false)
          rollPosture(lab, name, 0)
 
 defn getAlign (lab : Labyrinth, name : String) -> String :
@@ -1136,7 +1143,7 @@ defn adjacentRegion (lab : Labyrinth, origins : Tuple<String>) -> Tuple<String> 
             for c in origins do:
                if isAdjacent(lab, name, c, false):
                   add(adjs, name)
-                  break
+                  break(false)
    to-tuple(adjs)
 
 defn isAdjacent (lab : Labyrinth, fromname : String, toname : String, travel : True|False) :
@@ -1651,13 +1658,32 @@ defn convergence (lab : Labyrinth, who : String) -> False :
    ;    self.setReact(country, self.getReact(country) + 1)
    ; gprint(self.countries[country])
 
+; todo
 defn polarization (lab : Labyrinth) -> Labyrinth :
    val a = lab
    a
 
-
+; todo
 defn attrition (lab : Labyrinth) -> Labyrinth:
    lab
+
+; todo
+defn checkPlots (lab : Labyrinth):
+   gprintln("Check Plots")
+    
+
+defn doDiscard (lab : Labyrinth, card-id : Int) :
+   if card-id == 200:
+      ; special handling
+      val pos : Int = length(deck(lab)) / 2
+      val f = cat-all([deck(lab)[0 to pos] [card-id] deck(lab)[pos to false]])
+      clear(deck(lab))
+      add-all(deck(lab), f)
+      gprintln("Card %_ is inserted in position:%_" % [card-id pos])
+      gprintln(deck(lab))
+   else :
+      add(discard(lab), card-id)
+
 
 
 

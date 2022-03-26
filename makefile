@@ -1,4 +1,4 @@
-STANZAFILES = main.stanza labyrinth.stanza cards.stanza communicator.stanza gameBoardGraphics.stanza SDL2.stanza
+STANZAFILES = main.stanza labyrinth.stanza cards.stanza communicator.stanza events.stanza gameBoardGraphics.stanza SDL2.stanza
 OBJ = labyrinth
 
 $(OBJ): $(STANZAFILES)

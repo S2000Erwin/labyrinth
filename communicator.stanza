@@ -3,6 +3,7 @@ defpackage communicator :
     import collections
     import labyrinth
     import cards
+    import events
 
 var term : True|False = true
 
@@ -11,20 +12,21 @@ val CEND = "[0m"
 
 defn cprint ( msg : String ) :
     if not term:
-        val newargs = "<span style='' color:yellow>" + msg + "</span>"
+        val newargs = append-all(["<span style='color:yellow'>" msg "</span>"])
         ;todo
         ;mprint(newargs)
         print(newargs)
     else:
-        val newargs = to-char(27) + CYELLOW + msg + to-char(27) + CEND
+        val newargs = append-all([to-string(27Y) CYELLOW msg to-string(27Y) CEND])
         print(newargs)
 
 defn cprintln (msg : String) :
-    cprint(msg + "\n")
+    cprint(append(msg, "\n"))
 
 
 val input-buffer : Vector<Char> = Vector<Char>()
 defn input ( msg : String ) -> String :
+    print("input ")
     clear(input-buffer)
     ; do not return until '\n' is gotten
     label<False> break :
@@ -32,11 +34,16 @@ defn input ( msg : String ) -> String :
             val c = get-char(STANDARD-INPUT-STREAM)
             match(c):
                 (c : Char) :
-                    if c == '\n' :
-                        break
+                    ; print("received:%_ " % [to-int(c)])
+                    if to-int(c) == 10 or to-int(c) == 14 :
+                        ; print("return received")
+                        break(false)
                     add(input-buffer, c)
-                (c) : c
-    string-join(input-buffer)
+                    ; print(input-buffer)
+                (c) : false
+    val result = string-join(input-buffer)
+    println(result)
+    result
 
 public defstruct Communicator :
     game : Labyrinth
@@ -61,21 +68,68 @@ public defn make-communicator (lab : Labyrinth, usplayer : String, jihadistplaye
     comm
 
 public defn queryGeneric (comm : Communicator, who : String, msg : String, validAnswers : Tuple<String>, reason : String, 
-                            displays : Tuple<String>, tooltips : Tuple<String>|False, canNull : True|False):
-    "n"
-    
+                            displays : Tuple<String>, tooltips : Tuple<String>|False, canNull : True|False) -> String|False:
+    label<String|False> return :
+        val game = game(comm)
+        val message = append-all(["[" who "]" msg])
+        if length(validAnswers) == 0:
+            return(false)
+        var ans : String|False = false
+        label<False> break :
+            while not contains?(validAnswers, ans) :
+                if ans is String and (countries(game))[ans as String] is Country :
+                    val country = (countries(game))[ans as String]
+                    if country is Country :
+                        print(country as Country)
+                else if ans == "g":
+                    ; show(gameBoard(game))
+                    false
+                else if ans is String and length(ans as String) > 0 and (ans as String)[0] == 'c':
+                    var card : String = (ans as String)[1 to false]
+                    if empty?(card):
+                        var hand
+                        hand = ushand(game) when who == "us" else hand = jihadisthand(game)
+                        match(hand):
+                            (hand : Vector<Int>) :
+                                for card-id in hand do:
+                                    val [ops assoc title] = getCardInfo(card-id)
+                                    cprintln(to-string("%_ [%_] %_ '%_'" % [card-id ops assoc title]))
+                            (h) : false
+                    else:
+                        if to-int(card) is-not False:
+                            val card-id = to-int(card)
+                            if card-id is Int:
+                                showEvent(who, card-id as Int)
+                else if ans == "r":
+                    print(game)
+                if who == "us" and usplayer(game) == "bot" :
+                    ; todo
+                    ; ans = queryGeneric(usbot(comm), msg, validAnswers, reason)
+                    false
+                else if who == "jihadist" and jihadistplayer(game) == "bot" :
+                    ; ans = queryGeneric(jbot(comm), msg, validAnswers, reason)
+                    false
+                else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web" :
+                    ; ans = to-lower(wait_for_webanswer(comm, msg, validAnswers, displays, tooltips)
+                    false
+                else:
+                    ans = lower-case(input(message))
+                if canNull and ans is False:
+                    break(false)
+        ans
+        
 public defn endOneGame (comm : Communicator) :
     set-answersOrBounds(comm, "")
     set-validAnswers(comm, [])
     set-tooltips(comm, [])
     ; self.webdata_ready.set()
 
-public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tuple<Int>) -> Int|False :
+public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tuple<Int>) -> Int :
     val game = game(comm)
-    cprintln(validAnswers)
+    println("validAnswers=%_" % [validAnswers])
     val who = currentplayer(game)
-    val message : String = "[" + who + "]" + msg
-    var ans : String|Int|False = false
+    val message = append-all(["[" who "]" msg])
+    var ans : Int|False = false
     while not (contains?(validAnswers, ans)) :
         label<False> continue :
             if who == "us" and usplayer(game) == "bot" :
@@ -87,22 +141,18 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                 ; ans = queryCardPlay(jbot(comm), msg, validAnswers)
                 ans = false
             else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web":
-                val displays = to-vector<String>()
-                val tooltips = to-vector<String>()
+                val displays = Vector<String>()
+                val tooltips = Vector<String>()
                 for card in validAnswers do :
-                    val cardinfo = getCardInfo(card)
-                    val ops = cardinfo[0]
-                    val assoc = cardinfo[1]
-                    val title = cardinfo[2]
-                    val display = ops + " " + assoc + " " + title
+                    val [ops, assoc, title] = getCardInfo(card)
+                    val display = append-all([to-string(ops) " " assoc " " title])
                     add(displays, display)
-                    val eventString = getEventString(who, card)
-                    val condition = eventString[0]
-                    val description = eventString[1]
-                    var msg : String = ""
-                    if condition != "---" :
-                        msg = msg + condition + "<br><br>"
-                    msg = msg + description
+                    val [condition description] = getEventString(who, card)
+                    var msg : String = " "
+                    if condition is String and condition != "---" :
+                        msg = append-all([msg " " (condition as String) "<br><br>"])
+                    if description is String:
+                        msg = append(msg  description as String)
                     add(tooltips, msg)
                 ; todo
                 ;ans = wait_for_webanswer(comm, msg, validAnswers, displays, tooltips)
@@ -110,23 +160,23 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                 if ans is Int:
                     ans = ans as Int
             else:
-                var ans : String|Int = lower-case(input(message))
-                if contains?(countries(game), ans):
-                    cprint(countries(game)[ans])
+                var ans-str : String = lower-case(input(message))
+                if countries(game)[ans-str] is-not False:
+                    val country = (countries(game))[ans-str]
+                    if country is Country:
+                        print(country as Country)        
+                    ans = 0
                     continue
-                if ans == "g":
+                if ans-str == "g":
                     ; todo : show gameBoard
                     ; show(gameBoard(game))
                     false
-                else if length(ans) > 0 and ans[0] == 'c' :
-                    var card : String|Int = ans[1 to false]
-                    if empty?(card) :
+                else if length(ans-str) > 0 and ans-str[0] == 'c' :
+                    var card-str = ans-str[1 to false]
+                    if empty?(card-str) :
                         for card in validAnswers do :
-                            val cardInfo = getCardInfo(card)
-                            val ops = cardInfo[0]
-                            val assoc = cardInfo[1]
-                            val title = cardInfo[2]
-                            cprint( "%_ [%_] [%_] '%_'" % [ops assoc title title])
+                            val [ops assoc title] = getCardInfo(card)
+                            cprint(to-string("%_ [%_] [%_] '%_'" % [to-string(card) to-string(ops) assoc title]))
                             var result : True|False = false
                             if assoc == "US" :
                                result = playUSEvent(game, card, true)
@@ -144,14 +194,80 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                                cprintln("[Not Playable]")
                         continue
                     else:
-                        if to-int(card) is-not False:
-                            card = to-int(card)
-                            showEvent(who, card)
-                if ans == "r":
+                        if to-int(card-str as String) is-not False:
+                            val card-id = to-int(card-str as String)
+                            match(card-id):
+                                (card-id : Int) : showEvent(who,  card-id)
+                                (f) : false
+                if ans-str == "r":
                     println(game)
-                    ans = ""
+                    ans = 0
                     continue
-                if to-int(ans) is False:
+                if to-int(ans-str) is False:
                     continue
-                ans = to-int(ans)
-    ans
+                ans = to-int(ans-str)
+    ans as Int
+
+public defn queryEventPlayable (comm : Communicator, who : String, card-id : Int) -> True|False :
+    val game = game(comm)
+    var result = "e"
+    if who == "us" and usplayer(game) == "bot":
+        ;result = queryEventPlayable(usbot(comm), "Opponent US Event", ["e", "o"], card-id)
+        false
+    else if who == "jihadist" and jihadistplayer(game) == "bot":
+        ;result = queryEventPlayable(jbot(comm), "Opponent Jihadist Event", ["e", "o"], card-id)
+        false
+    else:
+        result = "e"
+    true when result == "e" else false
+
+public defn queryPlayOrder (comm : Communicator, msg : String, validAnswers : Tuple<Int>) :
+    queryNumber(comm, currentplayer(game(comm)), msg, validAnswers, "playorder",
+                            ["I play Ops first", "Opponent plays Event first"], false)
+
+defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers : Tuple<Int>, 
+                    reason : String, displays : Tuple<String>, canNull : True|False) -> Int|False :
+    val game = game(comm)
+    var ans : Int|False = 0
+    label<Int|False> return :
+        if length(validAnswers) == 1:
+            ans = validAnswers[0]
+            return(ans)
+        cprintln(msg)
+        cprintln(to-string("Valid Numbers=%_" % [validAnswers]))
+        val message = append-all(["[" who "]" msg])
+        ans = false
+        while not contains?(validAnswers, ans) :
+            if who == "us" and usplayer(game) == "bot" :
+                ;todo
+                ;ans = queryNumber(usbot(comm), msg, validAnswers, reason)
+                false
+            else if who == "jihadist" and jihadistplayer(game) == "bot" :
+                ;ans = queryNumber(jbot(comm), msg, validAnswers, reason)
+                false
+            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web":
+                ;ans = self.wait_for_webanswer(msg, validAnswers, displays)
+                val ans-str = "0"
+                cprintln(to-string("Received %_" % [ans-str]))
+                if to-int(ans-str) is-not False:
+                    ans = to-int(ans-str)
+            else:
+                val ans-str = input(message)
+                if to-int(ans-str) is-not False:
+                    ans = to-int(ans-str)
+            if canNull and ans is False:
+                return(false)
+        ans
+
+public defn queryOpsOrEvent (comm : Communicator, msg : String, validAnswers : Tuple<String>):
+    queryGeneric(comm , currentplayer(game(comm)), msg, validAnswers, "oporevent", ["Operation", "Event"], false, false)
+
+public defn finishEvent (comm : Communicator, who : String, card-id : Int) :
+    val game = game(comm)
+    if who == "us" and usplayer(game) == "bot" :
+        ; todo
+        ;ans = finishEvent(usbot(comm), card-id)
+        false
+    else if who == "jihadist" and jihadistplayer(game) == "bot" :
+        ;ans = finishEvent(jbot(comm), card-id)
+        false

@@ -1,0 +1,83 @@
+defpackage events :
+    import core
+    import collections
+    import labyrinth
+    import cards
+    import communicator
+
+val CGREEN = "\b1b[32m"
+val CEND = "\b1b[0m"
+
+var term : True|False  = true
+var globalVerbose = 1
+
+
+defn evprint ( msg : String ) :
+    if not term:
+        val newargs = append-all(["<span style='color:yellow'>" msg "</span>"])
+        ;todo
+        ;mprint(newargs)
+        print(newargs)
+    else:
+        val newargs = append-all([CGREEN msg CEND])
+        print(newargs)
+
+defn evprintln (msg : String) :
+    evprint(append(msg, "\n"))
+
+
+defstruct EventTable :
+    t : HashTable<Int, ((Labyrinth, Int, String, True|False, True|False) -> True|False)>
+
+defn get (e : EventTable, card-id : Int) -> False|((Labyrinth, Int, String, True|False, True|False) -> True|False) :
+    get?(t(e), card-id)
+
+val usEventTable = EventTable(HashTable<Int, ((Labyrinth, Int, String, True|False, True|False) -> True|False)>())
+val jihadistEventTable = EventTable(HashTable<Int, ((Labyrinth, Int, String, True|False, True|False) -> True|False)>())
+
+
+defn playEvent (game : Labyrinth, player : String, card-id : Int, eventTable : EventTable, isPlayable : True|False) :
+    label<True|False> return :
+        if eventTable[card-id] is-not False:
+            if not isPlayable:
+                ; assert card != 32
+                add(eventUsed(game), card-id)
+            val eventString = getEventString(player, card-id)
+            var condition = false
+            var description = false
+            match(eventString) :
+                (e : Tuple<String|False>) :
+                    condition = e[0]
+                    description = e[1]
+                (e) : false
+            val func? = eventTable[card-id]
+            match(func?):
+                (func : ((Labyrinth, Int, String, True|False, True|False) -> True|False)) :
+                    if isPlayable:
+                        ; come from Bot flowchart
+                        ; evprint(f'isPlayable?')
+                        return(func(game, card-id, player, isPlayable, false))
+                    else:
+                        ; come from oppoEvent
+                        val cardInfo = getCardInfo(card-id)
+                        if cardInfo is [Int, String, String] :
+                            val [ops, assoc, title]  = cardInfo as [Int, String, String]
+                            evprintln(to-string("[%_] [%_] '%_':" % [ops, assoc, title]))
+                            evprintln(to-string("Prerequisite:%_" % [condition]))
+                            evprintln(to-string("Game Effect:%_" % [description]))
+                            if func(game, card-id, player, false, true):
+                                if queryEventPlayable(comm(game) as Communicator, player, card-id):
+                                    evprintln("Playing Event...")
+                                    return(func(game, card-id, player, false, false))
+                            else:
+                                evprintln("Condition not fulfilled")
+                (func) : false
+        else:
+            evprintln("Event not found")
+        false
+
+public defn playJihadistEvent (game : Labyrinth, card-id : Int, isPlayable : True|False) :
+    playEvent(game, "jihadist", card-id, jihadistEventTable, isPlayable)
+
+public defn playUSEvent (game : Labyrinth, card-id : Int, isPlayable : True|False) :
+    playEvent(game, "us", card-id, usEventTable, isPlayable)
