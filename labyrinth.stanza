@@ -30,12 +30,12 @@ defn set (country : Country, k : String, v : ?) -> False :
    set(attrs(country), k, v)
 
 defmethod print (o : OutputStream, country : Country ) :
-   print("%_ : [" % [name(country)])
+   print(o, "%_ : [" % [name(country)])
    for attr in attrs(country) do :
       val k = key(attr)
       val v = value(attr)
-      print("  %_: %_" % [k, v] )
-   println("  ]")
+      print(o, "  %_: %_" % [k, v] )
+   println(o, "  ]")
 
 defn to-country (name : String, xs : Tuple<KeyValue<String,?>>) -> Country :
    val h = HashTable<String,?>()
@@ -150,8 +150,6 @@ val board_tuple = [
    "algeria" => ["name" => "algeria", "muslim" => true, "resource" => 2, "oil" => true, "sunni" => true, "african" => true],
    "morocco" => ["name" => "morocco", "muslim" => true, "resource" => 2, "sunni" => true, "african" => true]
 ]
-
-
 val awakenBoard_tuple = [
    "mali" => ["name" => "mali" "muslim" => true "resource" => 1, "sunni" => true "african" => true ]
    "nigeria" => [ "name" => "algeria" "govern" => "poor" "african" => true ]
@@ -309,13 +307,53 @@ public defstruct Labyrinth :
    decks : Tuple<Tuple<Int>>|False with : (setter => set-decks)
    finalWin : True|False with : (setter => set-finalWin)
    winner : String with : (setter => set-winner)
+   oppoEventDone : True|False with : (setter => set-oppoEventDone)
+   needRemove : True|False with : (setter => set-needRemove)
+   plotOp : True|False with : (setter => set-plotOp)
+
 
 defmethod print (o : OutputStream, lab : Labyrinth) :
-   println(o, decks(lab))
-   println(o, deck(lab))
-   println(o, countries(lab))
-   println(o, routes(lab))
-   println(o, scenario(lab))
+   print( o, "GR=%_ IR=%_ FGC=%_ PIC=%_ P=%_ F=%_",
+      % [ getGoodResource(lab) getIslamResource(lab) getFGC(lab) getPIC(lab) prestige(lab) funding(lab)]
+   )
+   print( o,
+      "T=%_ C=%_ US=%_ World="
+      % [ getTroopLevel(lab) getCellOnMap(lab) getPosture(lab, "us")]
+   )
+   var gwot = getGWOTHard(lab)
+   var worldStr : String = ""
+   if gwot > 0:
+      worldStr = "Hard "
+   else if gwot < 0:
+      worldStr = "Soft "
+   else:
+      worldStr = ""
+   worldStr = append(worldStr, to-string(abs(gwot)))
+   println(o, "%_" % [worldStr])
+   println(o, "Awakening=%_ Reaction=%_ TroopsOnTrack=%_ Off-map=%_ CellsOnTrack=%_"
+      % [countAwaken(lab) countReact(lab) trooptrack(lab) offmap(lab) celltrack(lab)]
+   )
+   println(o, "CellsInCamps=%_ CampsCapacity=%_ LessCells=%_"
+      % [cellcamps(lab) maxcamps(lab) lesscell(lab)]
+   )
+   println(o, "CurrentPlots=%_ AvailablePlots=%_ UsedPlots=%_"
+      % [plots(lab) plotAvailables(lab) usedPlots(lab)]
+   )
+   println(o, "USReserve=%_ JihadistReserve=%_" % [usreserve(lab) jihadistreserve(lab)] )
+   println(o, "Lapsing=%_" % [ lapsing(lab) ])
+   println(o, "Deck=%_" % [ deck(lab) ])
+   println(o, "Discard=%_" % [ discard(lab) ])
+   println(o, "Removed=%_" % [ removed(lab) ])
+
+   qsort!(eventUsed(lab))
+   println(o, "Events used=%_" % [ eventUsed(lab) ] )
+   println(o, "CurrentPhaseCountries=%_" % [ currentphaseCountries(lab) ] )
+   println(o, "LastPhaseCountries=%_" % [ lastphaseCountries(lab) ] )
+   print(o, decks(lab))
+   print(o, deck(lab))
+   print(o, countries(lab))
+   print(o, routes(lab))
+   print(o, scenario(lab))
 
 defn doLog (lab : Labyrinth, log : Int) -> False :
    if log >= 1 :
@@ -380,7 +418,10 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         false          ; communicator
                         false          ; decks
                         false          ; finalWin
-                        ""             ; winner
+                        false          ; winner
+                        false          ; oppoEventDone
+                        false          ; needRemove
+                        false          ; plotOp
                      )
    doLog(lab, log)   
    set-gameBoard(lab, make-GameBoardGraphics(lab))
@@ -515,10 +556,7 @@ defn reset (lab : Labyrinth) :
       set-decks(lab, surge-decks) 
    clear(currentphaseCountries(lab))
    clear(lastphaseCountries(lab))
-   gprint(countries(lab))
-   gprint(routes(lab))
-   gprint(decks(lab))
-   report(lab)
+   gprint(lab)
    set-currentplayer(lab, "jihadist")
    set-currentphase(lab, 0)
    set-turn(lab, 0)  
@@ -537,7 +575,8 @@ public defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplaye
    clear(eventNotUsed(lab))
    add-all(eventNotUsed(lab), deck(lab))
    shuffleDeck(lab)
-   gprintln("Shuffled Deck=%_" % [deck] )
+   gprint("Shuffled Deck=")
+   gprint(deck(lab))
    dealHands(lab)
    set-finalWin(lab, false)
    ; todo: try except is used in "web" ui
@@ -556,8 +595,7 @@ public defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplaye
    set-reason(lab, "Auto Win")
    if finalWin(lab) == true:
       set-reason(lab, "Final Score")
-   gprint(countries(lab))
-   report(lab)
+   gprint(lab)
    endOneGame(comm(lab) as Communicator)
    [true, winner(lab), reason(lab), turn(lab), winMethod(lab)]
 
@@ -580,8 +618,137 @@ defn playOneTurn (lab : Labyrinth) :
                return(true)
       endTurn(lab)
 
-defn playOneCard (lab : Labyrinth) -> False:
-   false
+defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
+   if not fromEvent:
+      set-oppoEventDone(lab, false)
+      set-heldCard(lab, false)
+   set-needRemove(lab, false)
+   set-plotOp(lab, false)
+   if currentphase(lab) == 0:
+      clear(lab, currentphaseCountries)
+   gprintln("Current Player=%_ CurrentPhase=%_" % [currentplayer(lab) currentphase(lab)])
+
+   var hand : Vector<Int>
+   if currentplayer(lab) == "jihadist" :
+      gprintln("Jihadist's Hand")
+      hand = jihadisthand(lab)
+   else :
+      gprintln("US's hand")
+      hand = ushand(lab)
+
+   if length(hand) > 0:
+      val card-id = queryCardPlay(
+                        comm(lab), 
+                        "Which card to play OR (g)ameboard OR (r)eport OR (c)ards OR countryname?",
+                        hand )
+      gprintln("%_ plays card card-id" % [currentplayer(lab) card-id])
+
+      ; valid play
+      remove-item(hand, card-id)
+      set-currentcard(lab, card-id)
+      ; ops, assoc, title = self.getCardInfo(id)
+      val card-info = getCardInfo(card-id)
+      val ops = card-info[0]
+      val assoc = card-info[1]
+      val title = card-info[2]
+      gprintln("%_ %_ %_ %_" % [card-id ops assoc title])
+
+      if (assoc == "US" and currentplayer(lab) == "jihadist") or (
+               assoc == "Jihadist" and currentplayer(lab) == "us") or card-id == 354 or card-id == 120:
+            ; opponent card
+            gprintln("This is opponent's card")
+            if currentplayer(lab) == "us" and usplayer(lab) == "bot":
+               gprintln("Bot ignores oppoenent's event")
+               if card-id == 354 or card-id == 120:
+                  playUSEvent(lab, card-id)
+               playUSOps(lab, ops, fromEvent)
+            else if currentplayer(lab) == "jihadist" and jihadistplayer(lab) == "bot":
+               gprintln("Bot ignores opponent's event")
+               if card-id == 354 or card-id ==120:
+                  playJihadistEvent(lab, card-id)
+               playJihadistOps(lab, ops)
+            else:
+               ; human or ai player
+               val opsFirst = queryPlayOrder( 
+                                 comm(lab), 
+                                 "You play first(1) or second(2)?", 
+                                 [1, 2] ) 
+               if opsFirst == 1:
+                  if currentplayer(lab) == "jihadist":
+                        playJihadistOps(lab, ops)
+                        if not plotOp(lab):
+                           if firstPlot(lab):
+                              if not oppoEventDone(lab):
+                                    set-needRemove(lab, playUSEvent(lab, card-id))
+                  else:
+                        playUSOps(lab, ops, fromEvent)
+                        if not oppoEventDone(lab) and not heldCard(lab):
+                           set-needRemove(lab, playJihadistEvent(lab, card-id))
+               else:
+                  if currentplayer(lab) == "jihadist" :
+                        set-needRemove(lab, playUSEvent(lab, card-id))
+                        set-oppoEventDone(lab, true)
+                        playJihadistOps(lab, ops)
+                  else:
+                        set-needRemove(lab, playJihadistEvent(lab, card-id))
+                        set-oppoEventDone(lab, true)
+                        playUSOps(lab, ops, fromEvent)
+      else:
+            ; not opponent's card
+            val play = queryOpsOrEvent( 
+                           comm(lab),
+                           "(o)ps or (e)vent",
+                           ['o', 'e'] )
+            if play == 'o':
+               gprintln("You choose Ops")
+               if currentplayer(lab) == "jihadist" :
+                  playJihadistOps(lab, ops)
+               else:
+                  playUSOps(lab, ops, fromEvent)
+            else:
+               if currentplayer(lab) == "jihadist":
+                  set-needRemove(lab, playJihadistEvent(lab, card-id))
+               else:
+                  set-needRemove(lab, playUSEvent(lab, card-id))
+               finishEvent(
+                  comm(lab),
+                  currentplayer(lab), 
+                  card-id)
+
+      ; one card play finished, clean up
+      if plotOp(lab) and jihadistplayer(lab) != "bot" :
+            set-firstPlot(lab, true)
+            set-firstPlotCard(lab, card-id)
+
+      if not heldCard(lab):
+            if needRemove(lab) :
+               add(removed(lab), currentcard(lab))
+               gprintln("Card %_ is REMOVED" % [currentcard(lab)])
+               gprintln("REMOVED Cards:%_" % [removed(lab)])
+            else:
+               doDiscard(lab, currentcard(lab))
+
+      ; held card
+      if heldCard(lab) and length(jihadisthand(lab)) == 0:
+            set-currentphase(lab, 1)
+
+   if not fromEvent:
+      gprintln("Current Phase Countries:")
+      for name in currentphaseCountries(lab) do :
+         gprintln(countries(lab)[name])
+      set-currentphase(lab, currentphase(lab) + 1)
+
+      if currentphase(lab) == 2:
+         clear(lastphaseCountries(lab))
+         add-all(lastphaseCountries(lab), currentphaseCountries(lab))
+         clear(currentphaseCountries(lab))
+         if currentplayer(lab) == "jihadist" :
+               set-currentplayer(lab, "us")
+         else:
+               checkPlots(lab)
+               set-currentplayer(lab, "jihadist")
+         set-currentphase(lab, 0)
+
 
 defn endTurn (lab : Labyrinth) -> True|False :
    gprintln("End Turn")
@@ -629,50 +796,8 @@ defn endTurn (lab : Labyrinth) -> True|False :
             setAttr(lab, key(country), "truce", false)
       clear(lapsing(lab))
       flipRegimeChange(lab)
-      gprint(countries(lab))
-      report(lab)
+      gprint(lab)
       false
-
-
-
-defn report (lab : Labyrinth) :
-   gprint( "GR=%_ IR=%_ FGC=%_ PIC=%_ P=%_ F=%_",
-      % [ getGoodResource(lab) getIslamResource(lab) getFGC(lab) getPIC(lab) prestige(lab) funding(lab)]
-   )
-   gprint(
-      "T=%_ C=%_ US=%_ World="
-      % [ getTroopLevel(lab) getCellOnMap(lab) getPosture(lab, "us")]
-   )
-   var gwot = getGWOTHard(lab)
-   var worldStr : String = ""
-   if gwot > 0:
-      worldStr = "Hard "
-   else if gwot < 0:
-      worldStr = "Soft "
-   else:
-      worldStr = ""
-   worldStr = append(worldStr, to-string(abs(gwot)))
-   gprintln("%_" % [worldStr])
-   gprintln( "Awakening=%_ Reaction=%_ TroopsOnTrack=%_ Off-map=%_ CellsOnTrack=%_"
-      % [countAwaken(lab) countReact(lab) trooptrack(lab) offmap(lab) celltrack(lab)]
-   )
-   gprintln("CellsInCamps=%_ CampsCapacity=%_ LessCells=%_"
-      % [cellcamps(lab) maxcamps(lab) lesscell(lab)]
-   )
-   gprintln("CurrentPlots=%_ AvailablePlots=%_ UsedPlots=%_"
-      % [plots(lab) plotAvailables(lab) usedPlots(lab)]
-   )
-   gprintln("USReserve=%_ JihadistReserve=%_" % [usreserve(lab) jihadistreserve(lab)] )
-   gprintln("Lapsing=%_" % [ lapsing(lab) ])
-   gprintln("Deck=%_" % [ deck(lab) ])
-   gprintln("Discard=%_" % [ discard(lab) ])
-   gprintln("Removed=%_" % [ removed(lab) ])
-
-   qsort!(eventUsed(lab))
-   gprintln("Events used=%_" % [ eventUsed(lab) ] )
-   gprintln("CurrentPhaseCountries=%_" % [ currentphaseCountries(lab) ] )
-   gprintln("LastPhaseCountries=%_" % [ lastphaseCountries(lab) ] )
-
 
 defn determineFinalWinner (lab : Labyrinth) :
    gprintln("Determine Final Winner")
@@ -1365,16 +1490,16 @@ defn drawOneCard (lab : Labyrinth, player : String) :
                (result:False) : add(routes(lab), route)
                (result) : result
          convergence(lab, "awaken")
-      gprint("Card %_ is dealt to %_" % [card player])
+      gprintln("Card %_ is dealt to %_" % [card player])
       if player == "us":
-         val original = ushand(lab)
+         val original = to-vector<Int>([card])
+         add-all(original, ushand(lab))
          clear(ushand(lab))
-         add(ushand(lab), card)
          add-all(ushand(lab), original)
       else:
-         val original = jihadisthand(lab)
+         val original = to-vector<Int>([card])
+         add-all(original, jihadisthand(lab))
          clear(jihadisthand(lab))
-         add(jihadisthand(lab), card)
          add-all(jihadisthand(lab), original)
       reshuffled
 

@@ -7,82 +7,154 @@ defstruct Card :
    ops : Int
    association : String
    title : String
-
+   conditions : Tuple<String>
+   descriptions : Tuple<String>
+   
 defmethod print (o: OutputStream, card : Card ) :
-   print(o, "%_: %_ %_ [%_]" % [card-id(card), ops(card), association(card), title(card)])
+   print(o, "%_: %_ %_ [%_] [%_] [%_]" % [card-id(card), ops(card), association(card), title(card) conditions(card) descriptions(card)])
 
 ; to-do : complete the card list
 val cards_tuple = [
-   [1 1 "US" "Backlash"]
-   [10 1 "US" "Special Forces"]
-   [12 2 "US" "Al-Azhar"]
-   [13 2 "US" "Anbar Awakening"]
-   [15 2 "US" "Ethiopia Strikes"]
-   [16 2 "US" "Euro-Islam"]
-   [18 2 "US" "Intel Community"]
-   [19 2 "US" "Kemalist Republic"]
-   [20 2 "US" "King Abdullah"]
-   [21 2 "US" "Let's Roll!"]
-   [22 2 "US" "Mossad & Shin Bet"]
-   [24 2 "US" "Predator"]
-   [25 2 "US" "Predator"]
-   [28 2 "US" "Sharia"]
-   [29 2 "US" "Tony Blair"]
-   [30 2 "US" "UN Nation Building"]
-   [32 3 "US" "Back Channel"]
-   [33 3 "US" "Benazir Bhutto"]
-   [35 3 "US" "Hijab"]
-   [36 3 "US" "Indo-Pakistani Talks"]
-   [40 3 "US" "Mass Turnout"]
-   [42 3 "US" "Pakistani Offensive"]
-   [45 3 "US" "Safer Now"]
-   [46 3 "US" "Sistani"]
-   [49 1 "Jihadist" "Al-Ittihad Al-Islami"]
-   [50 1 "Jihadist" "Ansar Al-Islam"]
-   [52 1 "Jihadist" "IEDs"]
-   [53 1 "Jihadist" "Madrassas"]
-   [60 2 "Jihadist" "Bhutto Shot"]
-   [63 2 "Jihadist" "Gaza War"]
-   [68 2 "Jihadist" "Jemaah Islamiya"]
-   [70 2 "Jihadist" "Lashkar-e-Tayyiba"]
-   [72 2 "Jihadist" "Opium"]
-   [73 2 "Jihadist" "Pirates"]
-   [74 2 "Jihadist" "Schengen Visas"]
-   [77 3 "Jihadist" "Al Jazerra"]
-   [78 3 "Jihadist" "Axis of Evil"]
-   [79 3 "Jihadist" "Clean Operatives"]
-   [81 3 "Jihadist" "Foreign Fighters"]
-   [82 3 "Jihadist" "Jihadist Videos"]
-   [83 3 "Jihadist" "Kashmir"]
-   [89 3 "Jihadist" "Martyrdom Operation"]
-   [90 3 "Jihadist" "Quagmire"]
-   [91 3 "Jihadist" "Regional Al-Qaeda"]
-   [93 3 "Jihadist" "Taliban"]
-   [95 3 "Jihadist" "Wahhabism"]
-   [97 1 "Unassociated" "Fatwa"]
-   [100 1 "Unassociated" "Hizb Ut-Tahrir"]
-   [101 1 "Unassociated" "Kosovo"]
-   [103 2 "Unassociated" "Hizballah"]
-   [105 2 "Unassociated" "Iran"]
-   [106 2 "Unassociated" "Jaysh Al-Mahdi"]
-   [107 2 "Unassociated" "Kurdistan"]
-   [108 2 "Unassociated" "Musharraf"]
-   [111 2 "Unassociated" "Zawahiri"]
-   [112 3 "Unassociated" "Bin Ladin"]
-   [113 3 "Unassociated" "Dafur"]
-   [118 3 "Unassociated" "Oil Price Spike"]
-   [119 3 "Unassociated" "Saleh"]
-   [120 3 "Unassociated" "US Election"]
+   [1 1 "US" "Backlash" 
+      ["Play if you can select a Plot in a Muslim country."] 
+      ["If unblocked, the Plot subtracts rather than adds Funding (if WMD, Funding to 1)"] ]
+   [10 1 "US" "Special Forces"
+   ["Play if there is a Cell in or adjacent to a country with Troops"]
+   ["Remove the Cell"] ]
+   [12 2 "US" "Al-Azhar"
+      []
+      ["Test Egypt. -2 Funding, or -4 Funding if no country under Islamist Rule"] ]
+   [13 2 "US" "Anbar Awakening"
+      ["Play if troops in either Iraq or Syria"]
+      ["Place 1 Aid here. +1 Prestige. Block Al-Anbar MARK"]
+   ]
+   [15 2 "US" "Ethiopia Strikes"
+      ["Play if Somalia or Sudan is under Islamic Rule"], 
+      ["'Set it to Poor Neutral REMOVE"],
+   ]
+   [16 2 "US" "Euro-Islam" [] ["Select Benelux's Posture. If no country under Islamist Rule, -1 Funding. REMOVE"] ]
+   [18 2 "US" "Intel Community" [] 
+   ["Inspect Jihadist hand. Conduct a 1-value Operation. You may interrupt this Action Phase now to play and extra card."]
+   ]
+   [19 2 "US" "Kemalist Republic" [] ["Set Turkey to Fair Ally"]]
+   [20 2 "US" "King Abdullah" [] ["Set Jordan to Fair Ally. +1 Prestige, -1 Funding. REMOVE"]]
+   [21 2 "US" "Let's Roll!" ["Play if there is a plot in an Ally or Good country"]
+      ["Reveal and remove it. Draw a card. Select 1 non-US country's Posture"]
+   ]
+   [22 2 "US" "Mossad & Shin Bet" ["Play if any Cells in Israel, Jordan, or Lebanon."]
+      ["Remove them all"] ]
+   [24 2 "US" "Predator" [] ["Remove a Cell from a Muslim Country (not Iran)"]]
+   [25 2 "US" "Predator" [] ["Remove a Cell from a Muslim Country (not Iran)"]]
+   [28 2 "US" "Sharia" [], ["Remove a Besiege Regime Marker"] ]
+   [29 2 "US" "Tony Blair" [] ["Set United Kingdom's Posture to that of the US. Roll War of Ideas in up to 3 Schengen countries. REMOVE"] ]
+   [30 2 "US" "UN Nation Building" ["Play if a country is marked with Regime Change"]
+      ["Place 1 Aid there roll a War of Ideas as if GWOT Penalty 0. Blocked by Vieira de Mello Slain."] ]
+   [32 3 "US" "Back Channel" ["Play if US Soft and you have another card of exact value as an Adversary's resources."]
+         ["You may discard the card to shift the Adversary to Neutral and place 1 Aid there."] ]
+   [33 3 "US" "Benazir Bhutto" ["Play if no Islamist Rule within 1 country of Pakistan."],
+         ["No Jihad there. If at Poor, shift to Fair. Block Musharraf. Blocked by Bhutto Shot. MARK & REMOVE"]
+   ]
+   [35 3 "US" "Hijab" ["Play if no country is under Islamist Rule"]
+      ["Test Turkey. Improve its Governance 1 level. Select France's Posture. -2 Funding. REMOVE"] ]
+   [36 3 "US" "Indo-Pakistani Talks" ["Play if Pakistan Good or Fair."]
+      ["Shift it to Ally. Select India's Posture. Block Kashmir and Lashkar-e-Tayyiba. Remove marker if a plot resolved in India. MARK & REMOVE"]
+   ]
+   [40 3 "US" "Mass Turnout" ["Play if there is a Regime Change country."]
+      ["Improve its Governance 1 level."]
+   ]
+   [42 3 "US" "Pakistani Offensive" ["Play if Pakistan Ally and marked with FATA"] ["Remove FATA"] ]
+   [45 3 "US" "Safer Now" ["Play if no Islamist Rule and no Good countries have Cells or Plots."]
+      ["Roll US Posture. +3 Prestige. Select 1 non-US country's Posture"] ]
+   [46 3 "US" "Sistani" ["Play if a Shia-Mix Regime Change country has a Cell"] 
+      ["Improve Governance there 1 level"] ]
+   [49 1 "Jihadist" "Al-Ittihad Al-Islami" [] ["Place a cell in Somalia REMOVE."]]
+   [50 1 "Jihadist" "Ansar Al-Islam" ["Play if Iraq's Governance is worse than Good."]
+      ["Place a cell in Iraq or Iran. REMOVE"] ]
+   [51 1 "Jihadist" ["Play if troops in Iraq"] 
+      ["If Saddam Captured, place 2 cells in Iraq. If not, place 4."] ]
+   [52 1 "Jihadist" "IEDs" ["Play if a cell is in a Regime Change country"]
+      ["US randomly discards 1 card."] ]
+   [53 1 "Jihadist" "Madrassas" ["Play if 1st card in jihadist Action Phase"]
+      ["Use this and 2nd card to recruit. Ignore Funding. You may recruit in countries marked worse than Fair even if no cell or cadre."]
+   ]
+   [55 1 "Jihadist" "Uyghur Jihad" []
+      ["Test China. Place a cell in Central Asia if China Hard, in China if Soft. REMOVE"] ]
+   [60 2 "Jihadist" "Bhutto Shot" ["Play if Pakistan has a Cell"] ["Block Benazir Bhutto. MARK & REMOVE"] ]
+   [63 2 "Jihadist" "Gaza War" [] ["US discards a random card. +1 Funding. -1 Prestige"] ]
+   [68 2 "Jihadist" "Jemaah Islamiya" [] ["Place 2 Cells in Indonesia"] ]
+   [70 2 "Jihadist" "Lashkar-e-Tayyiba" [] ["Place a Cell each in Pakistan an India. Blocked by Indo-Pakistani Talks"] ]
+   [72 2 "Jihadist" "Opium" ["Play if Afghanistan has a cell"]
+      ["Place 3 more cells there. Then, if at Islamist Rule, place all available cells there."] ]
+   [73 2 "Jihadist" "Pirates" ["Play if Somalia or Yemen under Islamist Rule"]
+      ["While either country is under Islamist Rule, no end-of-turn Funding drop. MARK & REMOVE"] ]
+   [74 2 "Jihadist" "Schengen Visas" [] 
+      ["Automatically travel 2 Cells to or within any Schengen countries."] ]
+   [77 3 "Jihadist" "Al Jazerra" ["Play if Saudi Arabia or an adjacent country has troops"]
+      ["Shift the country 1 box toward Adversary"] ]
+   [78 3 "Jihadist" "Axis of Evil" []
+      ["US discards any Iran, Hizballah, or Jaysh al-Mahdi cards from hand. US Posture to Hard. Then roll Prestige."] ]
+   [79 3 "Jihadist" "Clean Operatives" [] ["Automatically travel 2 Cells anywhere"] ]
+   [81 3 "Jihadist" "Foreign Fighters" ["Play if a country has Regime Change."]
+      ["Place 5 cells there and remove 1 Aid, if any, or, if none, place Besieged Regime"] ]
+   [82 3 "Jihadist" "Jihadist Videos" []
+      ["Select 3 countries without Cells. Test them. Recruit once in each, ignoring Funding. Place Cadre in each country that does not receive a Cell"] ]
+   [83 3 "Jihadist" "Kashmir" [] ["Shift Pakistan 1 box toward Adversary and place a Cell there. Blocked by Indo-Pakistani Talks"] ]
+   [89 3 "Jihadist" "Martyrdom Operation" ["Play if a non-Islam Rule country has a Cell"]
+      ["Replace the Cell with any 2 Available Plot markers"] ]
+   [90 3 "Jihadist" "Quagmire" ["Play if Prestige Medium or Low and a Regime Change country has a Cell."]
+      ["US randomly discards 2 cards. Playable Jihadist events on them happen. US Posture to Soft."] ]
+   [91 3 "Jihadist" "Regional Al-Qaeda" ["Play if you can select 2 Unmarked Muslim countries (non Iran)"]
+      ["Place a Cell in each or 2 in each if any Islam Rule"] ]
+   [93 3 "Jihadist" "Taliban" [] 
+      ["Place Besieged Regime in Afghanistan and a Cell each there and in Pakistan. -1 Prestige, or -3 Prestige if either at Islamist Rule"] ]
+   [95 3 "Jihadist" "Wahhabism" [] ["Add the number on Saudi Arabia's Governance to Funding or set to 9 if Islamist Rule"] ]
+   [97 1 "Unassociated" "Fatwa" ["Play if both sides have cards beyond this one."]
+      ["Trade random cards. Then conduct an operation with this card."] ]
+   [100 1 "Unassociated" "Hizb Ut-Tahrir" 
+      ["If Troops in Overstretch" "If Troops at Low Intensity" ] 
+      ["+2 Funding" "-2 Funding"] ]
+   [101 1 "Unassociated" "Kosovo" [] ["+1 Prestige. Set Serbia to opposite of US Posture."] ]
+   [103 2 "Unassociated" "Hizballah" [] 
+      ["Lebanon to Poor Neutral." "Remove a Cell from a Shia-Mix country within 3 countries of Lebanon."] ]
+   [104 2 "Unassociated" "Iran" [] 
+      ["Select and test a Shia-Mix country. make 2 jihad rolls there. Ignore failures or shift to Islamist Rule"
+       "Select and test a Shia-Mix country. Remove 1 Cell there or from Iran"] ]
+   [105 2 "Unassociated" "Iran" [] 
+      ["Select and test a Shia-Mix country. make 2 jihad rolls there. Ignore failures or shift to Islamist Rule"
+       "Select and test a Shia-Mix country. Remove 1 Cell there or from Iran"] ]
+   [106 2 "Unassociated" "Jaysh Al-Mahdi" ["Play if a Shia-Mix country has Cells and Troops"]
+      ["worsen Governance 1 level, not to Islamist Rule" "remove up to 2 Cells"] ]
+   [107 2 "Unassociated" "Kurdistan" [] 
+      ["Test Turkey and worsen its or Iraq's Governance 1 level but not to Islamist Rule"
+       "Place 1 Aid in Iraq"] ]
+   [108 2 "Unassociated" "Musharraf" ["Play if Pakistan has any Cells."]
+      ["Remove 1 Cell from Pakistan. Set it to Poor Ally. Blocked by Benazir Bhutto"] ]
+   ; todo: missing US event
+   [110 2 "Unassociated" "Zarqawi" ["Play if either Iraq, Syria, Lebanon, or Jordan has troops"]
+      ["Place 3 cells and a Plot 2 there."] ]
+   [111 2 "Unassociated" "Zawahiri" [false "US may play if no Islamist Rule, FATA, or Al-Anbar"] 
+      ["-1 Prestige, or -3 Prestige if any Islamist Rule" "-2 Funding REMOVE this card"] ]
+   [112 3 "Unassociated" "Bin Ladin" [false "Play if no Islamist Rule, FATA, or Al-Anbar"] 
+      ["-2 Prestige, or -4 Prestige if any Islamist Rule" "-4 Funding. +1 Prestige, REMOVE this card"] ]
+   [113 3 "Unassociated" "Dafur" [] ["Test Sudan. If US Prestige High or Very High, place 1 Aid in Sudan and shift 1 Box toward Ally; if not, place Besieged Regime and shift toward Adversary"] ]
+   [117 3 "Unassociated" "Oil Price Spike" []
+      ["Select, reveal, and draw a card other than Oil Price Spike from the discard pile or a box. Add +1 to the Resource of each Oil Exporter country for the turn. LAPSING"] ]
+   [118 3 "Unassociated" "Oil Price Spike" []
+      ["Select, reveal, and draw a card other than Oil Price Spike from the discard pile or a box. Add +1 to the Resource of each Oil Exporter country for the turn. LAPSING"] ]
+   [119 3 "Unassociated" "Saleh" [] 
+      ["Test Yemen. Shift it 1 box toward Adversary and place Besieged Regime."
+       "Test Yemen. Unless Islamist Rule, shift it to Ally and place 1 Aid."] ]
+   [120 3 "Unassociated" "US Election" [] ["Whenever this card is used for operations or discarded: Roll US Posture. If GWOT Penalty 0, +1 Prestige. If not, -1 Prestige" ] ] 
 ]
 
 defstruct Cards :
    c : HashTable<Int, Card>
 
-defn to-cards (xs : Tuple<[Int,Int,String,String]>) -> Cards :
+defn to-cards (xs : Tuple<[Int,Int,String,String,Tuple<String>,Tuple<String>]>) -> Cards :
    val cards = Cards(HashTable<Int,Card>())
    val ct = c(cards)
    for x in xs do :
-      ct[x[0] as Int] = Card(x[0] as Int, x[1] as Int, x[2] as String, x[3] as String)
+      ct[x[0] as Int] = Card(x[0] as Int, x[1] as Int, x[2] as String, x[3] as String, x[4] as Tuple<String>, x[5] as Tuple<String>)
    cards
 
 public defn get? (cards : Cards, card-id : Int) -> Card|False :
@@ -93,3 +165,44 @@ defmethod print (o: OutputStream, cards : Cards) :
         println(o, card )
 
 public val cards = to-cards(cards_tuple)
+
+public defn getCardInfo (card-id : Int) -> Tuple<Int|String>|False :
+   val card = get?(cards, card-id)
+   match(card):
+      (card : Card) :
+         [ops(card) association(card) title(card)]
+      (card) : false
+
+public defn getEventString (who : String, card-id : Int) -> Tuple<String|False> :
+   val card = get?(cards, card-id)
+   var condition = false
+   var description = false
+      
+   match(card):
+      (card : Card) :
+         val conditions = conditions(card)
+         val descriptions = descriptions(card)
+         switch { length(conditions) == _ } :
+            0 : false
+            1 : condition = conditions[0]
+            else : condition = conditions[0] when who == "jihadist" else condition = conditions[1]
+         switch { length(descriptions) == _ } :
+            0 : false
+            1 : description = descriptions[0]
+            else : description = descriptions[0] when who == "jihadist" else description = descriptions[1]
+      (card) : false
+   [condition, description]
+
+public defn showEvent (who : String, card-id : Int):
+    val eventString = getEventString(who, card-id)
+    val condition = eventString[0]
+    val description = eventString[1]
+    var msg = "Event: "
+    if condition is-not False:
+        msg = msg +  "Prerequisite: %_\n" % [condition]
+    if description is-not False :
+        msg = msg + "Game Effects: %_\n" % [description]
+    print(msg)
+
+
+      
