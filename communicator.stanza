@@ -7,7 +7,8 @@ defpackage communicator :
 
 var term : True|False = true
 
-val CYELLOW = "[93m"
+val CYELLOW = "[33m"
+; val CYELLOW = "[32m"
 val CEND = "[0m"
 
 defn cprint ( msg : String ) :
@@ -17,7 +18,7 @@ defn cprint ( msg : String ) :
         ;mprint(newargs)
         print(newargs)
     else:
-        val newargs = append-all([to-string(27Y) CYELLOW msg to-string(27Y) CEND])
+        val newargs = append-all([to-string(to-char(27)) CYELLOW msg to-string(to-char(27)) CEND])
         print(newargs)
 
 defn cprintln (msg : String) :
@@ -26,7 +27,7 @@ defn cprintln (msg : String) :
 
 val input-buffer : Vector<Char> = Vector<Char>()
 defn input ( msg : String ) -> String :
-    print("input ")
+    cprint(append(msg, "> "))
     clear(input-buffer)
     ; do not return until '\n' is gotten
     label<False> break :
@@ -42,7 +43,7 @@ defn input ( msg : String ) -> String :
                     ; print(input-buffer)
                 (c) : false
     val result = string-join(input-buffer)
-    println(result)
+    ; println(result)
     result
 
 public defstruct Communicator :
@@ -68,10 +69,10 @@ public defn make-communicator (lab : Labyrinth, usplayer : String, jihadistplaye
     comm
 
 public defn queryGeneric (comm : Communicator, who : String, msg : String, validAnswers : Tuple<String>, reason : String, 
-                            displays : Tuple<String>, tooltips : Tuple<String>|False, canNull : True|False) -> String|False:
+                            displays : Tuple<String>, tooltips : Tuple<String>|False, canNull : True|False) -> String|False :
     label<String|False> return :
         val game = game(comm)
-        val message = append-all(["[" who "]" msg])
+        val message = append-all(["[" who "]" msg "> "])
         if length(validAnswers) == 0:
             return(false)
         var ans : String|False = false
@@ -126,20 +127,20 @@ public defn endOneGame (comm : Communicator) :
 
 public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tuple<Int>) -> Int :
     val game = game(comm)
-    println("validAnswers=%_" % [validAnswers])
+    cprintln(to-string("validAnswers=%_" % [validAnswers]))
     val who = currentplayer(game)
     val message = append-all(["[" who "]" msg])
-    var ans : Int|False = false
+    var ans : Int = 0
     while not (contains?(validAnswers, ans)) :
         label<False> continue :
             if who == "us" and usplayer(game) == "bot" :
                 ; todo
                 ; ans = queryCardPlay(usbot(comm), msg, validAnswers)
-                ans = false
+                false
             else if who == "jihadist" and jihadistplayer(game) == "bot" :
                 ; todo
                 ; ans = queryCardPlay(jbot(comm), msg, validAnswers)
-                ans = false
+                false
             else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web":
                 val displays = Vector<String>()
                 val tooltips = Vector<String>()
@@ -156,17 +157,19 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                     add(tooltips, msg)
                 ; todo
                 ;ans = wait_for_webanswer(comm, msg, validAnswers, displays, tooltips)
-                ans = false
+                ans = 0
                 if ans is Int:
                     ans = ans as Int
             else:
+                ; console
                 var ans-str : String = lower-case(input(message))
-                if countries(game)[ans-str] is-not False:
-                    val country = (countries(game))[ans-str]
-                    if country is Country:
-                        print(country as Country)        
-                    ans = 0
-                    continue
+                val countries = countries(game)
+                val country = countries[ans-str]
+                match(country):
+                    (c : Country) :
+                        print(country as Country)
+                        continue(false)
+                    (c) : false                    
                 if ans-str == "g":
                     ; todo : show gameBoard
                     ; show(gameBoard(game))
@@ -176,7 +179,7 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                     if empty?(card-str) :
                         for card in validAnswers do :
                             val [ops assoc title] = getCardInfo(card)
-                            cprint(to-string("%_ [%_] [%_] '%_'" % [to-string(card) to-string(ops) assoc title]))
+                            cprint(to-string("%_ [%_] [%_] '%_' " % [to-string(card) to-string(ops) assoc title]))
                             var result : True|False = false
                             if assoc == "US" :
                                result = playUSEvent(game, card, true)
@@ -192,7 +195,7 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                                cprintln("")
                             else:
                                cprintln("[Not Playable]")
-                        continue
+                        continue(false)
                     else:
                         if to-int(card-str as String) is-not False:
                             val card-id = to-int(card-str as String)
@@ -202,11 +205,13 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                 if ans-str == "r":
                     println(game)
                     ans = 0
-                    continue
-                if to-int(ans-str) is False:
-                    continue
-                ans = to-int(ans-str)
-    ans as Int
+                    continue(false)
+                val a = to-int(ans-str)
+                match(a) :
+                    (a : Int) : ans = a
+                    (a) : false
+                continue(false)
+    ans
 
 public defn queryEventPlayable (comm : Communicator, who : String, card-id : Int) -> True|False :
     val game = game(comm)
@@ -259,8 +264,11 @@ defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers 
                 return(false)
         ans
 
-public defn queryOpsOrEvent (comm : Communicator, msg : String, validAnswers : Tuple<String>):
-    queryGeneric(comm , currentplayer(game(comm)), msg, validAnswers, "oporevent", ["Operation", "Event"], false, false)
+public defn queryOpsOrEvent (comm : Communicator, msg : String, validAnswers : Tuple<String>) -> String:
+    val ans = queryGeneric(comm , currentplayer(game(comm)), msg, validAnswers, "oporevent", ["Operation", "Event"], false, false)
+    match(ans):
+        (a : String) : a
+        (a) : "o"
 
 public defn finishEvent (comm : Communicator, who : String, card-id : Int) :
     val game = game(comm)

@@ -57,11 +57,8 @@ defn to-countries ( kvs : Tuple<KeyValue<String,?>> ) -> Countries :
    t
 
 public defn get (countries : Countries, name : String) -> Country|False :
-   if contains?(c(countries), name):
-      (c(countries))[name]
-   else:
-      false
-
+   get?(c(countries), name, false)
+   
 defn set (countries : Countries, name : String, country : Country) -> False :
    set(c(countries), name, country)
 
@@ -353,11 +350,8 @@ defmethod print (o : OutputStream, lab : Labyrinth) :
    println(o, "Events used=%_" % [ eventUsed(lab) ] )
    println(o, "CurrentPhaseCountries=%_" % [ currentphaseCountries(lab) ] )
    println(o, "LastPhaseCountries=%_" % [ lastphaseCountries(lab) ] )
-   print(o, decks(lab))
-   print(o, deck(lab))
    print(o, countries(lab))
-   print(o, routes(lab))
-   print(o, scenario(lab))
+   print(o, "Scenario=%_" % [ scenario(lab) ])
 
 defn doLog (lab : Labyrinth, log : Int) -> False :
    if log >= 1 :
@@ -651,7 +645,7 @@ defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
       remove-item(hand, card-id)
       set-currentcard(lab, card-id)
       val [ops, assoc, title] = getCardInfo(card-id)
-      gprintln("%_ %_ %_ %_" % [card-id ops assoc title])
+      gprintln("%_ [%_] [%_] '%_'" % [card-id ops assoc title])
 
       if (assoc == "US" and currentplayer(lab) == "jihadist") or (
                assoc == "Jihadist" and currentplayer(lab) == "us") or card-id == 354 or card-id == 120:

@@ -194,14 +194,17 @@ public defn getEventString (who : String, card-id : Int) -> [String|False String
    [condition, description]
 
 public defn showEvent (who : String, card-id : Int):
+   val [ops, assoc, title] = getCardInfo(card-id)
     val [condition description] = getEventString(who, card-id)
-    var msg : String = "Event: "
+    var msg : String = to-string("Event: %_ [%_] [%_] '%_'\n" % [card-id ops assoc title])
     if condition is-not False:
         msg = append(msg, "Prerequisite: ")
         msg = append(msg, condition as String)
+        msg = append(msg, "\n")
     if description is-not False :
         msg = append(msg, "Game Effects: ")
         msg = append(msg, description as String)
+        msg = append(msg, "\n")
     print(msg)
 
 

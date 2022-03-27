@@ -5,8 +5,8 @@ defpackage events :
     import cards
     import communicator
 
-val CGREEN = "\b1b[32m"
-val CEND = "\b1b[0m"
+val CGREEN = "[32m"
+val CEND = "[0m"
 
 var term : True|False  = true
 var globalVerbose = 1
@@ -19,7 +19,7 @@ defn evprint ( msg : String ) :
         ;mprint(newargs)
         print(newargs)
     else:
-        val newargs = append-all([CGREEN msg CEND])
+        val newargs = append-all([to-string(to-char(27)) CGREEN msg to-string(to-char(27)) CEND])
         print(newargs)
 
 defn evprintln (msg : String) :
