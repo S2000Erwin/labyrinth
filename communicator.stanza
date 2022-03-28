@@ -117,6 +117,46 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                 if canNull and ans is False:
                     break(false)
         ans
+
+public defn queryOpType (comm : Communicator, msg : String, validAnswers : Tuple<String>, displays : Tuple<String> ) -> String|False :
+    queryGeneric(currentplayer(game(comm)), msg, validAnswers, "optype", displays, false, false)
+
+public defn queryBoostOps (comm : Communicator, msg : String, validAnswers : Tuple<String>) -> String|False:
+    queryGeneric(currentplayer(game(comm)), msg, validAnswers, "boostop", ["Yes, boost it up", "No, use card Ops"], false, false)
+
+
+public defn queryCountry (comm : Communicator, who : String, msg : String, names : Tuple<String>, reason : String, nonNull : True|False) -> String|False:
+    label<String|False> return:
+        val game = game(comm)
+        val message = append-all("[" who "]" msg)
+        cprint(message)
+        cprintln(names)
+        if length(names) <= 0:
+            return(false)
+        else if length(names)==1:
+            return(names[0])
+        var name : String|False = false
+        while not contains?(names, name):
+            if who == "us" and usplayer(game) == "bot":
+                ; todo
+                ; name = queryCountry(usbot(comm), message, names, reason)
+                false
+            else if who == "jihadist" and jihadistplayer(game) == "bot":
+                ; todo
+                ;name = queryCountry(jbot(comm), message, names, reason)
+                false
+            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web" :
+               ; todo
+               ; name = lower-case(wait_for_webanswer(comm, message, names, names, false))
+               false
+            else:
+                name = lower-case(input("Choose one country: "))
+            cprintln("%_ is received" % [name])
+            if not nonNull and name == false :
+                return(false)
+        name
+
+
         
 public defn endOneGame (comm : Communicator) :
     set-answersOrBounds(comm, "")
@@ -268,6 +308,39 @@ public defn queryOpsOrEvent (comm : Communicator, msg : String, validAnswers : T
     match(ans):
         (a : String) : a
         (a) : "o"
+
+
+public defn queryPlot (comm : Communicator, msg : String, validAnswers : Tuple<String|Int>, reason : String|False) -> String|Int|False :
+    val game = game(comm)
+    val who = "jihadist"
+    var plot : String|Int = 0
+    label<False> return :
+        if length(validAnswers) == 0:
+            return(false)
+        while not contains?(validAnswers, plot):
+            if jihadistplayer(game) == "bot" :
+                ; todo
+                ;plot = queryPlot(jbot(comm), msg, validAnswers, reason)
+                false
+            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web":
+                ; todo
+                ;plot = wait_for_webanswer(comm, msg, validAnswers, validAnswers, false)
+                ;if to-int(plot) is-not False:
+                ;    plot = to-int(plot)
+                false
+            else:
+                plot = lower-case(input(msg))
+                if to-int(plot) is-not False:
+                    plot = to-int(plot)
+        plot
+
+
+public defn queryRadicalization (comm : Communicator, who : String, msg : String, minOps : Int, maxOps : Int, spentUnits : Vector<[String, String]>):
+    val game = game(comm)
+    if jihadistplayer(game) == "bot" :
+        ; todo
+        ; self.jbot.queryRadicalization(msg, minOps, maxOps, spentUnits)
+        false
 
 public defn finishEvent (comm : Communicator, who : String, card-id : Int) :
     val game = game(comm)
