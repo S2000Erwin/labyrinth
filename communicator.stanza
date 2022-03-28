@@ -132,6 +132,52 @@ public defn queryOpType (comm : Communicator, msg : String, validAnswers : Seqab
 public defn queryBoostOps (comm : Communicator, msg : String, validAnswers : Seqable<String>&Lengthable) -> String|False:
     queryGeneric(comm, currentplayer(game(comm)), msg, validAnswers, "boostop", ["Yes, boost it up", "No, use card Ops"], false, false)
 
+public defn queryAlert (comm : Communicator, msg : String, plots : Vector<[String, Int|String]>) -> Int :
+    queryNumber(comm, "us", msg, [0 to length(plots)], "alert", plots)
+
+public defn queryTroopMove (comm : Communicator, msg : String, lower : Int, upper : Int) -> Int :
+    queryNumberBounds(comm, "us", msg, lower, upper, "deploy")
+
+public defn queryTroopMoveRegimeChange (comm : Communicator, msg : String, lower : Int, upper : Int) -> Int :
+    queryNumberBounds(comm, "us", msg, lower, upper, "regimechange")
+
+public defn queryTroopMoveWithdraw (comm : Communicator, msg : String, lower : Int, upper : Int) -> Int :
+    queryNumberBounds(comm, "us", msg, lower, upper, "withdraw")
+
+public defn queryActiveOrSleeper (comm : Communicator, player : String, msg : String, validAnswers : Seqable<String>) -> String:
+    queryGeneric(comm, player, msg, validAnswers, "celltodie", ["Active", "Sleeper"], false, false)
+
+public defn queryReassessment (comm : Communicator, msg : String, validAnswers : Seqable<String>) -> String:
+    queryGeneric(comm, "us", msg, validAnswers, "reassessment", ["Yes, switch now", "No, switch later"], false, false)
+
+
+defn queryNumberBounds (comm : Communicator, who : String, msg : String, lower : Int, upper : Int, reason : String) -> Int :
+    label<Int> return :
+        val game = game(comm)
+        if upper == lower:
+            return(lower)
+        else if upper < lower:
+            return(0)
+        val message = to-string("[%_] %_ (%_~%_)" % [who msg lower upper])
+        var ans : Int = lower - 1
+        while not (lower <= ans and ans <= upper) :
+            if who == "us" and usplayer(game) == "bot" :
+                ; todo
+                ; ans = queryNumberBounds(usbot(comm), msg, lower, upper, reason)
+                false
+            else if who == "jihadist" and jihadistplayer(game) == "bot" :
+                ; todo
+                ; ans = queryNumberBounds(jbot(comm), msg, lower, upper, reason)
+                false
+            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web" :
+                ; val ans-str = wait_for_webbounds(comm, msg, lower, upper)
+                ; ans = (to-int(ans-str) as Int when to-int(ans-str) is-not False else (lower - 1))
+                false
+            else:
+                val ans-str = input(message)
+                ans = (to-int(ans) as Int when to-int(ans-str) is-not False else (lower - 1))
+        ans
+
 
 public defn queryCountry (comm : Communicator, who : String, msg : String, names : Tuple<String>, reason : String, nonNull : True|False) -> String|False:
     label<String|False> return:
@@ -348,9 +394,16 @@ public defn queryRadicalization (comm : Communicator, who : String, msg : String
     val game = game(comm)
     if jihadistplayer(game) == "bot" :
         ; todo
-        ; self.jbot.queryRadicalization(msg, minOps, maxOps, spentUnits)
+        ; queryRadicalization(jbot(comm), msg, minOps, maxOps, spentUnits)
         false
 
+public defn queryHomelandSecurity (comm : Communicator, ops : Int) :
+    val game = game(comm)
+    if usplayer(game) == "bot" :
+        ; todo
+        ; queryHomelandSecurity(usbot(comm), ops)
+        false
+        
 public defn finishEvent (comm : Communicator, who : String, card-id : Int) :
     val game = game(comm)
     if who == "us" and usplayer(game) == "bot" :
