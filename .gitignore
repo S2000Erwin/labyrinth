@@ -1,4 +1,5 @@
 *.exe
 *.a
+*.s
 *.dll
 vassalimages/*.*

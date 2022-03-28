@@ -12,16 +12,21 @@ val CEND = "[0m"
 
 defn cprint<?T> ( msg : ?T ) :
     if not term:
-        val newargs = append-all(["<span style='color:yellow'>" msg "</span>"])
+        print("<span style='color:yellow'>")
+        print(msg)
+        print("</span>")
         ;todo
         ;mprint(newargs)
-        print(newargs)
     else:
-        val newargs = append-all([to-string(to-char(27)) CYELLOW msg to-string(to-char(27)) CEND])
-        print(newargs)
-
+        print(to-string(to-char(27)))
+        print(CYELLOW)
+        print(msg)
+        print(to-string(to-char(27)))
+        print(CEND)
+        
 defn cprintln<?T> (msg : ?T ) :
-    cprint(append(msg, "\n"))
+    cprint(msg)
+    cprint("\n")
 
 
 val input-buffer : Vector<Char> = Vector<Char>()
@@ -67,8 +72,8 @@ public defn make-communicator (lab : Labyrinth, usplayer : String, jihadistplaye
     )
     comm
 
-public defn queryGeneric (comm : Communicator, who : String, msg : String, validAnswers : Tuple<String>, reason : String, 
-                            displays : Tuple<String>, tooltips : Tuple<String>|False, canNull : True|False) -> String|False :
+public defn queryGeneric (comm : Communicator, who : String, msg : String, validAnswers : Seqable<String>&Lengthable, reason : String, 
+                            displays : Seqable<String>, tooltips : Seqable<String>|False, canNull : True|False) -> String|False :
     label<String|False> return :
         val game = game(comm)
         val message = append-all(["[" who "]" msg "> "])
@@ -118,17 +123,20 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                     break(false)
         ans
 
-public defn queryOpType (comm : Communicator, msg : String, validAnswers : Tuple<String>, displays : Tuple<String> ) -> String|False :
-    queryGeneric(currentplayer(game(comm)), msg, validAnswers, "optype", displays, false, false)
+public defn queryOpType (comm : Communicator, msg : String, validAnswers : Seqable<String>&Lengthable, displays : Seqable<String> ) -> String :
+    val ans = queryGeneric(comm, currentplayer(game(comm)), msg, validAnswers, "optype", displays, false, false)
+    match(ans):
+        (ans : String) : ans
+        (ans) : "o"
 
-public defn queryBoostOps (comm : Communicator, msg : String, validAnswers : Tuple<String>) -> String|False:
-    queryGeneric(currentplayer(game(comm)), msg, validAnswers, "boostop", ["Yes, boost it up", "No, use card Ops"], false, false)
+public defn queryBoostOps (comm : Communicator, msg : String, validAnswers : Seqable<String>&Lengthable) -> String|False:
+    queryGeneric(comm, currentplayer(game(comm)), msg, validAnswers, "boostop", ["Yes, boost it up", "No, use card Ops"], false, false)
 
 
 public defn queryCountry (comm : Communicator, who : String, msg : String, names : Tuple<String>, reason : String, nonNull : True|False) -> String|False:
     label<String|False> return:
         val game = game(comm)
-        val message = append-all("[" who "]" msg)
+        val message = append-all(["[" who "]" msg])
         cprint(message)
         cprintln(names)
         if length(names) <= 0:
@@ -310,11 +318,11 @@ public defn queryOpsOrEvent (comm : Communicator, msg : String, validAnswers : T
         (a) : "o"
 
 
-public defn queryPlot (comm : Communicator, msg : String, validAnswers : Tuple<String|Int>, reason : String|False) -> String|Int|False :
+public defn queryPlot (comm : Communicator, msg : String, validAnswers : Seqable<String|Int>&Lengthable, reason : String|False) -> String|Int|False :
     val game = game(comm)
     val who = "jihadist"
     var plot : String|Int = 0
-    label<False> return :
+    label<False|String|Int> return :
         if length(validAnswers) == 0:
             return(false)
         while not contains?(validAnswers, plot):
@@ -329,9 +337,10 @@ public defn queryPlot (comm : Communicator, msg : String, validAnswers : Tuple<S
                 ;    plot = to-int(plot)
                 false
             else:
-                plot = lower-case(input(msg))
-                if to-int(plot) is-not False:
-                    plot = to-int(plot)
+                val plot-str = lower-case(input(msg))
+                match(to-int(plot-str)):
+                    (i : Int) : plot = i
+                    (i) : false
         plot
 
 

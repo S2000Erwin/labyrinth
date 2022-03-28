@@ -314,7 +314,7 @@ public defstruct Labyrinth :
 
 
 defmethod print (o : OutputStream, lab : Labyrinth) :
-   print( o, "GR=%_ IR=%_ FGC=%_ PIC=%_ P=%_ F=%_",
+   print( o, "GR=%_ IR=%_ FGC=%_ PIC=%_ P=%_ F=%_ ",
       % [ getGoodResource(lab) getIslamResource(lab) getFGC(lab) getPIC(lab) prestige(lab) funding(lab)]
    )
    print( o,
@@ -380,9 +380,9 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         0
                         false
                         Vector<Int>()
+                        Vector<[String, Int|String]>()
                         Vector<Int|String>()
-                        Vector<Int|String>()
-                        Vector<String>()
+                        Vector<[String, String]>()
                         0
                         0
                         0
@@ -757,8 +757,8 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
       add(validOps, "t")
       message = append(message, ", (t)ravel")
       add(tooltips, "Travel")
-   if cellAvailable(lab) > 0 :
-      val validCountries = extract( fn (x :String) : getCell(lab, x, true) > 0 or isCadre(lab, x), false)
+   if cellAvailable(lab, false) > 0 :
+      val validCountries = extract(lab, fn (x :String) : (getCell(lab, x, true) > 0 or isCadre(lab, x)), false)
       if length(validCountries) > 0:
             add(validOps, "r")
             message = append(message, ", (r)ecruit")
@@ -768,7 +768,7 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
       message = append(message, ", (p)lot")
       add(tooltips, "Plot")
    label<False> break:
-      for country in countries(lab) do:
+      for country in c(countries(lab)) do:
          val name = key(country)
          label<False> continue:
             if not isMuslim(lab, name):
@@ -777,13 +777,13 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
                continue(false)
             if name == "pakistan" and isMarker(lab, "pakistan", "benazirbhutto"):
                continue(false)
-            if getCell(lab, name, true) - (getTroopStrength(lab, name) + getMilitia(lab, name)) >= 5:
+            if getCell(lab, name, true) - (getTroopStrength(lab, name, false) + getMilitia(lab, name)) >= 5:
                add(validOps, "m")
                message = append(message, ", (m)ajor jihad")
                add(tooltips, "Major Jihad")
                break(false)
    label<False> break:
-      for country in countries(lab) do:
+      for country in c(countries(lab)) do:
          val name = key(country)
          label<False> continue:
             if not isMuslim(lab, name):
@@ -809,19 +809,19 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
    if length(validOps) == 0:
       gprintln("No Ops can be selected")
    else:
-      opsType = queryOpType(comm(lab) as Communicator, message, validOps, tooltips)
+      opsType = queryOpType(comm(lab) as Communicator, message, to-tuple(validOps), to-tuple(tooltips))
    
    if opsType == "r":
       gprintln("Recruit Operation")
       boost-ops = queryBoostOps(lab, boost-ops, potentialOps)
-      val validCountries = extract(lab, fn (x: String) : isCadre(lab, x) or getCell(lab, x, true) > 0, false)
+      val validCountries = extract(lab, fn (x: String) : (isCadre(lab, x) or getCell(lab, x, true) > 0), false)
       ; reduce recruit by funding
-      var buildable = min(boost-ops, cellAvailable(lab))
+      var buildable = min(boost-ops, cellAvailable(lab, false))
       val selections : Vector<String> = Vector<String>()
       gprintln("Jihadist can recruit %_ units" % [buildable])
       while length(selections) < buildable:
-         val name = queryCountry(comm(lab) as Communicator, "jihadist", "Recruit in?", validCountries, "recruit")
-         add(selections, name)
+         val name = queryCountry(comm(lab) as Communicator, "jihadist", "Recruit in?", validCountries, "recruit", false)
+         add(selections, name as String)
          gprintln(selections)
 
       for selection in selections do:
@@ -848,18 +848,22 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
    else if opsType == "t":
       gprintln("Travel")
       boost-ops = queryBoostOps(lab, boost-ops, potentialOps)
-      val selections : Vector<[String, String]> = Vector<[String, String]>()
+      val selections = Vector<[String, String]>()
       label<False> break:
          while length(selections) < boost-ops:
             val validDestinations = Vector<String>()
-            for country in countries(lab) do:
+            for country in c(countries(lab)) do:
                val name = key(country)
                add(validDestinations, name)
-            val toname = queryCountry(comm(lab) as Communicator, "jihadist", "To which country?", validDestinations, "travelto")
-
+            val toname? = queryCountry(comm(lab) as Communicator, "jihadist", "To which country?", to-tuple(validDestinations), "travelto", false)
+            var toname : String = ""
+            match(toname?):
+               (t : String) : toname = t
+               (t) : break(false)
             val validSources = Vector<String>()
             val adjSources = Vector<String>()
-            for name in countries(lab) do:
+            for country in c(countries(lab)) do:
+               val name = key(country)
                if getCell(lab, name, false) > 0:
                   add(validSources, name)
                   if isAdjacent(lab, name, toname, true):
@@ -868,13 +872,15 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
                break(false)
             gprintln("From: %_" % [validSources])
             gprintln("Adjacent to %_:: %_" % [toname adjSources])
-            val fromname = queryCountry(comm(lab) as Communicator, "jihadist", "From which country?", validSources, "travelfrom")
-            if empty?(fromname):
-               break(false)
+            val fromname? = queryCountry(comm(lab) as Communicator, "jihadist", "From which country?", to-tuple(validSources), "travelfrom", false)
+            var fromname = ""
+            match(fromname?):
+               (f : String) : fromname = f
+               (f) : break(false)
             removeOneCell(lab, fromname)
             add(selections, [fromname, toname])
             gprintln("[(from,to)...] %_" % [selections])
-         travel(lab, selections)
+         travel(lab, to-tuple(selections))
          usedOps = length(selections)
    else if opsType == "p":
       gprintln("Plot Operation")
@@ -882,73 +888,84 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
       boost-ops = queryBoostOps(lab, boost-ops, potentialOps)
       val selections = selectAndActivate(lab, "p", boost-ops, "plot")
       ; roll
-      plot(lab, boost-ops, selections)
-      usedOps = length(selections)
+      match(selections):
+         (xs : Tuple<String>) :
+            plot(lab, boost-ops, xs)
+            usedOps = length(xs)
+         (xs) : false
    else if opsType == "j":
       gprintln("Minor Jihad")
       boost-ops = queryBoostOps(lab, boost-ops, potentialOps)
       val selections = selectAndActivate(lab, "j", ops, "minorjihad")
-      usedOps = length(selections)
-      ; roll
-      minorjihad(lab, selections)
+      match(selections):
+         (xs : Tuple<String>) :
+            usedOps = length(xs)
+            ; roll
+            minorjihad(lab, xs, false)
+         (xs) : false
    else if opsType == "m":
       gprintln("Major Jihad")
       boost-ops = queryBoostOps(lab, boost-ops, potentialOps)
-      var selections = selectAndActivate(lab, "m", boost-ops, "majorjihad")
-      ; roll
-      selections = calNeed(lab, selections)
-      val results = HashTable<String, [Int, Int]>()
-      for [name, need] in selections do:
-         label<False> continue:
-            if name == "pakistan" and isMarker(lab, "pakistan", "benazirbhutto"):
-               gprintln("No Jihad in Pakistan under Bhutto")
-               continue(false)
-            var mSuccess = 0
-            var mFail = 0
-            if get?(results, name, false):
-               val result = results[name]
-               mSuccess = result[0]
-               mFail = result[1]
-            gprint("In %_ " % [name])
-            gprintln("Need to roll<=%_" % [to-string(need)] )
-            var drm = getAwaken(lab, name)
-            drm = drm - getReact(lab, name)
-            gprintln( "DRM=%_" % [to-string(drm)] )
-            var die = rollOnce(lab)
-            die = die + drm
-            if die <= need:
-               gprintln("Success")
-               add(spentUnits, [name, "activecell"])
-               if getGovern(lab, name) == "poor":
-                  mSuccess = mSuccess + 1
-               else:
-                  worsenGovern(lab, name)
-               removeOneAid(lab, name)
-            else:
-               ; failed
-               gprintln("Jihad Failed")
-               if getGovern(lab, name) == "poor":
-                  mFail = mFail + 1
-               removeOneActiveCellToTrack(lab, name)
-            results[name] = [mSuccess, mFail]
-            gprintln("result=%_" % [results])
-      for [name, value] in results do:
-         val [mSuccess, mFail] = value
-         if mSuccess >= 2 or (isBesiegedRegime(lab, name) and mSuccess >= 1):
-            gprintln("Major Jihad Succeeded!")
-            toIslamrule(lab, name)
-            changeFunding(lab, getResource(lab, name))
-            if getTroopStrength(lab, name, true) > 0:
-               changePrestige(lab, (- 100))
-         else if mFail + mSuccess >= 3:
-            gprintln("Major Failure")
-            shiftAlign(lab, name, "ally")
-            setBesiegedRegime(lab, name)
-         gprint((countries(lab))[name])
-      usedOps = length(selections)
+      val xs = selectAndActivate(lab, "m", boost-ops, "majorjihad")
+      match(xs):
+         (xs:Tuple<String>) :
+            ; roll
+            val selections = calNeed(lab, xs)
+            val results = HashTable<String, [Int, Int]>()
+            for [name, need] in selections do:
+               label<False> continue:
+                  if name == "pakistan" and isMarker(lab, "pakistan", "benazirbhutto"):
+                     gprintln("No Jihad in Pakistan under Bhutto")
+                     continue(false)
+                  var mSuccess = 0
+                  var mFail = 0
+                  if get?(results, name, false) is-not False:
+                     val result = results[name]
+                     mSuccess = result[0]
+                     mFail = result[1]
+                  gprint("In %_ " % [name])
+                  gprintln("Need to roll<=%_" % [to-string(need)] )
+                  var drm = getAwaken(lab, name)
+                  drm = drm - getReact(lab, name)
+                  gprintln( "DRM=%_" % [to-string(drm)] )
+                  var die = rollOnce(lab)
+                  die = die + drm
+                  if die <= need:
+                     gprintln("Success")
+                     add(spentUnits(lab), [name, "activecell"])
+                     if getGovern(lab, name) == "poor":
+                        mSuccess = mSuccess + 1
+                     else:
+                        worsenGovern(lab, name, false)
+                     removeOneAid(lab, name)
+                  else:
+                     ; failed
+                     gprintln("Jihad Failed")
+                     if getGovern(lab, name) == "poor":
+                        mFail = mFail + 1
+                     removeOneActiveCellToTrack(lab, name)
+                  results[name] = [mSuccess, mFail]
+                  gprintln("result=%_" % [results])
+            for result in results do:
+               val name = key(result)
+               val value = value(result)
+               val [mSuccess, mFail] = value
+               if mSuccess >= 2 or (isBesiegedRegime(lab, name) and mSuccess >= 1):
+                  gprintln("Major Jihad Succeeded!")
+                  toIslamrule(lab, name)
+                  changeFunding(lab, getResource(lab, name))
+                  if getTroopStrength(lab, name, true) > 0:
+                     changePrestige(lab, (- 100))
+               else if mFail + mSuccess >= 3:
+                  gprintln("Major Failure")
+                  shiftAlign(lab, name, "ally")
+                  setBesiegedRegime(lab, name)
+               gprint((countries(lab))[name])
+            usedOps = length(selections)
+         (f) : false
    else if opsType == "v":
       val oReserve = jihadistreserve(lab)
-      set-jihadistreserve(lab, jihadistreserve + ops)
+      set-jihadistreserve(lab, jihadistreserve(lab) + ops)
       set-jihadistreserve(lab, min(2, jihadistreserve(lab)) )
       gprintln("Jihadist Reserve from %_ to %_" % [oReserve jihadistreserve(lab)])
       usedOps = ops
@@ -963,7 +980,7 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
       if maxOps < 3 and jihadistreserve(lab) > 0:
             maxOps = maxOps + jihadistreserve(lab)
       maxOps = min(3, maxOps)
-      queryRadicalization(lab , "jihadist", "Do any actions", maxOps1, maxOps, spentUnits(lab))
+      queryRadicalization(comm(lab) as Communicator, "jihadist", "Do any actions", maxOps1, maxOps, spentUnits(lab))
    checkAutoWin(lab)
 
 defn travel (lab : Labyrinth, selections : Tuple<[String, String]>) :
@@ -971,7 +988,7 @@ defn travel (lab : Labyrinth, selections : Tuple<[String, String]>) :
    for [fromname, toname] in selections do:
       if isAdjacent(lab, fromname, toname, true) and not (contains?(lapsing(lab), 169) and isSchengen(lab, toname)):
          ; auto-success
-         add(spentUnits, [toname, addOneCell(lab, toname, "travelto", false)])
+         add(spentUnits(lab), [toname, addOneCell(lab, toname, "travelto", false)])
          ; test the country
          testCountry(lab, toname)
       else:
@@ -983,7 +1000,7 @@ defn travel (lab : Labyrinth, selections : Tuple<[String, String]>) :
          gprint("Need <=%_ to %_ with drm=%_ " % [need toname drm])
          if rollOnce(lab) + drm <= need:
             gprintln("Success")
-            add(spentUnits, [toname, addOneCell(lab, toname, "travelto", false)])
+            add(spentUnits(lab), [toname, addOneCell(lab, toname, "travelto", false)])
          else :
             gprintln("Go to Track")
             if lesscell(lab) > 0:
@@ -996,13 +1013,13 @@ defn travel (lab : Labyrinth, selections : Tuple<[String, String]>) :
 
 defn plot (lab : Labyrinth, ops : Int, selections : Tuple<String>) :
    for name in selections do :
-      add(spentUnits, [name, "activecell"])
+      add(spentUnits(lab), [name, "activecell"])
       gprint("In %_ " % [name])
       val need = getGovernNum(lab, name)
       gprintln("Need to roll<=%_" % [need])
       val die = rollOnce(lab)
       if die <= need:
-         val availables = to-vector(plotAvailables)   ; clone
+         val availables = to-vector<String|Int>(plotAvailables(lab))   ; clone
          if ops < 3:
             while contains?(availables, 3):
                remove-item(availables, 3)
@@ -1011,14 +1028,17 @@ defn plot (lab : Labyrinth, ops : Int, selections : Tuple<String>) :
                remove-item(availables, 2)
          gprintln("Success. Plots Available=%_" % [availables])
          if length(availables) > 0:
-            placePlot{lab name _} $ (queryPlot $ comm(lab) as Communicator "Choose Plot" plotAvailables(lab))
+            val ans = queryPlot( comm(lab) as Communicator "Choose Plot" plotAvailables(lab) false) 
+            match(ans):
+               (ans : Int|String) : placePlot(lab name ans)
+               (ans) : false 
       else:
             ; failed
             gprintln("Plot Failed")
 
 defn placePlot (lab : Labyrinth, name : String, plot : String|Int):
    label<False> return :
-      if not contains?(plotAvailables, plot):
+      if not contains?(plotAvailables(lab), plot):
          return(false)
       add(plots(lab), [name, plot])
       remove-item(plotAvailables(lab), plot)
@@ -1043,8 +1063,8 @@ defn minorjihad (lab : Labyrinth, input-selections : Tuple<String>, ignoreUnit :
          die = die + drm
          if die <= need:
             if not ignoreUnit:
-               add(spentUnits, [name, "activecell"])
-            worsenGovern(lab, name)
+               add(spentUnits(lab), [name, "activecell"])
+            worsenGovern(lab, name, false)
             removeOneAid(lab, name)
             add(results, [name, "success"])
          else:
@@ -1057,7 +1077,17 @@ defn minorjihad (lab : Labyrinth, input-selections : Tuple<String>, ignoreUnit :
    to-tuple(results)
 
 
-
+defn queryBoostOps (lab : Labyrinth, ops : Int, potentialOps : Int) -> Int:
+   label<Int> return :
+      if ops == potentialOps:
+         return(ops)
+      if currentplayer(lab) == "us":
+         gprintln("Current Ops:%_ US Reserve:%_" % [ ops usreserve(lab)])
+      else:
+         gprintln("Current Ops:%_ Jihadist Reserve:%_" % [ ops jihadistreserve(lab)])
+      val msg = "Do you want to boost Ops, (y)es or (n)o?"
+      val ans = queryBoostOps(comm(lab) as Communicator, msg, ["y", "n"])
+      potentialOps when ans == "y" else ops
 
 defn playUSOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
    false    
@@ -1155,21 +1185,36 @@ defn determineFinalWinner (lab : Labyrinth) :
    set-finalWin(lab, true)
 
 defn setAttr (lab: Labyrinth, name: String, attr: String, value: String|Int|True|False) -> True|False :
-   val country = countries(lab)[name]
+   val country = (c(countries(lab)))[name]
    match(country) :
       (country : Country) : 
          val attrs = attrs(country)
+         val attr? = false when get?(attrs, attr, false) is False else true
          match(value):
-            (f:False) : remove(attrs, attr)
+            (f:False) : 
+               if attr? :
+                  remove(attrs, attr)
+                  addCountryToCurrentPhase(lab, name)
+                  true
+               else:
+                  false
             (v:Int) :
                if v == 0:
-                  remove(attrs, attr)
+                  if attr? :
+                     remove(attrs, attr)
+                     addCountryToCurrentPhase(lab, name)
+                     true
+                  else :
+                     false
                else :
                   attrs[attr] = value
-            (value) : attrs[attr] = value
-         addCountryToCurrentPhase(lab, name)
-         gprint(country)
-         true
+                  addCountryToCurrentPhase(lab, name)
+                  true
+            (value) : 
+               attrs[attr] = value
+               addCountryToCurrentPhase(lab, name)
+               attr?
+         ; gprint(country)
       (country) : false
 
 defn getAttr (lab: Labyrinth, name : String, attr: String) -> String|Int|True|False :
@@ -1419,15 +1464,15 @@ defn rollGovern (lab : Labyrinth, name : String) :
    gprintln("Country %_ is %_" % [name getGovern(lab,name)])
 
 defn rollPosture (lab : Labyrinth, name : String, drm:Int) :
-   gprint("Roll Posture for %_" % [name])
+   gprint("Roll Posture for %_ " % [name])
    var die = rollOnce(lab) + drm
    if name == "us":
       die = die + 1
    if die <= 4:
-      gprint("soft")
+      gprintln("soft")
       setPosture(lab, name, "soft")
    else:
-      gprint("hard")
+      gprintln("hard")
       setPosture(lab, name, "hard")
 
 defn rollOnce (lab : Labyrinth) :
@@ -1548,11 +1593,13 @@ defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<S
                   add(v, name)
       (candidates):
          for country in c(countries(lab)) do:
-            val name = key(country)
-            if func(name):
-               if isMarker(lab, name, "truce"):
-                  if mayEndTruce(lab, name):
-                     add(v, name)
+            label<False> continue:
+               val name = key(country)
+               if func(name):
+                  if isMarker(lab, name, "truce"):
+                     if not mayEndTruce(lab, name):
+                        continue(false)
+                  add(v, name)
    to-tuple(v)
 
 defn mayEndTruce (lab : Labyrinth, name : String) -> True|False :
@@ -1976,7 +2023,7 @@ defn polarization (lab : Labyrinth) :
 defn attrition (lab : Labyrinth) :
    false
 
-defn disengagement (lab : Labyrinth, name : String) :
+defn disengagement (lab : Labyrinth, name : String, who : String) :
    false
 
 ; todo
@@ -2009,19 +2056,19 @@ defn getTroopStrength (lab : Labyrinth, name : String, forPrestige : True|False)
             (un : Int) :
                troop = troop + un
             (un) : false
-   gprintln("Total Strength=%_" % [troop])
+   ; gprintln("Total Strength=%_" % [troop])
    troop
 
 defn getMilitia (lab : Labyrinth, name : String) -> Int :
    val militia = getAttr(lab, name, "militia")
    match(militia):
-      (m : Int) : militia
+      (m : Int) : m
       (m) : 0
 
 defn getTroop (lab : Labyrinth, name : String) -> Int :
    label<Int> return:
       if name == "track" :
-         return(trooptrack)
+         return(trooptrack(lab))
       val troop = getAttr(lab, name, "troop")
       match(troop):
          (troop: Int) : troop
@@ -2062,12 +2109,12 @@ defn removeOneActiveCellToTrack (lab : Labyrinth, name : String) :
             removeMarker(lab, name, "sadr", true)
             gprintln("Sadr is removed in %_" % [name])
 
-defn calNeed (lab : Labyrinth, sels : Vector<String>) -> Vector<[String, Int]> :
+defn calNeed (lab : Labyrinth, sels : Seqable<String>) -> Tuple<[String, Int]> :
    val selections = Vector<[String, Int]>()
    for name in sels do:
       val need = getGovernNum(lab, name)
       add(selections, [name, need] )
-   selections
+   to-tuple(selections)
 
 defn getRecruitNum (lab : Labyrinth, name : String) -> Int :
    label<Int> return :
@@ -2120,10 +2167,10 @@ defn worsenGovern (lab : Labyrinth, name : String, canIR : True|False) :
       (g: String) :
          switch {g == _} :
             "good" : 
-               setAttr(lab, name, "fair")
+               setAttr(lab, name, "govern", "fair")
                disengagement(lab, name, "react")
             "fair" :
-               setAttr(lab, name, "poor")
+               setAttr(lab, name, "govern", "poor")
                disengagement(lab, name, "react")
             "poor" :
                if canIR: toIslamrule(lab, name)
@@ -2149,9 +2196,9 @@ defn toIslamrule (lab : Labyrinth, name : String) :
    if getArsenal(lab, name) > 0:
       val wmd = getArsenal(lab, name)
       for i in 0 to wmd do:
-         add(plotAvailables, "w")
+         add(plotAvailables(lab), "w")
       setArsenal(lab, name, 0)
-   convergence("react")
+   convergence(lab, "react")
    if isCivilWar(lab, name):
       endCivilWar(lab, name)
    while getMilitia(lab, name) > 0:
@@ -2223,64 +2270,58 @@ defn removeMarkers (lab : Labyrinth, name : String, markers : Tuple<String> ):
       setAttr(lab, name, marker, false)
 
 defn selectAndActivate (lab : Labyrinth, type : String, ops : Int, reason : String) -> Tuple<String>|False:
-   label<False> return :
+   label<False|Tuple<String>> return :
       gprintln("selectAndActivate:%_ %_" % [type ops])
       val selections = Vector<String>()
-      var cell = 0
+      ;var cell = 0
       label<False> break:
          while length(selections) < ops:
             var validCountries = extract(lab, fn (x) : getCell(lab, x, true) > 0 and (
-                     type == "p" or type != "p" and isMuslim(lab, x) and getGovern(lab, x) != "islamrule"), false)
+                     type == "p" or (type != "p" and isMuslim(lab, x) and getGovern(lab, x) != "islamrule")), false)
             if type == "m":
                   validCountries = extract( lab,
-                     fn (x): getCell(lab, x, true) - (getTroopStrength(lab, x) + getMilitia(lab, x)) >= 5, validCountries)
+                     fn (x): getCell(lab, x, true) - (getTroopStrength(lab, x, false) + getMilitia(lab, x)) >= 5, validCountries)
             val candidates = Vector<String>()
             for name in validCountries do:
-                  cell = getCell(lab, name, true)
-                  for selection in selections do:
-                     if selection == name:
-                        cell = cell - 1
-                  if cell > 0:
-                     add(candidates, name)
+               var cell = getCell(lab, name, true)
+               for selection in selections do:
+                  if selection == name:
+                     cell = cell - 1
+               if cell > 0:
+                  add(candidates, name)
             ; candidates established
-            gprintln("candidates=%_" % [candidates])
             if length(candidates) <= 0:
-                  return(false)
-            val name = queryCountry(comm(lab) as Communicator, "jihadist", "In which country?", candidates, reason)
-            if name is False:
-                  break(false)
+               return(false)
+            val name? = queryCountry(comm(lab) as Communicator, "jihadist", "In which country?", to-tuple(candidates), reason, false)
+            if name? is False:
+               break(false)
+            val name = name? as String
             add(selections, name)
             gprintln("selections=%_" % [selections])
       ; activate enough cells
       val temp = HashTable<String, Int>()
       for selection in selections do:
-         if not get?(temp, selection):
+         if get?(temp, selection) is False:
             temp[selection] = 1
          else:
             temp[selection] = temp[selection] + 1
-      gprintln(temp)
       for t in temp do:
          val name = key(t)
-         val value = key(t)
-         gprint("In %_" % [name])
-         val country = (countries(lab))[name]
+         val value = value(t)
+         gprint("In %_ " % [name])
          if type == "m":
-               val inc = getSleeperCell(lab, name, false)
-               if inc > 0:
-                  setSleeperCell(lab, name, 0)
-                  cell = getActiveCell(lab, name, false)
-                  cell = cell + inc
-                  setActiveCell(lab, name, cell)
-               gprint(country)
+            val inc = getSleeperCell(lab, name, false)
+            if inc > 0:
+               setSleeperCell(lab, name, 0)
+               setActiveCell{lab, name, _} $ getActiveCell(lab, name, false) + inc
          else:
-               cell = getActiveCell(lab, name, true)
-               val new-value = max{0, _} $ value - cell
-               gprintln("flip %_ cells" % [new-value])
-               ; flip that many cells
-               if new-value > 0:
-                  setSleeperCell(lab, name, getSleeperCell(lab, name, false) - new-value)
-                  setActiveCell(lab, name, getActiveCell(lab, name, false) + new-value)
-               gprint(country)
+            val new-value = max{0, _} $ {value - _} $ getActiveCell(lab, name, true)
+            gprintln("flip %_ cells" % [new-value])
+            ; flip that many cells
+            if new-value > 0:
+               setSleeperCell(lab, name, getSleeperCell(lab, name, false) - new-value)
+               setActiveCell(lab, name, getActiveCell(lab, name, false) + new-value)
+         gprint(c(countries(lab))[name])
       to-tuple(selections)
 
          

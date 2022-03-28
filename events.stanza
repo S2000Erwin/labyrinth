@@ -14,16 +14,16 @@ var globalVerbose = 1
 
 defn evprint<?T> ( msg : ?T ) :
     if not term:
-        print("<span style='color:yellow'>")
+        print("<span style='color:green'>")
         print(msg)
         print("</span>")
         ;todo
         ;mprint(newargs)
     else:
-        print(to-string(to-char(2)))
+        print(to-string(to-char(27)))
         print(CGREEN)
         print(msg)
-        print(to-string(to-char(2)))
+        print(to-string(to-char(27)))
         print(CEND)
 
 defn evprintln<?T> (msg : ?T) :
