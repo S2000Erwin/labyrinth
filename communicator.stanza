@@ -8,10 +8,9 @@ defpackage communicator :
 var term : True|False = true
 
 val CYELLOW = "[33m"
-; val CYELLOW = "[32m"
 val CEND = "[0m"
 
-defn cprint ( msg : String ) :
+defn cprint<?T> ( msg : ?T ) :
     if not term:
         val newargs = append-all(["<span style='color:yellow'>" msg "</span>"])
         ;todo
@@ -21,7 +20,7 @@ defn cprint ( msg : String ) :
         val newargs = append-all([to-string(to-char(27)) CYELLOW msg to-string(to-char(27)) CEND])
         print(newargs)
 
-defn cprintln (msg : String) :
+defn cprintln<?T> (msg : ?T ) :
     cprint(append(msg, "\n"))
 
 

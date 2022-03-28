@@ -1872,19 +1872,21 @@ defn convergence (lab : Labyrinth, who : String) -> False :
    ; gprint(self.countries[country])
 
 ; todo
-defn polarization (lab : Labyrinth) -> Labyrinth :
-   val a = lab
-   a
+defn polarization (lab : Labyrinth) :
+   false
+   
 
 ; todo
-defn attrition (lab : Labyrinth) -> Labyrinth:
-   lab
+defn attrition (lab : Labyrinth) :
+   false
+
+defn disengagement (lab : Labyrinth, name : String) :
+   false
 
 ; todo
 defn checkPlots (lab : Labyrinth):
    gprintln("Check Plots")
     
-
 defn doDiscard (lab : Labyrinth, card-id : Int) :
    if card-id == 200:
       ; special handling
@@ -1897,9 +1899,233 @@ defn doDiscard (lab : Labyrinth, card-id : Int) :
    else :
       add(discard(lab), card-id)
 
+defn getTroopStrength (lab : Labyrinth, name : String, forPrestige : True|False) -> Int :
+   var troop = getTroop(lab, name)
+   if name != "track" :
+      val nato = getAttr(lab, name, "nato")
+      match(nato):
+         (nato : Int):
+            troop = troop + 2 * nato
+         (nato) : false
+      if not forPrestige :
+         val unscr1973 = getAttr(lab, name, "unscr1973")
+         match(unscr1973):
+            (un : Int) :
+               troop = troop + un
+            (un) : false
+   gprintln("Total Strength=%_" % [troop])
+   troop
 
+defn getMilitia (lab : Labyrinth, name : String) -> Int :
+   val militia = getAttr(lab, name, "militia")
+   match(militia):
+      (m : Int) : militia
+      (m) : 0
 
+defn getTroop (lab : Labyrinth, name : String) -> Int :
+   label<Int> return:
+      if name == "track" :
+         return(trooptrack)
+      val troop = getAttr(lab, name, "troop")
+      match(troop):
+         (troop: Int) : troop
+         (troop) : 0
 
+; this is for travel from. No cadre
+defn removeOneCell (lab : Labyrinth, fromname : String) :
+   var result : String = ""
+   val activeCell = getActiveCell(lab, fromname, false)
+   if activeCell > 0:
+      setActiveCell(lab, fromname, activeCell - 1)
+      result = "activecell"
+   else:
+      val sleeperCell = getSleeperCell(lab, fromname, false)
+      if sleeperCell > 0:
+         setSleeperCell(lab, fromname, sleeperCell - 1)
+         result = "sleepercell"
+   result
+
+defn removeOneActiveCellToTrack (lab : Labyrinth, name : String) :
+   val activecell = getAttr(lab, name, "activecell")
+   match(activecell):
+      (a : Int) :
+         if a > 0:
+            val cell = a - 1
+            if cell > 0:
+               setAttr(lab, name, "activecell", cell)
+            else:
+               setAttr(lab, name, "activecell", false)
+            if lesscell(lab) > 0:
+               set-lesscell(lab, lesscell(lab) - 1)
+            else if cellcamps(lab) < maxcamps(lab) :
+               set-cellcamps(lab, cellcamps(lab) + 1)
+            else:
+               set-celltrack(lab, celltrack(lab) + 1)
+      (a) :
+         if isMarker(lab, name, "sadr") :
+            removeMarker(lab, name, "sadr", true)
+            gprintln("Sadr is removed in %_" % [name])
+
+defn calNeed (lab : Labyrinth, sels : Vector<String>) -> Vector<[String, Int]> :
+   val selections = Vector<[String, Int]>()
+   for name in sels do:
+      val need = getGovernNum(lab, name)
+      add(selections, [name, need] )
+   selections
+
+defn getRecruitNum (lab : Labyrinth, name : String) -> Int :
+   label<Int> return :
+      if isCivilWar(lab, name) or isRegimeChange(lab, name) or isMarker(lab, name, "trainingcamps"):
+         return(6)
+      val recruit = getAttr(lab, name, "recruit")
+      match(recruit):
+         (r : Int): return(r)
+         (r): getGovernNum(lab, name)
+
+defn getGovernNum (lab : Labyrinth, name : String) -> Int :
+   val govern = getGovern(lab, name)
+   match(govern):
+      (g: String) :
+         switch {g == _} :
+            "islamrule": 6
+            "poor" : 3
+            "fair" : 2
+            "good" : 1
+            else :   0
+      (g) : 0
+
+defn isCivilWar (lab : Labyrinth, name : String) -> True|False :
+   val civilwar = getAttr(lab, name, "civilwar")
+   match(civilwar):
+      (c:False) : false
+      (c) : true
+
+defn shiftAlign (lab : Labyrinth, name : String, align : String) :
+   gprintln("Shift Alignment towards %_ in %_" % [ align name])
+   var cur = getAlign(lab, name)
+   if align == "ally":
+      if cur == "adversary":
+            cur = "neutral"
+      else if cur == "neutral":
+            cur = "ally"
+   else if align == "adversary":
+      if cur == "ally":
+            cur = "neutral"
+      else if cur == "neutral":
+            cur = "adversary"
+            removeAllAdvisors(lab, name)
+   if cur != "untested":
+      setAlign(lab, name, cur)
+   gprintln("Alignment of %_ is %_" % [name getAlign(lab, name)] )
+
+defn worsenGovern (lab : Labyrinth, name : String, canIR : True|False) :
+   val govern = getAttr(lab, name, "govern")
+   match(govern):
+      (g: String) :
+         switch {g == _} :
+            "good" : 
+               setAttr(lab, name, "fair")
+               disengagement(lab, name, "react")
+            "fair" :
+               setAttr(lab, name, "poor")
+               disengagement(lab, name, "react")
+            "poor" :
+               if canIR: toIslamrule(lab, name)
+      (g) : false
+
+defn removeOneAid (lab : Labyrinth, name : String) :
+   val aid = getAttr(lab, name, "aid")
+   match(aid) :
+      (aid : Int) :
+         switch { aid > _ } :
+            1 : setAttr(lab, name, "aid", aid - 1)
+            else : setAttr(lab, name, "aid", false)
+         gprintln("Remove One Aid to %_" % [aid])
+      (aid) : false
+
+defn toIslamrule (lab : Labyrinth, name : String) :
+   setAttr(lab, name, "govern", "islamrule")
+   setAlign(lab, name, "adversary")
+   setAwaken(lab, name, 0)
+   setReact(lab, name, 0)
+   removeAllAdvisors(lab, name)
+   removeMarkers(lab, name, ["besiegedregime", "regimechange", "aid"])
+   if getArsenal(lab, name) > 0:
+      val wmd = getArsenal(lab, name)
+      for i in 0 to wmd do:
+         add(plotAvailables, "w")
+      setArsenal(lab, name, 0)
+   convergence("react")
+   if isCivilWar(lab, name):
+      endCivilWar(lab, name)
+   while getMilitia(lab, name) > 0:
+      removeOneMilitia(lab, name)
+   connectCaliphate(lab, name)
+
+defn removeOneMilitia (lab : Labyrinth, name : String):
+   val m = getMilitia(lab, name)
+   if m > 0:
+      setMilitia(lab, name, m - 1)
+
+defn setMilitia (lab : Labyrinth, name : String, m : Int):
+   switch { m == _ } :
+      0 : setAttr(lab, name, "militia", false)
+      else : 
+         setAttr(lab, name, "militia", m)
+         testCountry(lab, name)
+   
+defn getArsenal (lab : Labyrinth, name : String) :
+   val arsenal = getAttr(lab, name, "arsenal")
+   match(arsenal):
+      (a : Int) : a
+      (a) : 0
+
+defn setArsenal (lab : Labyrinth, name : String, arsenal : Int):
+   switch { arsenal == _ } :
+      0 : setAttr(lab, name, "arsenal", false)
+      else : setAttr(lab, name, "arsenal", arsenal)
+
+defn endCivilWar (lab : Labyrinth, name : String):
+   setAttr(lab, name, "civilwar", false)
+   setMilitia(lab, name, 0)
+   removeAllAdvisors(lab, name)
+   removeUNSCR1973(lab, name)
+
+defn setAwaken (lab : Labyrinth, name : String, awaken : Int):
+   label<False> return :
+      if awaken > 0:
+         if not isMuslim(lab, name) or isCivilWar(lab, name) or getGovern(lab, name) == "good" or getGovern(lab, name) == "islamrule":
+               return(false)
+
+      switch { awaken == _ } :
+         0 : setAttr(lab, name, "awaken", false)
+         else : setAttr(lab, name, "awaken", awaken)
+      testCountry(lab, name)
+
+defn setReact (lab : Labyrinth, name : String, react : Int ) :
+   label<False> return :
+      if react > 0:
+         if not isMuslim(lab, name) or isCivilWar(lab, name) or getGovern(lab, name) == "good" or getGovern(lab, name) == "islamrule":
+               return(false)
+
+      switch { react == _ } :
+         0 : setAttr(lab, name, "react", false)
+         else : setAttr(lab, name, "react", react)
+      testCountry(lab, name)
+    
+defn removeUNSCR1973 (lab : Labyrinth, name : String):
+   setAttr(lab, name, "unscr1973", false)
+   
+defn isBesiegedRegime (lab : Labyrinth, name : String) -> True|False :
+   val br = getAttr(lab, name, "besiegedregime")
+   match(br):
+      (br : False) : false
+      (br) : true
+
+defn removeMarkers (lab : Labyrinth, name : String, markers : Tuple<String> ):
+   for marker in markers do :
+      setAttr(lab, name, marker, false)
+      
 
 
    

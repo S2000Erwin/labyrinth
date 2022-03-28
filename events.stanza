@@ -12,18 +12,23 @@ var term : True|False  = true
 var globalVerbose = 1
 
 
-defn evprint ( msg : String ) :
+defn evprint<?T> ( msg : ?T ) :
     if not term:
-        val newargs = append-all(["<span style='color:yellow'>" msg "</span>"])
+        print("<span style='color:yellow'>")
+        print(msg)
+        print("</span>")
         ;todo
         ;mprint(newargs)
-        print(newargs)
     else:
-        val newargs = append-all([to-string(to-char(27)) CGREEN msg to-string(to-char(27)) CEND])
-        print(newargs)
+        print(to-string(to-char(2)))
+        print(CGREEN)
+        print(msg)
+        print(to-string(to-char(2)))
+        print(CEND)
 
-defn evprintln (msg : String) :
-    evprint(append(msg, "\n"))
+defn evprintln<?T> (msg : ?T) :
+    evprint(msg)
+    evprint("\n")
 
 
 defstruct EventTable :

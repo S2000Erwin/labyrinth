@@ -131,3 +131,12 @@ It loosk like expression likes:
 
 does not seem to work. Use return false and match for String instead for empty String.
 
+break(false) instead of break
+-----------------------------
+label<False> break:
+    while true:
+        ...
+        break
+
+has no effect. break(false) should be used.
+
