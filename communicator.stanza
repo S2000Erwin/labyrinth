@@ -159,6 +159,12 @@ public defn queryReassessment (comm : Communicator, msg : String, validAnswers :
         (ans : String) : ans
         (ans) : ""
 
+public defn queryReroll (comm : Communicator, msg : String, validAnswers : Seqable<String>&Lengthable) -> String :
+    val ans = queryGeneric(comm, "jihadist", msg, validAnswers, "plotreroll", ["Yes", "No"], false, false)
+    match(ans) :
+        (ans : String) : ans
+        (ans) : ""
+
 defn queryNumberBounds (comm : Communicator, who : String, msg : String, lower : Int, upper : Int, reason : String) -> Int :
     label<Int> return :
         val game = game(comm)

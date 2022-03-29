@@ -737,10 +737,10 @@ defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
          add-all(lastphaseCountries(lab), currentphaseCountries(lab))
          clear(currentphaseCountries(lab))
          if currentplayer(lab) == "jihadist" :
-               set-currentplayer(lab, "us")
+            set-currentplayer(lab, "us")
          else:
-               checkPlots(lab)
-               set-currentplayer(lab, "jihadist")
+            checkPlots(lab)
+            set-currentplayer(lab, "jihadist")
          set-currentphase(lab, 0)
 
 defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
@@ -1525,6 +1525,108 @@ defn endTurn (lab : Labyrinth) -> True|False :
       gprint(lab)
       false
 
+defn checkPlots (lab : Labyrinth) :
+   label<False> return :
+      gprintln("Check Plots")
+      if length(plots(lab)) <= 0:
+         set-plotSuccess(lab, false)
+         return(false)
+      for [name, plot] in plots(lab) do :
+         if (isCivilWar(lab, name) or isRegimeChange(lab, name)) and (getTroopStrength(lab, name, false) > 0 or isAdvisors(lab, name)):
+            set-plotSuccess(lab, true)
+         gprintln("In %_ Plot=%_" % [name plot])
+         if isMuslim(lab name) or name == "iran":
+            match(plot):
+               (plot : String) :
+                  switch { plot == _ } :
+                     "-w" : changeFunding(lab, (- 100) )
+                     'w'  : changeFunding(lab, 100)
+               (plot : Int) :
+                  if getGovern(lab, name) == "good":
+                     if plot < 0:
+                        changeFunding(lab (- 2) )
+                     else:
+                        changeFunding(lab 2)
+                  else:
+                     if plot < 0:
+                        changeFunding(lab (- 1) )
+                     else:
+                        changeFunding(lab 1)
+               (plot) : false
+            if getTroopStrength(lab, name, true) > 0:
+               match(plot) :
+                  (plot : String) : changePrestige(lab (- 100))
+                  (plot) : changePrestige(lab -1)
+            if isMuslim(lab name):
+               var rolls = 0
+               match(plot) :
+                  (plot : String) : rolls = 3
+                  (plot : Int) : rolls = abs(plot)
+               for roll in 0 to rolls do:
+                  val need = getGovernNum(lab, name)
+                  gprintln("Need roll<=%_" % [need])
+                  val die = rollOnce(lab)
+                  if die <= need:
+                     gprintln("Success. Worsen Governance")
+                     worsenGovern(lab name false)
+                     removeOneAid(lab name)
+         else:
+            ; non-Muslim
+            if name == "us" :
+               match(plot) :
+                  (plot : String) :
+                     gprintln("Game Over. Jihadist Wins")
+                     set-gameend(lab true)
+                     set-winner(lab "jihadist")
+                     set-winMethod(lab "WMD in US")
+                  (plot) :
+                     changeFunding(lab 100)
+                     rollPosture(lab "us" 0)
+                     rollPrestige(lab)
+            else:
+               ; non-muslim non=US
+               match(plot) :
+                  (plot : String) :
+                     gprintln("Funding to 9")
+                     changeFunding(lab 100)
+                  (plot : Int) :
+                     val incF = abs(plot) * ( 2 when getGovern(lab name) == "good" else 1 )
+                     changeFunding(lab, incF)
+               if not isPermPosture(lab name) :
+                  rollPosture(lab name 0)
+                     match(plot) :
+                        (plot : String) :
+                           if usplayer(lab) != "bot" and jihadistplayer(lab) != "bot" :
+                              val ans = queryReroll(comm(lab) as Communicator, "Do you want to re-roll?", ["y", "n"])
+                              if ans == "y":
+                                 rollPosture(lab name, 0)
+               if contains?(schengens name):
+                  val selections = Vector<String>()
+                  while length(selections) < 2:
+                     val validCountries = to-vector<String>(schengens)
+                     remove-item(validCountries name)
+                     for selection in selections do :
+                        remove-item(validCountries selection)
+                     gprintln(validCountries)
+                     val ans = queryCountry(comm(lab) as Communicator, "jihadist", "Choose Schengen Country to Roll Posture", 
+                                             to-tuple(validCountries), "schengenposture", false)
+                     if ans is String :
+                        add(selections, ans as String)
+                  for selection in selections do :
+                     rollPosture(lab, selection, 0)
+         if name == "india" and isMarker(lab, "india", "indopakistanitalks") :
+               gprintln("Remove Indo-Pakistani Talks")
+               removeMarker(lab, "india", "indopakistanitalks", true)
+         match(plot):
+            (plot : Int) :
+               if awakening(lab) :
+                  add(usedPlots(lab) abs(plot))
+               else:
+                  add(plotAvailables(lab), abs(plot))
+      clear(plots(lab))
+      checkAutoWin(lab)
+      false
+
 defn determineFinalWinner (lab : Labyrinth) :
    gprintln("Determine Final Winner")
    var ir = getIslamResource(lab)
@@ -1533,7 +1635,7 @@ defn determineFinalWinner (lab : Labyrinth) :
    for country in c(countries(lab)) do:
       val name = key(country)
       if isGreenRegimeChange(lab, name):
-            green  = green + getResource(lab, name)
+         green  = green + getResource(lab, name)
    if scenario(lab) == "ISILHM":
       var cc = false
       let :
@@ -2356,6 +2458,7 @@ defn countIRCountries (lab : Labyrinth) :
       
 ; todo: implement later
 defn convergence (lab : Labyrinth, who : String) -> False :
+   gprint("convergence not implemented")
    false
    
    ; if not self.awakening:
@@ -2403,20 +2506,19 @@ defn convergence (lab : Labyrinth, who : String) -> False :
 
 ; todo
 defn polarization (lab : Labyrinth) :
+   gprintln("polarization not implemented")
    false
    
 ; todo
 defn attrition (lab : Labyrinth) :
+   gprintln("attrition not implemented")
    false
 
 ; todo
 defn disengagement (lab : Labyrinth, name : String, who : String) :
+   gprintln("disengagement not implemented")
    false
 
-; todo
-defn checkPlots (lab : Labyrinth):
-   gprintln("Check Plots")
-    
 defn doDiscard (lab : Labyrinth, card-id : Int) :
    if card-id == 200:
       ; special handling
