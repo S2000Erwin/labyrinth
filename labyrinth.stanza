@@ -1089,14 +1089,14 @@ defn queryBoostOps (lab : Labyrinth, ops : Int, potentialOps : Int) -> Int:
       val ans = queryBoostOps(comm(lab) as Communicator, msg, ["y", "n"])
       potentialOps when ans == "y" else ops
 
-defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
+defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) -> False :
    label<False> return :
       gprintln("Play US Ops")
       val cardOps = input-ops
       var ops = input-ops
       val potentialOps = min{3, _} $ ops + usreserve(lab)
-      var usedOps = 0
-      var opsType = ""
+      var usedOps : Int = 0
+      var opsType : String = ""
       val validOps = to-vector<String>(["w", "d", "p"])
       var message = "Which Ops?: (w)arOfIdeas, (d)isrupt, de(p)loy"
       val tooltips = to-vector<String>(["War of Ideas", "Disrupt", "Deploy"])
@@ -1112,8 +1112,8 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
          add(validOps, "wd")
          message = append(message, ". (wd)WithDraw")
          add(tooltips, "Withdraw")
-      if (  usplayer(lab) == "bot" and length(ushand(lab)) > 0 and potentialOps >= 3) or
-            (usplayer(lab) != "bot" and (ops >= 3 and hasUSHand3Op(lab) and currentphase(lab) == 0)) :
+      if (  (usplayer(lab) == "bot" and (length(ushand(lab)) > 0) and (potentialOps >= 3)) or
+            (usplayer(lab) != "bot" and (ops >= 3) and hasUSHand3Op(lab) and currentphase(lab) == 0)) :
          add(validOps, "ra")
          message = append(message, ", (ra)Reassessment")
          add(tooltips, "Reassessment")
@@ -1133,7 +1133,7 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
       if opsType == "w":
          gprintln("War Of Ideas")
          ops = queryBoostOps(lab, ops, potentialOps)
-         val validCountries = append-all( 
+         val validCountries = to-tuple{_} $ cat( 
             extract( 
                lab
                fn (x) : 
@@ -1141,7 +1141,7 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
                   (getAlign(lab, x) == "ally" or getAlign(lab, x) == "neutral") and
                   not (getAlign(lab, x) == "ally" and getGovern(lab, x) == "good") and
                   (  not isRegimeChange(lab, x) or isRegimeChange(lab, x) and 
-                     ((getTroopStrength(lab, x) + getMilitia(lab, x) - getCell(lab, x, true)) >= 5) 
+                     ((getTroopStrength(lab, x, false) + getMilitia(lab, x) - getCell(lab, x, true)) >= 5) 
                   ) and
                   ops >= getGovernNum(lab, x)
                false
@@ -1157,11 +1157,11 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
          gprint(validCountries)
          if length(validCountries) <= 0:
             return(false)
-         val name = queryCountry(comm(lab) as Communicator, "us", "War of Ideas", validCountries, "woi")
+         val name = queryCountry(comm(lab) as Communicator, "us", "War of Ideas", validCountries, "woi", false) as String
          usedOps = getGovernNum(lab, name)
          gprintln("%_ Ops used for WoI" % [usedOps])
          if isMuslim(lab, name):
-            val drm = getWoiDRM(lab, name)
+            val drm = getWoiDRM(lab, name, false)
             gprint("DRM=%_" % [drm])
             val die = rollOnce(lab) + drm
             if die >= 5:
@@ -1171,10 +1171,10 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
                   shiftAlign(lab, name, "ally")
             else if die == 4:
                if getAid(lab, name) < 1:
-                  addOneAid(lab, name)
+                  addOneAid(lab, name, false)
          else :
             ; non-Muslim
-            rollPosture(lab, name)
+            rollPosture(lab, name, 0)
             if getPosture(lab, name) == getPosture(lab, "us") :
                changePrestige(lab, 1)
          gprint(countries(lab)[name])
@@ -1200,7 +1200,7 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
                      continue(false)
                   add(validCountries, name)
                   continue(false)
-               if getTroopStrength(lab, name) >= 2 or getMilitia(lab, name) >= 1:
+               if getTroopStrength(lab, name, false) >= 2 or getMilitia(lab, name) >= 1:
                   if isMarker(lab, name, "fata") and not isRegimeChange(lab, name):
                      continue(false)
                   add(validCountries, name)
@@ -1209,7 +1209,7 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
          gprint(validCountries)
          if length(validCountries) <= 0:
             return(false)
-         val name = queryCountry(comm(lab) as Communicator, "us", "Disrupt in which country?", validCountries, "disrupt")
+         val name = queryCountry(comm(lab) as Communicator, "us", "Disrupt in which country?", to-tuple(validCountries), "disrupt", false) as String
          usedOps = getGovernNum(lab, name)
          disrupt(lab, name)
          val country = (c(countries(lab)))[name]
@@ -1224,8 +1224,9 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
       else if opsType == "p":
          gprint("Deploy %_" % [ops])
          ops = queryBoostOps(lab, ops, potentialOps)
-         val validDestinations = to-vector(["track"])
+         val validDestinations = to-vector<String>(["track"])
          for country in c(countries(lab)) do :
+            val name = key(country)
             if isMuslim(lab, name) and getAlign(lab, name) == "ally" and getGovernNum(lab, name) <= ops:
                add(validDestinations, name)
                   
@@ -1233,30 +1234,32 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
          if trooptrack(lab) > 0:
             add(validSources, "track")
          for country in c(countries(lab)) do:
+            val name = key(country)
             label<False> continue :
                if getTroop(lab, name) > 0:
                   if isRegimeChange(lab, name):
-                     if (getTroopStrength(lab, name) + getMilitia(lab, name) - getCell(lab, name, true)) <= 5:
+                     if (getTroopStrength(lab, name, false) + getMilitia(lab, name) - getCell(lab, name, true)) <= 5:
                         continue(false)
                   add(validSources, name)
          if length(validDestinations) > 0 and length(validSources) > 0:
-            val dst = queryCountry(comm(lab) as Communicator, "us", "Where to?", validDestinations, "troopto")
+            val dst = queryCountry(comm(lab) as Communicator, "us", "Where to?", to-tuple(validDestinations), "troopto", false) as String
             remove-item(validSources, dst)
             if length(validSources) > 0:
-               val src = queryCountry(comm(lab) as Communicator, "us", "From where?", validSources, "troopfrom")
+               val src = queryCountry(comm(lab) as Communicator, "us", "From where?", to-tuple(validSources), "troopfrom", false) as String
                val troop = getTroop(lab, src)
                var available = troop
                if isRegimeChange(lab, src):
-                  val surplus = max{0, _} $ getTroopStrength(lab, src) + getMilitia(lab, src) - getCell(lab, src, true) - 5
+                  val surplus = max{0, _} $ getTroopStrength(lab, src, false) + getMilitia(lab, src) - getCell(lab, src, true) - 5
                   available = surplus
                gprintln("Available to Move: %_" % [available])
                val ans = queryTroopMove(comm(lab) as Communicator, "How many to move?", 1, available)
                setTroop(lab, src, troop - ans)
                setTroop(lab, dst, getTroop(lab, dst) + ans)
-               usedOps = 1 when dst == "track" else usedOps = getGovernNum(lab, dst)
+               usedOps = 1 when dst == "track" else getGovernNum(lab, dst)
       else if opsType == "rc":
          val validDestinations = Vector<String>()
          for country in c(countries(lab)) do :
+            val name = key(country)
             label<False> continue :
                if not isMuslim(lab, name):
                   continue(false)
@@ -1267,28 +1270,29 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
          if trooptrack(lab) >= 6 :
             add(validSources, "track")
          for country in c(countries(lab)) do :
+            val name = key(country)
             label<False> continue :
                if getTroop(lab, name) >= 6:
                   if isRegimeChange(lab, name):
-                     if getTroopStrength(lab, name) + getMilitia(lab, name) - getCell(lab, name, true) < 11:
+                     if getTroopStrength(lab, name, false) + getMilitia(lab, name) - getCell(lab, name, true) < 11:
                         continue(false)
                   add(validSources, name)
          ; validDestinations and validSources established
          if length(validSources) > 0 and length(validDestinations) > 0:
-            val dst = queryCountry(comm(lab) as Communicator, "us", "Where to?", validDestinations, "regimechangeto", false)
+            val dst = queryCountry(comm(lab) as Communicator, "us", "Where to?", to-tuple(validDestinations), "regimechangeto", false) as String
             remove-item(validSources, dst)
             if length(validSources) > 0:
-               val src = queryCountry(comm(lab) as Communicator, "us", "From where?", validSources, "regimechangefrom", false)
+               val src = queryCountry(comm(lab) as Communicator, "us", "From where?", to-tuple(validSources), "regimechangefrom", false) as String
                val troop = getTroop(lab, src)
                var available = troop
                if isRegimeChange(lab, src):
-                  val surplus = max{0, _} $ getTroopStrength(lab, src) + getMilitia(lab, src) - getCell(lab, true) - 5
+                  val surplus = max{0, _} $ getTroopStrength(lab, src, false) + getMilitia(lab, src) - getCell(lab, src, true) - 5
                   available = surplus
                gprintln("Available to Move: %_" % [available])
                val ans = queryTroopMoveRegimeChange(comm(lab) as Communicator, "How many to move?", 6, available)
                setTroop(lab, src, troop - ans)
                setTroop(lab, dst, getTroop(lab, dst) + ans)
-               setActiveCell{lab, dst, _} $ { getActiveCell(lab, dst, false) + _ } $ getSleeperCell(lab, dst)
+               setActiveCell{lab, dst, _} $ { getActiveCell(lab, dst, false) + _ } $ getSleeperCell(lab, dst, false)
                setSleeperCell(lab, dst, 0)
                setAlign(lab, dst, "ally")
                rollGovern(lab, dst)
@@ -1296,7 +1300,7 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
                rollPrestige(lab)
          usedOps = 3
       else if opsType == "wd":
-         val validDestination = to-vector(["track"])
+         val validDestination = to-vector<String>(["track"])
          val validSources = Vector<String>()
          for country in c(countries(lab)) do:
             val name = key(country)
@@ -1307,10 +1311,10 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
                   add(validDestination, name)
          ; established
          if length(validSources) > 0 and length(validDestination) > 0:
-            val dst = queryCountry(comm(lab) as Communicator, "us", "Where To?", validDestination, "withdrawto")
+            val dst = queryCountry(comm(lab) as Communicator, "us", "Where To?", to-tuple(validDestination), "withdrawto", false) as String
             remove-item(validSources, dst)
             if length(validSources) > 0:
-               val src = queryCountry(comm(lab) as Communicator, "us", "From where?", validSources, "withdrawfrom")
+               val src = queryCountry(comm(lab) as Communicator, "us", "From where?", to-tuple(validSources), "withdrawfrom", false) as String
                val available = getTroop(lab, src)
                gprintln("Available Troop: %_" % [available])
                val ans = queryTroopMoveWithdraw(comm(lab) as Communicator, "Withdraw how many?", 1, available)
@@ -1324,7 +1328,7 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
          ; special case for Bot
          if usplayer(lab) == "bot" :
             val card = (ushand(lab))[0]
-            val [nextOps, nextAssoc, nextTitle] = getCardInfo(lab, card)
+            val [nextOps, nextAssoc, nextTitle] = getCardInfo(card)
             gprintln("Next Card is [%_] [%_], %_" % [nextOps, nextAssoc, nextTitle])
             val totalOps = ops + nextOps
             gprintln("TotalOps=%_ US Reserve=%_" % [totalOps, usreserve(lab)] )
@@ -1338,25 +1342,25 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
          else:
             var opPlayed : True|False = false
             if not oppoEventDone(lab):
-               val [cardOps, assoc, title] = getCardInfo(lab, currentcard(lab))
+               val [cardOps, assoc, title] = getCardInfo(currentcard(lab))
                if assoc == "Jihadist":
                   switchPosture(lab, "us")
                   opPlayed = true
-                  set-needRemove(lab, playJihadistEvent(lab, currentcard(lab)))
+                  set-needRemove(lab, playJihadistEvent(lab, currentcard(lab), false))
                   set-oppoEventDone(lab, true)
             gprintln("Play another 3 Ops Card")
             val validCards = Vector<Int>()
             for card-id in ushand(lab) do :
-               val [cardOps, assoc, title] = getCardInfo(lab, card-id)
+               val [cardOps, assoc, title] = getCardInfo(card-id)
                if cardOps == 3:
                   add(validCards, card-id)
             gprintln(validCards)
-            val ans = queryCardPlay(comm(lab) as Communicator, "Choose Card ID", validCards)
-            val [cardOps, assoc, title] = getCardInfo(lab, ans)
+            val ans = queryCardPlay(comm(lab) as Communicator, "Choose Card ID", to-tuple(validCards))
+            val [cardOps, assoc, title] = getCardInfo(ans)
             remove-item(ushand(lab), ans)
             if opPlayed:
                if assoc == "Jihadist":
-                  if playJihadistEvent(lab, ans):
+                  if playJihadistEvent(lab, ans, false):
                      add(removed(lab), ans)
                   else:
                      doDiscard(lab, ans)
@@ -1370,7 +1374,7 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
                      switchPosture(lab, "us")
                      opPlayed = true
                   else:
-                     if playJihadistEvent(lab, card-id):
+                     if playJihadistEvent(lab, card-id, false) :
                         add(removed(lab), card-id)
                      else:
                         doDiscard(lab, card-id)
@@ -1400,13 +1404,14 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) :
          if usplayer(lab) == "bot" :
             queryHomelandSecurity{comm(lab) as Communicator, _} $ cardOps - usedOps
       checkAutoWin(lab)
+      false
 
 defn disrupt (lab : Labyrinth, name : String) :
-   var affect = 1
-   var pInc = 0
+   var affect : Int = 1
+   var pInc : Int = 0
    if getPosture(lab, name) == "hard" :
       affect = 2
-   else if getTroopStrength(lab, name) >= 2:
+   else if getTroopStrength(lab, name, false) >= 2:
       if isMarker(lab, "iraq", "alanbar") and (name == "iraq" or name == "syria") :
          affect = 1
          pInc = 1
@@ -1428,7 +1433,7 @@ defn disrupt (lab : Labyrinth, name : String) :
          val cell = getSleeperCell(lab, name, false)
          setSleeperCell(lab, name, cell - affect)
          setActiveCell(lab, name, getActiveCell(lab, name, false) + affect)
-      else if getSleeperCell(lab, name) == 0:
+      else if getSleeperCell(lab, name, false) == 0:
          ; only active
          val cell = getActiveCell(lab, name, false)
          for i in 0 to affect do:
@@ -1598,7 +1603,7 @@ defn setAttr (lab: Labyrinth, name: String, attr: String, value: String|Int|True
 defn getAttr (lab: Labyrinth, name : String, attr: String) -> String|Int|True|False :
    val cc = c(countries(lab))
    ; gprintln("GetAttr: %_ %_" % [name attr])
-   val country = cc[name]
+   val country = get?(cc, name, false)
    match(country):
       (country : Country) :
          val value = get?(attrs(country), attr)
@@ -2067,7 +2072,7 @@ defn changePrestige (lab : Labyrinth, inc : Int) :
       set-prestige(lab, 12)
    if prestige(lab) < 1 :
       set-prestige(lab, 1)
-   gprint("Change Prestige from %_ by %_ to %_" % [oPrestige inc prestige(lab)])
+   gprintln("Change Prestige from %_ by %_ to %_" % [oPrestige inc prestige(lab)])
 
 defn getGoodResource (lab : Labyrinth):
    var resources = 0
@@ -2595,20 +2600,20 @@ defn toGood (lab : Labyrinth, name : String) :
       val candidates = Vector<String>()
       for other-country in c(countries(lab)) do:
          val other = key(other-country)
-         if isAdjacent(lab, name, other) and isCaliphate(lab, other) :
+         if isAdjacent(lab, name, other, false) and isCaliphate(lab, other) :
             add(candidates, other)
       if length(candidates) > 0:
          changePrestige(lab, 1)
          changeFunding(lab, (- 1))
          if length(candidates) > 1:
          val capital = (
-            queryCountry(comm(lab) as Communicator, "jihadist", "Choose new Caliphate Capital", candidates, "caliphatecapital") when
+            queryCountry(comm(lab) as Communicator, "jihadist", "Choose new Caliphate Capital", to-tuple(candidates), "caliphatecapital", false) when
             length(candidates) > 1 else candidates[0]
-         )
+         ) as String
          setCaliphateCapital(lab, capital)
          gprintln("New Caliphate Capital in %_" % [capital])
          ; remove isolated Caliphate
-         val caliphates = to-vector([capital])
+         val caliphates = to-vector<String>([capital])
          var join : True|False = true
          while join:
             join = false
@@ -2620,7 +2625,7 @@ defn toGood (lab : Labyrinth, name : String) :
                   if isCivilWar(lab, c) or isRegimeChange(lab, c) or getGovern(lab, c) == "islamrule":
                      label<False> break :
                         for d in caliphates do:
-                           if isAdjacent(lab, c, d):
+                           if isAdjacent(lab, c, d, false):
                               add(caliphates, c)
                               setCaliphateCountry(lab, c)
                               gprintln("Caliphates %_" % [caliphates])
@@ -2780,7 +2785,7 @@ defn selectAndActivate (lab : Labyrinth, type : String, ops : Int, reason : Stri
       to-tuple(selections)
 
 defn countRCCountries (lab : Labyrinth) -> Int:
-   count( isRegimeChange{_}, key{_} $ c(countries(lab)) )
+   count( { isRegimeChange(lab, key(_)) } c(countries(lab)) )
    
 defn switchPosture (lab : Labyrinth, name : String) :
    val pos = getPosture(lab, name)
@@ -2801,7 +2806,7 @@ defn isPermPosture (lab : Labyrinth, name : String) -> True|False :
 defn rollPrestige (lab : Labyrinth) :
    gprint("Roll for Prestige. Currently Prestige=%_" % [prestige(lab)])
    val die = rollOnce(lab) + (max{_, -1} $ getGWOTPenalty(lab))
-   var shift = min(rollOnce(lab), rollOnce(lab))
+   var shift : Int = min(rollOnce(lab), rollOnce(lab))
    shift = ((- shift) when die <= 4 else shift)
    changePrestige(lab, shift)
 
@@ -2809,8 +2814,8 @@ defn getGWOTPenalty (lab : Labyrinth) -> Int :
    val gwot = getGWOTHard(lab)
    max{-3, _} $ min{0, _} $ (gwot when getPosture(lab, "us") == "hard" else (- gwot))
 
-defn hasUSHand3Op (lab : Labyrinth) :
-   count( {val [ops, assoc, title] = getCardInfo(_) ops == 3} ushand(lab) )
+defn hasUSHand3Op (lab : Labyrinth) -> True|False :
+   any?( {val [ops, assoc, title] = getCardInfo(_) ops == 3} ushand(lab) )
 
 defn getWoiDRM (lab : Labyrinth, name : String, ignoreGWOT : True|False) -> Int :
    val toGood = 1 when getGovern(lab, name) == "fair" and getAlign(lab, name) == "ally" else 0
@@ -2821,7 +2826,7 @@ defn getWoiDRM (lab : Labyrinth, name : String, ignoreGWOT : True|False) -> Int 
    gprint("PrestigeDRM=%_ " % [prestigeDRM])
    val aid = getAid(lab, name)
    gprint("Aid=%_ " % [aid])
-   val adjGoodAllyDRM = (1 when any?( { val a = key(_) isMuslim(lab, a) and getGovern(lab, a) == "good" and getAlign(lab, a) == "ally" and isAdjacent(lab, name, a) }
+   val adjGoodAllyDRM = (1 when any?( { val a = key(_) isMuslim(lab, a) and getGovern(lab, a) == "good" and getAlign(lab, a) == "ally" and isAdjacent(lab, name, a, false) }
          c(countries(lab))
       ) else 0)
    gprint("Adjacent to Good Ally DRM=%_ " % [adjGoodAllyDRM])

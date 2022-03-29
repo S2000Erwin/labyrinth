@@ -133,7 +133,10 @@ public defn queryBoostOps (comm : Communicator, msg : String, validAnswers : Seq
     queryGeneric(comm, currentplayer(game(comm)), msg, validAnswers, "boostop", ["Yes, boost it up", "No, use card Ops"], false, false)
 
 public defn queryAlert (comm : Communicator, msg : String, plots : Vector<[String, Int|String]>) -> Int :
-    queryNumber(comm, "us", msg, [0 to length(plots)], "alert", plots)
+    val ans = queryNumber(comm, "us", msg, to-tuple(0 to length(plots)), "alert", to-tuple(plots), false)
+    match(ans):
+        (ans : Int) : ans
+        (ans) : 0
 
 public defn queryTroopMove (comm : Communicator, msg : String, lower : Int, upper : Int) -> Int :
     queryNumberBounds(comm, "us", msg, lower, upper, "deploy")
@@ -144,12 +147,17 @@ public defn queryTroopMoveRegimeChange (comm : Communicator, msg : String, lower
 public defn queryTroopMoveWithdraw (comm : Communicator, msg : String, lower : Int, upper : Int) -> Int :
     queryNumberBounds(comm, "us", msg, lower, upper, "withdraw")
 
-public defn queryActiveOrSleeper (comm : Communicator, player : String, msg : String, validAnswers : Seqable<String>) -> String:
-    queryGeneric(comm, player, msg, validAnswers, "celltodie", ["Active", "Sleeper"], false, false)
+public defn queryActiveOrSleeper (comm : Communicator, player : String, msg : String, validAnswers : Seqable<String>&Lengthable) -> String:
+    val ans = queryGeneric(comm, player, msg, validAnswers, "celltodie", ["Active", "Sleeper"], false, false)
+    match(ans) :
+        (ans : String) : ans
+        (ans) : ""
 
-public defn queryReassessment (comm : Communicator, msg : String, validAnswers : Seqable<String>) -> String:
-    queryGeneric(comm, "us", msg, validAnswers, "reassessment", ["Yes, switch now", "No, switch later"], false, false)
-
+public defn queryReassessment (comm : Communicator, msg : String, validAnswers : Seqable<String>&Lengthable) -> String:
+    val ans = queryGeneric(comm, "us", msg, validAnswers, "reassessment", ["Yes, switch now", "No, switch later"], false, false) 
+    match(ans) :
+        (ans : String) : ans
+        (ans) : ""
 
 defn queryNumberBounds (comm : Communicator, who : String, msg : String, lower : Int, upper : Int, reason : String) -> Int :
     label<Int> return :
@@ -175,8 +183,19 @@ defn queryNumberBounds (comm : Communicator, who : String, msg : String, lower :
                 false
             else:
                 val ans-str = input(message)
-                ans = (to-int(ans) as Int when to-int(ans-str) is-not False else (lower - 1))
+                if to-int(ans-str) is-not False:
+                    ans = to-int( ans-str ) as Int
+                    print("ans=%_" % [ans])
         ans
+
+public defn queryCountry-noNull (comm : Communicator, who : String, msg : String, names : Tuple<String>, reason : String) -> String :
+    val ans = queryCountry(comm, who, msg, names, reason, true)
+    match(ans) :
+        (ans : False) :
+            val n = to-seq(names)
+            next(n)
+        (s : String) : s
+
 
 
 public defn queryCountry (comm : Communicator, who : String, msg : String, names : Tuple<String>, reason : String, nonNull : True|False) -> String|False:
@@ -323,13 +342,14 @@ public defn queryPlayOrder (comm : Communicator, msg : String, validAnswers : Tu
     queryNumber(comm, currentplayer(game(comm)), msg, validAnswers, "playorder",
                             ["I play Ops first", "Opponent plays Event first"], false)
 
-defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers : Tuple<Int>, 
-                    reason : String, displays : Tuple<String>, canNull : True|False) -> Int|False :
+defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers : Seqable<Int>&Lengthable, 
+                    reason : String, displays : Seqable<?>, canNull : True|False) -> Int|False :
     val game = game(comm)
     var ans : Int|False = 0
     label<Int|False> return :
         if length(validAnswers) == 1:
-            ans = validAnswers[0]
+            val v = to-seq(validAnswers)
+            ans = next(v)
             return(ans)
         cprintln(msg)
         cprintln(to-string("Valid Numbers=%_" % [validAnswers]))
