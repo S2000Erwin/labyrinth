@@ -729,7 +729,7 @@ defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
    if not fromEvent:
       gprintln("Current Phase Countries:")
       for name in currentphaseCountries(lab) do :
-         gprintln(countries(lab)[name])
+         gprint(countries(lab)[name])
       set-currentphase(lab, currentphase(lab) + 1)
 
       if currentphase(lab) == 2:
@@ -1249,7 +1249,7 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) -> Fal
                val troop = getTroop(lab, src)
                var available = troop
                if isRegimeChange(lab, src):
-                  val surplus = max{0, _} $ getTroopStrength(lab, src, false) + getMilitia(lab, src) - getCell(lab, src, true) - 5
+                  val surplus = max{0, _} $ (getTroopStrength(lab, src, false) + getMilitia(lab, src) - getCell(lab, src, true) - 5)
                   available = surplus
                gprintln("Available to Move: %_" % [available])
                val ans = queryTroopMove(comm(lab) as Communicator, "How many to move?", 1, available)
@@ -1711,7 +1711,7 @@ defn addCountryToCurrentPhase (lab : Labyrinth, name : String) :
    if f is False :
       add(cpc, name)
 
-defn getPosture (lab : Labyrinth, name : String):
+defn getPosture (lab : Labyrinth, name : String) -> String :
    val posture = getAttr(lab, name, "posture")
    match(posture) :
       (posture : String) : posture
@@ -1809,10 +1809,10 @@ defn testCountry (lab : Labyrinth, name : String) -> False :
       if isMuslim(lab, name):
          rollGovern(lab, name)
          setAlign(lab, name, "neutral")
-         gprint("%_ is a %_ %_" % [name getAlign(lab,name) getGovern(lab,name)])
+         gprintln("%_ is a %_ %_" % [name getAlign(lab,name) getGovern(lab,name)])
       else:
          if name == "iran":
-               break(false)
+            break(false)
          rollPosture(lab, name, 0)
 
 defn getAlign (lab : Labyrinth, name : String) -> String :
@@ -1835,15 +1835,19 @@ defn isMuslim (lab : Labyrinth, name : String) -> True|False :
       
 defn isUntested (lab : Labyrinth, name : String) -> True|False:
    if isMuslim(lab, name):
-      if getGovern(lab, name) == "":
-            true
-      else:
-            false
+      match(getGovern(lab, name)):
+         (f : False) : true
+         (govern : String) :
+            if empty?(govern) :
+               true
+            else:
+               false
+         (f) : true
    else:
       if getPosture(lab, name) == "untested":
-            true
+         true
       else:
-            false
+         false
 
 defn getAid (lab : Labyrinth, name : String) :
    val a = getAttr(lab, name, "aid")
@@ -1980,10 +1984,9 @@ defn isCaliphateCapital (lab : Labyrinth, name : String) :
       (value) : false
       
 defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False) :
-   val real-candidates = seq( { key(_) } c(countries(lab)) ) when candidates is False else to-seq(candidates as Tuple<String>)
    to-tuple{_} $ filter( 
-      fn (name) : ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) )
-      real-candidates
+      { val name = _ ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) ) }
+      seq( { key(_) } c(countries(lab)) ) when candidates is False else to-seq(candidates as Tuple<String>)
    )
 
 defn mayEndTruce (lab : Labyrinth, name : String) -> True|False :
