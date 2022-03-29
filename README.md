@@ -140,3 +140,48 @@ label<False> break:
 
 has no effect. break(false) should be used.
 
+Evolution of extract ()
+-----------------------
+extract () is one of the most used function in this game to extract different countries for the user to designate operations.
+This shows the pattern matching capability of Stanza language (or FP languages in general).
+
+The code below is the first version. An empty Vector is made and then populated by for...loop.
+Even though Stanza is emploted, its full power of Functional Programming is not exploited.
+
+    defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False):
+        val v = Vector<String>()
+        match(candidates) :
+            (candidates:Tuple<String>) :
+                for name in candidates do :
+                    if func(name):
+                        if not (name is String and isMarker(lab, name, "truce") and not mayEndTruce(lab, name)):
+                            add(v, name)
+            (candidates):
+                for country in c(countries(lab)) do:
+                    label<False> continue:
+                    val name = key(country)
+                    if func(name):
+                        if isMarker(lab, name, "truce"):
+                            if not mayEndTruce(lab, name):
+                                continue(false)
+                        add(v, name)
+        to-tuple(v)
+
+Below is the next version using "filter", "when ... else", and immutable "val".
+
+    defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False) :
+        val all-countries = seq( { key(_) } c(countries(lab)) )
+        val real-candidates = all-countries when candidates is False else to-seq(candidates as Tuple<String>)
+        to-tuple{_} $ filter( 
+            fn (name) : ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) )
+            real-candidates
+        )
+
+Then there is a third version. "all-countries" is not constructed until "when candidate is False" is evaluated.
+
+    defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False) :
+        val real-candidates = seq( { key(_) } c(countries(lab)) ) when candidates is False else to-seq(candidates as Tuple<String>)
+        to-tuple{_} $ filter( 
+            fn (name) : ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) )
+            real-candidates
+        )

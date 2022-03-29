@@ -1979,24 +1979,12 @@ defn isCaliphateCapital (lab : Labyrinth, name : String) :
       (value : String) : if value == "capital" : true
       (value) : false
       
-defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False):
-   val v = Vector<String>()
-   match(candidates) :
-      (candidates:Tuple<String>) :
-         for name in candidates do :
-            if func(name):
-               if not (name is String and isMarker(lab, name, "truce") and not mayEndTruce(lab, name)):
-                  add(v, name)
-      (candidates):
-         for country in c(countries(lab)) do:
-            label<False> continue:
-               val name = key(country)
-               if func(name):
-                  if isMarker(lab, name, "truce"):
-                     if not mayEndTruce(lab, name):
-                        continue(false)
-                  add(v, name)
-   to-tuple(v)
+defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False) :
+   val real-candidates = seq( { key(_) } c(countries(lab)) ) when candidates is False else to-seq(candidates as Tuple<String>)
+   to-tuple{_} $ filter( 
+      fn (name) : ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) )
+      real-candidates
+   )
 
 defn mayEndTruce (lab : Labyrinth, name : String) -> True|False :
    label<True|False> return:
