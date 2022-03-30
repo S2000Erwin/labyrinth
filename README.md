@@ -146,7 +146,7 @@ extract () is one of the most used function in this game to extract different co
 This shows the pattern matching capability of Stanza language (or FP languages in general).
 
 The code below is the first version. An empty Vector is made and then populated by for...loop.
-Even though Stanza is emploted, its full power of Functional Programming is not exploited.
+Even though Stanza is employed, its full power of Functional Programming is not exploited.
 
     defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False):
         val v = Vector<String>()
@@ -185,3 +185,13 @@ Then there is a third version. "all-countries" is not constructed until "when ca
             fn (name) : ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) )
             real-candidates
         )
+
+Replace "fn (name)" by curried bracket, and put real-candidates inside "filter", it becomes...
+
+    defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False) :
+        to-tuple{_} $ filter( 
+            { val name = _ ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) ) }
+            seq( { key(_) } c(countries(lab)) ) when candidates is False else to-seq(candidates as Tuple<String>)
+        )
+
+but it looks more cryptic.

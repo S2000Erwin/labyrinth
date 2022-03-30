@@ -303,7 +303,7 @@ public defstruct Labyrinth :
    gameend : True|False with : (setter => set-gameend)
    reason : String with : (setter => set-reason)
    currentcard : Int with : (setter => set-currentcard)
-   gameBoard : GameBoardGraphics|False with : (setter => set-gameBoard)
+   gameBoard : GameBoardGraphics
    comm : Communicator|False with : (setter => set-comm)
    decks : Tuple<Tuple<Int>>|False with : (setter => set-decks)
    finalWin : True|False with : (setter => set-finalWin)
@@ -412,7 +412,7 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         false
                         ""
                         0
-                        false          ; gameBoardGraphics
+                        make-GameBoardGraphics()          ; gameBoardGraphics
                         false          ; communicator
                         false          ; decks
                         false          ; finalWin
@@ -422,7 +422,6 @@ public defn make-labyrinth (  awakening : True|False, foreverwar : True|False, s
                         false          ; plotOp
                      )
    doLog(lab, log)   
-   set-gameBoard(lab, make-GameBoardGraphics(lab))
    set-comm(lab, make-communicator(lab, usplayer, jihadistplayer, terminal, log))
    reset(lab)
    lab

@@ -4,6 +4,8 @@ defpackage communicator :
     import labyrinth
     import cards
     import events
+    import GameBoardGraphics
+    import sdl2
 
 var term : True|False = true
 
@@ -36,16 +38,28 @@ defn input ( msg : String ) -> String :
     ; do not return until '\n' is gotten
     label<False> break :
         while true :
-            val c = get-char(STANDARD-INPUT-STREAM)
-            match(c):
-                (c : Char) :
-                    ; print("received:%_ " % [to-int(c)])
-                    if to-int(c) == 10 or to-int(c) == 14 :
-                        ; print("return received")
-                        break(false)
-                    add(input-buffer, c)
-                    ; print(input-buffer)
-                (c) : false
+            val c = sdl-event-loop()
+            do(
+                {print("%_ " % [_])}
+                c
+            )
+            ;print("nothing")
+            ;val c-byte = get-byte(STANDARD-INPUT-STREAM)
+            ;print(c-byte)
+            ;match(c-byte):
+            ;   (c-byte : Byte) :
+            ;       val c = to-char(c-byte)
+            ;       ; print("received:%_ " % [to-int(c)])
+            ;       
+            ;       if to-int(c) == 10 or to-int(c) == 14 :
+            ;           ; print("return received")
+            ;           break(false)
+            ;       add(input-buffer, c)
+            ;       ; print(input-buffer)
+            ;   (c) :
+            ;       ; nothing from terminal, let's maintain the windows event loop for gameBoard
+            ;       sdl-event-loop()
+            ;       ;print("nothing")
     val result = string-join(input-buffer)
     ; println(result)
     result
@@ -87,8 +101,7 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                     if country is Country :
                         print(country as Country)
                 else if ans == "g":
-                    ; show(gameBoard(game))
-                    false
+                    show(gameBoard(game) game)
                 else if ans is String and length(ans as String) > 0 and (ans as String)[0] == 'c':
                     var card : String = (ans as String)[1 to false]
                     if empty?(card):
@@ -289,9 +302,8 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                         continue(false)
                     (c) : false                    
                 if ans-str == "g":
-                    ; todo : show gameBoard
-                    ; show(gameBoard(game))
-                    false
+                    show(gameBoard(game) game)
+                    continue(false)
                 else if length(ans-str) > 0 and ans-str[0] == 'c' :
                     var card-str = ans-str[1 to false]
                     if empty?(card-str) :

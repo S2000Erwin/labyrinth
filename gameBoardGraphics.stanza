@@ -4,9 +4,28 @@ defpackage GameBoardGraphics :
     import labyrinth
 
 public defstruct GameBoardGraphics :
-    lab : Labyrinth
+    window : Long
+    win-surface : Long 
+    baseBoard : Long
+        
+public defn make-GameBoardGraphics () -> GameBoardGraphics :
+    val [window win-surface] = sdl-create-window("Labyrinth", 850, 550)     ; divided by 4
 
-public defn make-GameBoardGraphics (lab : Labyrinth) -> GameBoardGraphics :
-    val gbg = GameBoardGraphics( lab )
-    ;test-sdl2()
+    val gbg = GameBoardGraphics( 
+        window
+        win-surface
+        sdl-load-image( "vassalimages/Labyrinth Map 2016.jpg", win-surface)    ; baseBoard
+    )
+    ; test-sdl2()
+    print("GameBoardGraphics %_ %_ %_" % [window win-surface baseBoard(gbg)])
+    show(gbg)
     gbg
+
+public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
+    show(gbg)
+
+public defn show (gbg : GameBoardGraphics) :
+    print("show")
+    print("GameBoardGraphics %_ %_ %_" % [window(gbg) win-surface(gbg) baseBoard(gbg)])
+    sdl-overlay(baseBoard(gbg), false, win-surface(gbg), false)
+    sdl-update(window(gbg))
