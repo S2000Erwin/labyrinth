@@ -185,10 +185,23 @@ lostanza defn call-SDL_PollEvent () -> ref<SDL_Event|False> :
    val e = new SDL_Event{0, 0, 0, 0, 0L, 0L}
    val result = call-c SDL_PollEvent(addr!([e]))
    if result != 0 :
-      return new SDL_Event{e.type, e.timestamp e.window-id e.event e.data1 e.data2}
+      return new SDL_Event{e.type e.timestamp e.window-id e.event e.data1 e.data2}
    else:
       return false
-   
+
+lostanza defn type (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.type}
+lostanza defn timestamp (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.timestamp}
+lostanza defn window-id (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.window-id}
+lostanza defn event (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event}
+lostanza defn data1 (e:ref<SDL_Event>) -> ref<Long> :
+   return new Long{e.data1}
+lostanza defn data2 (e:ref<SDL_Event>) -> ref<Long> :
+   return new Long{e.data2}
+
 ; ================
 ; pulbic interface
 ; ================
@@ -199,7 +212,7 @@ public defstruct SDL-rect :
    h : Int
 
 public defn sdl-create-window (name : String, width : Int, height : Int) -> [Long Long] :
-   val result = call-SDL_Init(SDL_INIT_EVERYTHING)
+   val result = call-SDL_Init(SDL_INIT_VIDEO)
    println("SDL_Init:%_" % [result])
    val img_result = call-IMG_Init(IMG_INIT_JPG|IMG_INIT_PNG)
    println("IMG_Init: %_" % [img_result])
@@ -228,11 +241,15 @@ public defn sdl-update (window : Long):
 
 defstruct sdl-event :
    type : Int
+   timestamp : Int
+   window-id : Int
+   event : Int
+   data1 : Long
+   data2 : Long
 
 ; return True if we need to quit
-public defn sdl-event-loop () -> Tuple<SDL_Event>:
-   val v = Vector<SDL_Event>()
-   var counter = 0
+public defn sdl-event-loop () -> Tuple<sdl-event>:
+   val v = Vector<sdl-event>()
    label<False> break :
       while true :
          val e = call-SDL_PollEvent()
@@ -240,10 +257,8 @@ public defn sdl-event-loop () -> Tuple<SDL_Event>:
             (e : False) :
                break(false)
             (e : SDL_Event) :
-               if counter >= 100:
-                  break(false)
-               add(v, e)
-               counter = counter + 1
+               val ee = sdl-event(type(e) timestamp(e) window-id(e) event(e) data1(e) data2(e))
+               add(v, ee)
    to-tuple(v)
          
 

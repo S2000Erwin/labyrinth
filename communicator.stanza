@@ -5,7 +5,6 @@ defpackage communicator :
     import cards
     import events
     import GameBoardGraphics
-    import sdl2
 
 var term : True|False = true
 
@@ -32,34 +31,23 @@ defn cprintln<?T> (msg : ?T ) :
 
 
 val input-buffer : Vector<Char> = Vector<Char>()
-defn input ( msg : String ) -> String :
+defn input ( msg : String, gbg : GameBoardGraphics) -> String :
     cprint(append(msg, "> "))
     clear(input-buffer)
     ; do not return until '\n' is gotten
     label<False> break :
         while true :
-            val c = sdl-event-loop()
-            do(
-                {print("%_ " % [_])}
-                c
-            )
-            ;print("nothing")
-            ;val c-byte = get-byte(STANDARD-INPUT-STREAM)
-            ;print(c-byte)
-            ;match(c-byte):
-            ;   (c-byte : Byte) :
-            ;       val c = to-char(c-byte)
-            ;       ; print("received:%_ " % [to-int(c)])
-            ;       
-            ;       if to-int(c) == 10 or to-int(c) == 14 :
-            ;           ; print("return received")
-            ;           break(false)
-            ;       add(input-buffer, c)
-            ;       ; print(input-buffer)
-            ;   (c) :
-            ;       ; nothing from terminal, let's maintain the windows event loop for gameBoard
-            ;       sdl-event-loop()
-            ;       ;print("nothing")
+            handle-events(gbg)
+            
+            ; val c = get-char(STANDARD-INPUT-STREAM)
+            ; match(c):
+            ;     (c : Char) :
+            ;         match(to-int(c)):
+            ;             (i : Int) : 
+            ;                 break(false) when i == 10
+            ;             (f) : false
+            ;         add(input-buffer, c)
+            ;     (c) : false
     val result = string-join(input-buffer)
     ; println(result)
     result
@@ -131,7 +119,7 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                     ; ans = to-lower(wait_for_webanswer(comm, msg, validAnswers, displays, tooltips)
                     false
                 else:
-                    ans = lower-case(input(message))
+                    ans = lower-case(input(message gameBoard(game)))
                 if canNull and ans is False:
                     break(false)
         ans
@@ -201,7 +189,7 @@ defn queryNumberBounds (comm : Communicator, who : String, msg : String, lower :
                 ; ans = (to-int(ans-str) as Int when to-int(ans-str) is-not False else (lower - 1))
                 false
             else:
-                val ans-str = input(message)
+                val ans-str = input(message gameBoard(game))
                 if to-int(ans-str) is-not False:
                     ans = to-int( ans-str ) as Int
                     print("ans=%_" % [ans])
@@ -242,7 +230,7 @@ public defn queryCountry (comm : Communicator, who : String, msg : String, names
                ; name = lower-case(wait_for_webanswer(comm, message, names, names, false))
                false
             else:
-                name = lower-case(input("Choose one country: "))
+                name = lower-case(input("Choose one country: " gameBoard(game)))
             cprintln("%_ is received" % [name])
             if not nonNull and name == false :
                 return(false)
@@ -293,7 +281,7 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                     ans = ans as Int
             else:
                 ; console
-                var ans-str : String = lower-case(input(message))
+                var ans-str : String = lower-case(input(message gameBoard(game)))
                 val countries = countries(game)
                 val country = countries[ans-str]
                 match(country):
@@ -388,7 +376,7 @@ defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers 
                 if to-int(ans-str) is-not False:
                     ans = to-int(ans-str)
             else:
-                val ans-str = input(message)
+                val ans-str = input(message gameBoard(game))
                 if to-int(ans-str) is-not False:
                     ans = to-int(ans-str)
             if canNull and ans is False:
@@ -421,7 +409,7 @@ public defn queryPlot (comm : Communicator, msg : String, validAnswers : Seqable
                 ;    plot = to-int(plot)
                 false
             else:
-                val plot-str = lower-case(input(msg))
+                val plot-str = lower-case(input(msg gameBoard(game)))
                 match(to-int(plot-str)):
                     (i : Int) : plot = i
                     (i) : false

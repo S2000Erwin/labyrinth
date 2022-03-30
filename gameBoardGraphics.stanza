@@ -29,3 +29,9 @@ public defn show (gbg : GameBoardGraphics) :
     print("GameBoardGraphics %_ %_ %_" % [window(gbg) win-surface(gbg) baseBoard(gbg)])
     sdl-overlay(baseBoard(gbg), false, win-surface(gbg), false)
     sdl-update(window(gbg))
+
+public defn handle-events (gbg : GameBoardGraphics) :
+    do(
+        {print("%_ " % [_])}
+        sdl-event-loop()
+    )
