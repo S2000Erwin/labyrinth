@@ -107,6 +107,9 @@ SDL Hiccup
 It turns out that the built lib has the functions SDL_BlitSurface and SDL_BlitScaled missing. Luckily they are just aliases of SDL_UpperBlit and SDL_UpperBlitScaled. Work around is done in SDL2.stanza
 See https://github.com/BindBC/bindbc-sdl/issues/15
 
+[March 31, 2022]
+SDL_Delay(100) is important within the SDL_PollEvent event loop
+
 [March 23, 2022]
 Optional Function Arguments
 ---------------------------

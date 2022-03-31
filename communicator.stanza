@@ -30,16 +30,30 @@ defn cprintln<?T> (msg : ?T ) :
     cprint("\n")
 
 
-val input-buffer : Vector<Char> = Vector<Char>()
+
 defn input ( msg : String, gbg : GameBoardGraphics) -> String :
-    cprint(append(msg, "> "))
-    clear(input-buffer)
-    ; do not return until '\n' is gotten
+    cprintln(append(msg, "> "))
+    val input-buffer = Vector<Char>()
     label<False> break :
         while true :
-            handle-events(gbg)
+            val result = handle-events(gbg)
+            ;println(result)
+            match(result) :
+                (xs : Tuple<Char>) :
+                    do(
+                        fn (x) :
+                            break(false) when (to-int(x) == 10 or to-int(x) == 13)
+                            throw(Exception("Escape")) when (to-int(x) == 27)
+                            if to-int(x) >= 0x20 :
+                                cprint(x)
+                                add(input-buffer, x)
+                        xs
+                    )
+                (t : True) :
+                    throw( Exception("Program Quit") )
+                (f) : false
             
-            ; val c = get-char(STANDARD-INPUT-STREAM)
+            ; val c = get-char(STANDARD-INPUT-STREAM) ; do not return until '\n' is gotten
             ; match(c):
             ;     (c : Char) :
             ;         match(to-int(c)):
@@ -48,6 +62,7 @@ defn input ( msg : String, gbg : GameBoardGraphics) -> String :
             ;             (f) : false
             ;         add(input-buffer, c)
             ;     (c) : false
+    println()
     val result = string-join(input-buffer)
     ; println(result)
     result

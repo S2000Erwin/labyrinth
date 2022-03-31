@@ -3,25 +3,23 @@ defpackage sdl2 :
    import collections
 
 val SDL_INIT_TIMER =          0x00000001
-val SDL_INIT_AUDIO =         0x00000010
-val SDL_INIT_VIDEO =         0x00000020  ;/**< SDL_INIT_VIDEO implies SDL_INIT_EVENTS */
+val SDL_INIT_AUDIO =          0x00000010
+val SDL_INIT_VIDEO =          0x00000020  ;/**< SDL_INIT_VIDEO implies SDL_INIT_EVENTS */
 val SDL_INIT_JOYSTICK =       0x00000200  ;/**< SDL_INIT_JOYSTICK implies SDL_INIT_EVENTS */
-val SDL_INIT_HAPTIC =        0x00001000
-val SDL_INIT_GAMECONTROLLER =  0x00002000  ;/**< SDL_INIT_GAMECONTROLLER implies SDL_INIT_JOYSTICK */
+val SDL_INIT_HAPTIC =         0x00001000
+val SDL_INIT_GAMECONTROLLER = 0x00002000  ;/**< SDL_INIT_GAMECONTROLLER implies SDL_INIT_JOYSTICK */
 val SDL_INIT_EVENTS =         0x00004000
-val SDL_INIT_SENSOR =        0x00008000
+val SDL_INIT_SENSOR =         0x00008000
 
 val SDL_INIT_EVERYTHING = SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMECONTROLLER | SDL_INIT_SENSOR 
 
-val SDL_WINDOWPOS_UNDEFINED : Int = 0x1fff0000
-val SDL_WINDOWPOS_CENTERED : Int = 0x2fff0000
+val SDL_WINDOWPOS_UNDEFINED   : Int = 0x1fff0000
+val SDL_WINDOWPOS_CENTERED    : Int = 0x2fff0000
 
-val IMG_INIT_JPG : Int = 1
-val IMG_INIT_PNG : Int = 2
-val IMG_INIT_TIF : Int = 4
+val IMG_INIT_JPG  : Int = 1
+val IMG_INIT_PNG  : Int = 2
+val IMG_INIT_TIF  : Int = 4
 val IMG_INIT_WEBP : Int = 8
-
-val SDL_QUIT = 0x100
 
 val SDL_WINDOW_FULLSCREEN = 0x00000001,         ;/**< fullscreen window */
 val SDL_WINDOW_OPENGL = 0x00000002,             ;/**< window usable with OpenGL context */
@@ -60,14 +58,6 @@ lostanza deftype SDL_Rect :
    w: int
    h: int
 
-lostanza deftype SDL_Event :
-   type: int
-   timestamp : int
-   window-id : int
-   event :  int
-   data1 : long
-   data2 : long
-
 lostanza defn SDL_Rect (x:ref<Int>, y:ref<Int>, w:ref<Int>, h:ref<Int>) -> ref<SDL_Rect> :
    return new SDL_Rect{x.value, y.value, w.value, h.value}
 
@@ -76,7 +66,9 @@ lostanza defn SDL_RGBA (r:ref<Byte>, g:ref<Byte>, b:ref<Byte>, a:ref<Byte>) -> r
 
 extern SDL_GetVersion: (ptr<SDL_version>) -> int
 extern SDL_Init: int -> int
+extern SDL_Quit: () -> int
 extern SDL_CreateWindow: (ptr<byte>, int, int, int, int, int) -> long
+extern SDL_DestroyWindow: (long) -> int
 extern SDL_GetWindowSurface: (long) -> long
 extern SDL_FreeSurface: (long) -> int
 extern SDL_ConvertSurface: (long, long, int) -> long
@@ -88,7 +80,7 @@ extern IMG_Init: int -> int
 extern IMG_Quit: () -> int
 extern IMG_Load: (ptr<byte>) -> long
 extern SDL_PollEvent: (ptr<SDL_Event>) -> int
-
+extern SDL_Delay: (int) -> int
 
 lostanza defn call-SDL_version () -> ref<Int> :
    val v = new SDL_version{0Y, 0Y, 0Y}
@@ -99,6 +91,10 @@ lostanza defn call-SDL_Init (a:ref<Int>) -> ref<Int> :
    val result = call-c SDL_Init(a.value)
    return new Int{result}
 
+lostanza defn call-SDL_Quit () -> ref<False> :
+   call-c SDL_Quit()
+   return false
+
 lostanza defn call-SDL_CreateWindow (name : ref<String>, width : ref<Int>, height : ref<Int>) -> ref<Long> :
    val p = call-c SDL_CreateWindow(
                            addr!(name.chars), 
@@ -106,6 +102,10 @@ lostanza defn call-SDL_CreateWindow (name : ref<String>, width : ref<Int>, heigh
                            width.value, height.value, 
                            SDL_WINDOW_RESIZABLE.value)
    return new Long{p}
+
+lostanza defn call-SDL_DestroyWindow (window : ref<Long>) -> ref<False> :
+   call-c SDL_DestroyWindow(window.value)
+   return false
 
 lostanza defn call-SDL_GetWindowSurface (p : ref<Long>) -> ref<Long> :
    val ws = call-c SDL_GetWindowSurface(p.value)
@@ -181,11 +181,31 @@ lostanza defn call-IMG_Load (filename : ref<String>) -> ref<Long> :
    val result = call-c IMG_Load(addr!(filename.chars))
    return new Long{result} 
 
+lostanza defn call-SDL_Delay (ms : ref<Int>) -> ref<False> :
+   call-c SDL_Delay(ms.value)
+   return false
+
+; use 10 bytes. If it is found that more is needed, we can add later
+lostanza deftype SDL_Event :
+   type      : int
+   timestamp : int
+   window-id : int
+   event1    : int
+   event2    : int
+   event3    : int
+   event4    : int
+   event5    : int
+   event6    : int
+   event7    : int
+   event8    : int
+   event9    : int
+   event10   : int
+
 lostanza defn call-SDL_PollEvent () -> ref<SDL_Event|False> :
-   val e = new SDL_Event{0, 0, 0, 0, 0L, 0L}
+   val e = new SDL_Event{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
    val result = call-c SDL_PollEvent(addr!([e]))
    if result != 0 :
-      return new SDL_Event{e.type e.timestamp e.window-id e.event e.data1 e.data2}
+      return new SDL_Event{e.type e.timestamp e.window-id e.event1 e.event2 e.event3 e.event4 e.event5 e.event6 e.event7 e.event8 e.event9 e.event10}
    else:
       return false
 
@@ -195,12 +215,26 @@ lostanza defn timestamp (e:ref<SDL_Event>) -> ref<Int> :
    return new Int{e.timestamp}
 lostanza defn window-id (e:ref<SDL_Event>) -> ref<Int> :
    return new Int{e.window-id}
-lostanza defn event (e:ref<SDL_Event>) -> ref<Int> :
-   return new Int{e.event}
-lostanza defn data1 (e:ref<SDL_Event>) -> ref<Long> :
-   return new Long{e.data1}
-lostanza defn data2 (e:ref<SDL_Event>) -> ref<Long> :
-   return new Long{e.data2}
+lostanza defn event1 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event1}
+lostanza defn event2 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event2}
+lostanza defn event3 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event3}
+lostanza defn event4 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event4}
+lostanza defn event5 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event5}
+lostanza defn event6 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event6}
+lostanza defn event7 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event7}
+lostanza defn event8 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event8}
+lostanza defn event9 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event9}
+lostanza defn event10 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event10}
 
 ; ================
 ; pulbic interface
@@ -212,7 +246,7 @@ public defstruct SDL-rect :
    h : Int
 
 public defn sdl-create-window (name : String, width : Int, height : Int) -> [Long Long] :
-   val result = call-SDL_Init(SDL_INIT_VIDEO)
+   val result = call-SDL_Init(SDL_INIT_EVERYTHING)
    println("SDL_Init:%_" % [result])
    val img_result = call-IMG_Init(IMG_INIT_JPG|IMG_INIT_PNG)
    println("IMG_Init: %_" % [img_result])
@@ -234,31 +268,204 @@ public defn sdl-overlay (src : Long, src-rect : SDL-rect|False, dst : Long, dst-
       SDL_Rect(x(src-rect as SDL-rect), y(src-rect as SDL-rect), w(src-rect as SDL-rect), h(src-rect as SDL-rect)) when src-rect is-not False else false
    val lo-dst-rect : SDL_Rect|False = 
       SDL_Rect(x(dst-rect as SDL-rect), y(dst-rect as SDL-rect), w(dst-rect as SDL-rect), h(dst-rect as SDL-rect)) when dst-rect is-not False else false
-   call-SDL_BlitScaled(src, lo-src-rect, dst, lo-dst-rect)
+   call-SDL_BlitSurface(src, lo-src-rect, dst, lo-dst-rect)
    
 public defn sdl-update (window : Long):
    call-SDL_UpdateWindowSurface(window)
 
-defstruct sdl-event :
-   type : Int
+; copied fro SDL_events.h
+val SDL_FIRSTEVENT     = 0,     ; /**< Unused (do not remove) */
+; /* Application events */
+public val SDL_QUIT           = 0x100, ; /**< User-requested quit */
+
+; /* These application events have special meaning on iOS, see README-ios.md for details */
+val SDL_APP_TERMINATING = 0x101,    ; /**< The application is being terminated by the OS
+                                    ; Called on iOS in applicationWillTerminate()
+                                    ; Called on Android in onDestroy()
+                                    ; */
+val SDL_APP_LOWMEMORY = 0x102,      ; /**< The application is low on memory, free memory if possible.
+                                    ; Called on iOS in applicationDidReceiveMemoryWarning()
+                                    ; Called on Android in onLowMemory()
+                                    ; */
+val SDL_APP_WILLENTERBACKGROUND = 0x103,  ; /**< The application is about to enter the background
+                                          ; Called on iOS in applicationWillResignActive()
+                                          ; Called on Android in onPause()
+                                          ; */
+val SDL_APP_DIDENTERBACKGROUND = 0x104,   ; /**< The application did enter the background and may not get CPU for some time
+                                          ; Called on iOS in applicationDidEnterBackground()
+                                          ; Called on Android in onPause()
+                                          ; */
+val SDL_APP_WILLENTERFOREGROUND = 0x105,  ; /**< The application is about to enter the foreground
+                                          ; Called on iOS in applicationWillEnterForeground()
+                                          ; Called on Android in onResume()
+                                          ; */
+val SDL_APP_DIDENTERFOREGROUND = 0x106,   ; /**< The application is now interactive
+                                          ; Called on iOS in applicationDidBecomeActive()
+                                          ; Called on Android in onResume()
+                                          ; */
+val SDL_LOCALECHANGED = 0x107,   ; /**< The user's locale preferences have changed. */
+
+   ; /* Display events */
+val SDL_DISPLAYEVENT   = 0x150,  ;  /**< Display state change */
+
+   ; /* Window events */
+val SDL_WINDOWEVENT    = 0x200, ; /**< Window state change */
+val SDL_SYSWMEVENT = 0x201,   ;             /**< System specific event */
+
+   ; /* Keyboard events */
+val SDL_KEYDOWN        = 0x300,  ; /**< Key pressed */
+val SDL_KEYUP = 0x301,           ; /**< Key released */
+val SDL_TEXTEDITING = 0x302,     ; /**< Keyboard text editing (composition) */
+val SDL_TEXTINPUT = 0x303,       ; /**< Keyboard text input */
+val SDL_KEYMAPCHANGED = 0x304,   ; /**< Keymap changed due to a system event such as an
+                                 ; input language or keyboard layout change.
+                                 ; */
+
+   ; /* Mouse events */
+val SDL_MOUSEMOTION    = 0x400,  ; /**< Mouse moved */
+val SDL_MOUSEBUTTONDOWN = 0x401, ; /**< Mouse button pressed */
+val SDL_MOUSEBUTTONUP = 0x402,   ; /**< Mouse button released */
+val SDL_MOUSEWHEEL = 0x403,      ; /**< Mouse wheel motion */
+
+   ;/* Audio hotplug events */
+val SDL_AUDIODEVICEADDED = 0x1100,     ; /**< A new audio device is available */
+val SDL_AUDIODEVICEREMOVED = 0x1101,   ; /**< An audio device has been removed. */
+
+   ; /* Sensor events */
+val SDL_SENSORUPDATE = 0x1200,   ; /**< A sensor was updated */
+
+   ; /* Render events */
+val SDL_RENDER_TARGETS_RESET = 0x2000, ; /**< The render targets have been reset and their contents need to be updated */
+val SDL_RENDER_DEVICE_RESET = 0x2001,  ; /**< The device has been reset and all textures need to be recreated */
+
+   ; /* Internal events */
+val SDL_POLLSENTINEL = 0x7F00,   ; /**< Signals the end of an event poll cycle */
+
+   ; /** Events ::SDL_USEREVENT through ::SDL_LASTEVENT are for your use,
+   ;  *  and should be allocated with SDL_RegisterEvents()
+   ; */
+val SDL_USEREVENT    = 0x8000,
+
+   ; /**
+   ;  *  This last event is only for bounding internal arrays
+   ;  */
+val SDL_LASTEVENT    = 0xFFFF
+; } SDL_EventType;
+
+; generic SDL-event
+public deftype SDL-event
+
+public defstruct SDL-generic-event <: SDL-event :
+   type      : Int
    timestamp : Int
    window-id : Int
-   event : Int
-   data1 : Long
-   data2 : Long
+   event1    : Int
+   event2    : Int
+   event3    : Int
+   event4    : Int
+   event5    : Int
+   event6    : Int
+   event7    : Int
+   event8    : Int
+   event9    : Int
+   event10   : Int
+ 
+public defstruct SDL-window-event <: SDL-event :
+   type      : Int
+   timestamp : Int
+   window-id : Int
+   event     : Int
+   data1     : Int
+   data2     : Int
 
-; return True if we need to quit
-public defn sdl-event-loop () -> Tuple<sdl-event>:
-   val v = Vector<sdl-event>()
+public defstruct SDL-mouse-motion-event <: SDL-event :
+   type      : Int
+   timestamp : Int
+   window-id : Int
+   which     : Int
+   state     : Int
+   x         : Int
+   y         : Int
+   xrel      : Int
+   yrel      : Int
+
+public defstruct SDL-mouse-button-event <: SDL-event :
+   type      : Int
+   timestamp : Int
+   window-id : Int
+   which     : Int
+   button    : Byte
+   state     : Byte
+   clicks    : Byte
+   x         : Int
+   y         : Int
+
+public defstruct SDL-keyboard-event <: SDL-event :
+   type      : Int
+   timestamp : Int
+   window-id : Int
+   state     : Byte
+   repeats   : Byte
+   scancode  : Int
+   sym       : Int
+   mod       : Int
+   
+;public defn print-preamble ( o : OutputStream, e : SDL-event ) :
+;   print(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
+
+defmethod print ( o : OutputStream, e : SDL-generic-event ) :
+   ;print-preamble(o, e)
+   println(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
+   print(o, "event1=%_ event2=%_ event3=%_ event4=%_ event5=%_ event6=%_ event7=%_ event8=%_ event9=%_ event10=%_" 
+      % [event1(e) event2(e) event3(e) event4(e) event5(e) event6(e) event7(e) event8(e) event9(e) event10(e)])
+
+defmethod print ( o : OutputStream, e : SDL-window-event ) :
+   ;print-preamble(o, e)
+   println(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
+   print(o, "event=%_ data1=%_ data2=%_" % [event(e) data1(e) data2(e)])
+   
+defmethod print ( o : OutputStream, e : SDL-mouse-motion-event ) :
+   ;print-preamble(o, e)
+   println(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
+   print(o, "which=%_ state=%_ x=%_ y=%_ xrel=%_ yrel=%_"
+      % [which(e) state(e) x(e) y(e) xrel(e) yrel(e)])
+
+defmethod print ( o : OutputStream, e : SDL-mouse-button-event ) :
+   println(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
+   print(o, "which=%_ button=%_ state=%_ clicks=%_ x=%_ y=%_"
+      % [which(e) button(e) state(e) clicks(e) x(e) y(e)])
+
+defmethod print ( o : OutputStream, e : SDL-keyboard-event ) :
+   println(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
+   print(o, "state=%_ repeats=%_ scancode=%_ sym=%_ mod=%_"
+      % [state(e) repeats(e) scancode(e) sym(e) mod(e)])
+
+
+public defn sdl-event-loop () -> Tuple<SDL-event>:
+   call-SDL_Delay(100)
+   val v = Vector<SDL-event>()
    label<False> break :
       while true :
-         val e = call-SDL_PollEvent()
-         match(e):
+         match(call-SDL_PollEvent()):
             (e : False) :
                break(false)
             (e : SDL_Event) :
-               val ee = sdl-event(type(e) timestamp(e) window-id(e) event(e) data1(e) data2(e))
-               add(v, ee)
+               switch { type(e) == _ } :
+                  SDL_WINDOWEVENT :
+                     add(v, SDL-window-event(type(e) timestamp(e) window-id(e) event1(e) event2(e) event3(e)) )
+                  SDL_MOUSEMOTION :
+                     add(v, SDL-mouse-motion-event(type(e) timestamp(e) window-id(e) event1(e) event2(e) event3(e) event4(e) event5(e) event6(e)))
+                  SDL_MOUSEBUTTONUP :
+                     add(v, SDL-mouse-button-event(type(e) timestamp(e) window-id(e) event1(e) to-byte(event2(e)) to-byte(event2(e)>>8) to-byte(event2(e)>>16) event3(e) event4(e)))
+                  SDL_MOUSEBUTTONDOWN :
+                     add(v, SDL-mouse-button-event(type(e) timestamp(e) window-id(e) event1(e) to-byte(event2(e)) to-byte(event2(e)>>8) to-byte(event2(e)>>16) event3(e) event4(e)))
+                  SDL_KEYUP :
+                     add(v, SDL-keyboard-event(type(e) timestamp(e) window-id(e) to-byte(event1(e)) to-byte(event1(e)>>8) event2(e) event3(e) event4(e)))
+                  SDL_KEYDOWN :
+                     add(v, SDL-keyboard-event(type(e) timestamp(e) window-id(e) to-byte(event1(e)) to-byte(event1(e)>>8) event2(e) event3(e) event4(e)))
+                  else : 
+                     add(v, SDL-generic-event(type(e) timestamp(e) window-id(e) 
+                        event1(e) event2(e) event3(e) event4(e) event5(e) event6(e) event7(e) event8(e) event9(e) event10(e) ))
    to-tuple(v)
          
 
@@ -293,7 +500,24 @@ public defn test-sdl2 () :
          call-SDL_UpdateWindowSurface(p)
          call-SDL_FreeSurface(opt_surface)
    
-   while true :
-      println("%_ %_ %_" % [p, ws, ii])
+   label<False> break :
+      while true :
+         ; draw something
+         do(
+            fn (e) : 
+               println(e)
+               match(e):
+                  (e : SDL-window-event) : call-SDL_UpdateWindowSurface(p)
+                  (e : SDL-generic-event) : 
+                     if type(e) == SDL_QUIT :
+                        println("Quit")
+                        break(false)
+                  (e) : false
+            sdl-event-loop()
+         )
+         
+   call-SDL_FreeSurface(ws)
+   call-SDL_DestroyWindow(p)
    call-IMG_Quit()
+   call-SDL_Quit()
 

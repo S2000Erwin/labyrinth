@@ -1,6 +1,10 @@
 defpackage main :
     import labyrinth
-    
+    import sdl2    
 
+; un-comment the line below to test SDL_PollEvent loop
+;test-sdl2()
 val labyrinth = make-labyrinth(true, false, "Surge", "human", "human", true, 1)
 playOneGame(labyrinth, "human", "human")
+
+

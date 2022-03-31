@@ -1,5 +1,6 @@
 defpackage GameBoardGraphics :
     import core
+    import collections
     import sdl2
     import labyrinth
 
@@ -9,7 +10,7 @@ public defstruct GameBoardGraphics :
     baseBoard : Long
         
 public defn make-GameBoardGraphics () -> GameBoardGraphics :
-    val [window win-surface] = sdl-create-window("Labyrinth", 850, 550)     ; divided by 4
+    val [window win-surface] = sdl-create-window("Labyrinth", 1024, 768)
 
     val gbg = GameBoardGraphics( 
         window
@@ -30,8 +31,21 @@ public defn show (gbg : GameBoardGraphics) :
     sdl-overlay(baseBoard(gbg), false, win-surface(gbg), false)
     sdl-update(window(gbg))
 
-public defn handle-events (gbg : GameBoardGraphics) :
-    do(
-        {print("%_ " % [_])}
-        sdl-event-loop()
-    )
+public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
+    val char-buffer = Vector<Char>()
+    label<Tuple<Char>|True|False> return :
+        do( fn (e) :
+                ;println(e)
+                match(e) :
+                    (e : SDL-window-event) : false ; todo: Once p is known, need to call call-SDL_UpdateWindowSurface(p)
+                    (e : SDL-generic-event) : return(true) when SDL_QUIT == type(e)
+                    (e : SDL-keyboard-event) :
+                        if state(e) == 0Y and mod(e) == 0 :
+                            val c = to-char(sym(e))
+                            add(char-buffer, c)
+                    (e) : false 
+            sdl-event-loop()
+        )  
+        to-tuple(char-buffer)
+        
+        
