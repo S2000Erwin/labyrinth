@@ -30,6 +30,8 @@ defn cprintln<?T> (msg : ?T ) :
     cprint("\n")
 
 
+public defstruct CommException <: Exception :
+    reason : String
 
 defn input ( msg : String, gbg : GameBoardGraphics) -> String :
     cprintln(append(msg, "> "))
@@ -43,7 +45,7 @@ defn input ( msg : String, gbg : GameBoardGraphics) -> String :
                     do(
                         fn (x) :
                             break(false) when (to-int(x) == 10 or to-int(x) == 13)
-                            throw(Exception("Escape")) when (to-int(x) == 27)
+                            throw(CommException("Escape")) when (to-int(x) == 27)
                             if to-int(x) >= 0x20 :
                                 cprint(x)
                                 add(input-buffer, x)
@@ -62,7 +64,7 @@ defn input ( msg : String, gbg : GameBoardGraphics) -> String :
             ;             (f) : false
             ;         add(input-buffer, c)
             ;     (c) : false
-    println()
+    cprintln("")
     val result = string-join(input-buffer)
     ; println(result)
     result

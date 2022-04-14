@@ -577,15 +577,18 @@ public defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplaye
    dealHands(lab)
    set-finalWin(lab, false)
    ; todo: try except is used in "web" ui
-   ;try:
-   label<False> break :
-      while true :
-         set-turn(lab, turn(lab)+1)
-         gprintln("Turn %_" % [ turn(lab) ])
-         if checkAutoWin(lab) :
-            break(false)
-         if playOneTurn(lab):
-            break(false)
+   try:
+      label<False> break :
+         while true :
+            set-turn(lab, turn(lab)+1)
+            gprintln("Turn %_" % [ turn(lab) ])
+            if checkAutoWin(lab) :
+               break(false)
+            if playOneTurn(lab):
+               break(false)
+   catch (e : CommException) :
+      gprint(reason(e))
+
    ;except WebAbort:
    ;   return False, '', '', self.turn, ''
    ; determine winner
