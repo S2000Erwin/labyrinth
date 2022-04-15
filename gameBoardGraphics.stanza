@@ -96,7 +96,10 @@ defn move-center (gbg : GameBoardGraphics, x : Int, y : Int) :
             new-center
             scale(gbg)
         ) when scalar(gbg) > 1.0f else
-        new-center
+        map(
+            {max(0.0f min(_ 1.0f))}
+            new-center
+        )
     
     println("final-center=%_" % [final-center])
     set-center(gbg, to-tuple(final-center))
