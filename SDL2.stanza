@@ -70,6 +70,7 @@ extern SDL_Quit: () -> int
 extern SDL_CreateWindow: (ptr<byte>, int, int, int, int, int) -> long
 extern SDL_DestroyWindow: (long) -> int
 extern SDL_GetWindowSurface: (long) -> long
+extern SDL_CreateRGBSurface: (int, int, int, int, int, int, int, int) -> int
 extern SDL_FreeSurface: (long) -> int
 extern SDL_ConvertSurface: (long, long, int) -> long
 extern SDL_UpperBlit: (long, ptr<SDL_Rect>, long, ptr<SDL_Rect>) -> int
@@ -127,6 +128,10 @@ lostanza defn call-SDL_FillRect (p : ref<Long>, rect : ref<SDL_Rect|False>, argb
 lostanza defn call-SDL_UpdateWindowSurface (window : ref<Long>) -> ref<Int> :
    val result = call-c SDL_UpdateWindowSurface(window.value)
    return new Int{result}
+
+lostanza defn call-SDL_CreateRGBSurface (w : ref<Int>, h : ref<Int>) -> ref<Long> :
+   val result = call-c SDL_CreateRGBSurface(0, w.value, h.value, 32, 0, 0, 0, 0)
+   return new Long{result}
 
 lostanza defn call-SDL_FreeSurface (surface : ref<Long> ) -> ref<False> :
    call-c SDL_FreeSurface(surface.value)
@@ -190,7 +195,7 @@ lostanza defn call-SDL_Delay (ms : ref<Int>) -> ref<False> :
    call-c SDL_Delay(ms.value)
    return false
 
-; use 10 bytes. If it is found that more is needed, we can add later
+; use 10 integers. If it is found that more is needed, we can add later
 lostanza deftype SDL_Event :
    type      : int
    timestamp : int
@@ -205,15 +210,22 @@ lostanza deftype SDL_Event :
    event8    : int
    event9    : int
    event10   : int
+   event11   : int
 
 lostanza defn call-SDL_PollEvent () -> ref<SDL_Event|False> :
-   val e = new SDL_Event{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+   val e = new SDL_Event{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
    val result = call-c SDL_PollEvent(addr!([e]))
    if result != 0 :
-      return new SDL_Event{e.type e.timestamp e.window-id e.event1 e.event2 e.event3 e.event4 e.event5 e.event6 e.event7 e.event8 e.event9 e.event10}
+      return new SDL_Event{e.type e.timestamp e.window-id e.event1 e.event2 e.event3 e.event4 e.event5 
+         e.event6 e.event7 e.event8 e.event9 e.event10 e.event11}
    else:
       return false
 
+lostanza defn getFloat (e : ref<SDL_Event> index : ref<Int>) -> ref<Float> :
+   val p = addr!(e.event1)
+   val f = p as ptr<float>
+   val v = f[index.value]
+   return new Float{v}
 lostanza defn type (e:ref<SDL_Event>) -> ref<Int> :
    return new Int{e.type}
 lostanza defn timestamp (e:ref<SDL_Event>) -> ref<Int> :
@@ -240,6 +252,8 @@ lostanza defn event9 (e:ref<SDL_Event>) -> ref<Int> :
    return new Int{e.event9}
 lostanza defn event10 (e:ref<SDL_Event>) -> ref<Int> :
    return new Int{e.event10}
+lostanza defn event11 (e:ref<SDL_Event>) -> ref<Int> :
+   return new Int{e.event11}
 
 ; ================
 ; pulbic interface
@@ -264,6 +278,12 @@ public defn sdl-create-window (name : String, width : Int, height : Int) -> [Lon
 
 public defn sdl-get-window-surface (window : Long) -> Long :
    call-SDL_GetWindowSurface(window)
+
+public defn sdl-create-surface (size : [Int Int]) -> Long :
+   call-SDL_CreateRGBSurface(size[0] size[1])
+
+public defn sdl-free-surface (img-surface : Long) -> False :
+   call-SDL_FreeSurface(img-surface)
 
 public defn sdl-load-image (name : String, win-surface : Long ) -> Long :
    val img-surface = call-IMG_Load(name)
@@ -344,6 +364,11 @@ val SDL_MOUSEBUTTONDOWN = 0x401, ; /**< Mouse button pressed */
 val SDL_MOUSEBUTTONUP = 0x402,   ; /**< Mouse button released */
 val SDL_MOUSEWHEEL = 0x403,      ; /**< Mouse wheel motion */
 
+; /* Gesture events */
+val SDL_DOLLARGESTURE   = 0x800,
+val SDL_DOLLARRECORD = 0x801,
+val SDL_MULTIGESTURE = 0x802,
+
    ;/* Audio hotplug events */
 val SDL_AUDIODEVICEADDED = 0x1100,     ; /**< A new audio device is available */
 val SDL_AUDIODEVICEREMOVED = 0x1101,   ; /**< An audio device has been removed. */
@@ -416,6 +441,7 @@ public defstruct SDL-generic-event <: SDL-event :
    event8    : Int
    event9    : Int
    event10   : Int
+   event11   : Int
  
 public defstruct SDL-window-event <: SDL-event :
    type      : Int
@@ -456,23 +482,27 @@ public defstruct SDL-keyboard-event <: SDL-event :
    scancode  : Int
    sym       : Int
    mod       : Int
-   
-;public defn print-preamble ( o : OutputStream, e : SDL-event ) :
-;   print(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
 
+public defstruct SDL-multigesture-event <: SDL-event :
+   type      : Int
+   timestamp : Int
+   device-id : Long
+   dTheta    : Float
+   dDistance : Float
+   x         : Float
+   y         : Float
+   numFingers : Int
+   
 defmethod print ( o : OutputStream, e : SDL-generic-event ) :
-   ;print-preamble(o, e)
    println(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
-   print(o, "event1=%_ event2=%_ event3=%_ event4=%_ event5=%_ event6=%_ event7=%_ event8=%_ event9=%_ event10=%_" 
-      % [event1(e) event2(e) event3(e) event4(e) event5(e) event6(e) event7(e) event8(e) event9(e) event10(e)])
+   print(o, "event1=%_ event2=%_ event3=%_ event4=%_ event5=%_ event6=%_ event7=%_ event8=%_ event9=%_ event10=%_ event11=%_" 
+      % [event1(e) event2(e) event3(e) event4(e) event5(e) event6(e) event7(e) event8(e) event9(e) event10(e) event11(e)])
 
 defmethod print ( o : OutputStream, e : SDL-window-event ) :
-   ;print-preamble(o, e)
    println(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
    print(o, "event=%_ data1=%_ data2=%_" % [event(e) data1(e) data2(e)])
    
 defmethod print ( o : OutputStream, e : SDL-mouse-motion-event ) :
-   ;print-preamble(o, e)
    println(o, "[type=%_ timestamp=%_ window-id=%_] " % [type(e) timestamp(e) window-id(e)] )
    print(o, "which=%_ state=%_ x=%_ y=%_ xrel=%_ yrel=%_"
       % [which(e) state(e) x(e) y(e) xrel(e) yrel(e)])
@@ -487,6 +517,10 @@ defmethod print ( o : OutputStream, e : SDL-keyboard-event ) :
    print(o, "state=%_ repeats=%_ scancode=%_ sym=%_ mod=%_"
       % [state(e) repeats(e) scancode(e) sym(e) mod(e)])
 
+defmethod print ( o : OutputStream, e : SDL-multigesture-event ) :
+   println(o, "[type=%_ timestamp=%_ device-id=%_]\ndTheta=%_ dDistance=%_ x=%_ y=%_ numFingers=%_]" % 
+      [type(e) timestamp(e) device-id(e) dTheta(e) dDistance(e) x(e) y(e) numFingers(e)]
+   )
 
 public defn sdl-event-loop () -> Tuple<SDL-event>:
    call-SDL_Delay(100)
@@ -510,9 +544,14 @@ public defn sdl-event-loop () -> Tuple<SDL-event>:
                      add(v, SDL-keyboard-event(type(e) timestamp(e) window-id(e) to-byte(event1(e)) to-byte(event1(e)>>8) event2(e) event3(e) event4(e)))
                   SDL_KEYDOWN :
                      add(v, SDL-keyboard-event(type(e) timestamp(e) window-id(e) to-byte(event1(e)) to-byte(event1(e)>>8) event2(e) event3(e) event4(e)))
+                  SDL_MULTIGESTURE :
+                     add(v, SDL-multigesture-event(
+                        type(e) timestamp(e) (to-long(window-id(e)) << 32L + to-long(event1(e))) 
+                        getFloat(e 1) getFloat(e 2) getFloat(e 3) getFloat(e 4)
+                        event11(e) ))
                   else : 
                      add(v, SDL-generic-event(type(e) timestamp(e) window-id(e) 
-                        event1(e) event2(e) event3(e) event4(e) event5(e) event6(e) event7(e) event8(e) event9(e) event10(e) ))
+                        event1(e) event2(e) event3(e) event4(e) event5(e) event6(e) event7(e) event8(e) event9(e) event10(e) event11(e) ))
    to-tuple(v)
          
 public defstruct sdl-surface :
