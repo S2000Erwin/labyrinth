@@ -111,6 +111,11 @@ lostanza defn call-SDL_GetWindowSurface (p : ref<Long>) -> ref<Long> :
    val ws = call-c SDL_GetWindowSurface(p.value)
    return new Long{ws}
 
+lostanza defn SDL-surface-w (p : ref<Long>) -> ref<Int> :
+   return new Int{[(p.value + 16) as ptr<int>]}
+lostanza defn SDL-surface-h (p : ref<Long>) -> ref<Int> :
+   return new Int{[(p.value + 20) as ptr<int>]}
+
 lostanza defn call-SDL_FillRect (p : ref<Long>, rect : ref<SDL_Rect|False>, argb : ref<Int>) -> ref<Int> :
    var pRect : ptr<SDL_Rect>
    match(rect) :
@@ -245,6 +250,9 @@ public defstruct SDL-rect :
    w : Int
    h : Int
 
+public defmethod print (o : OutputStream r : SDL-rect) :
+   print(o, "x=%_ y=%_ w=%_ h=%_" % [x(r) y(r) w(r) h(r)])
+
 public defn sdl-create-window (name : String, width : Int, height : Int) -> [Long Long] :
    val result = call-SDL_Init(SDL_INIT_EVERYTHING)
    println("SDL_Init:%_" % [result])
@@ -263,15 +271,21 @@ public defn sdl-load-image (name : String, win-surface : Long ) -> Long :
    else :
       0L
 
+public defn sdl-clear-surface (surface : Long) :
+   call-SDL_FillRect(surface, false, SDL_RGBA(0Y, 0Y, 0Y, 0Y))
+
 public defn sdl-overlay (src : Long, src-rect : SDL-rect|False, dst : Long, dst-rect : SDL-rect|False) :
    val lo-src-rect : SDL_Rect|False = 
       SDL_Rect(x(src-rect as SDL-rect), y(src-rect as SDL-rect), w(src-rect as SDL-rect), h(src-rect as SDL-rect)) when src-rect is-not False else false
    val lo-dst-rect : SDL_Rect|False = 
       SDL_Rect(x(dst-rect as SDL-rect), y(dst-rect as SDL-rect), w(dst-rect as SDL-rect), h(dst-rect as SDL-rect)) when dst-rect is-not False else false
-   call-SDL_BlitSurface(src, lo-src-rect, dst, lo-dst-rect)
+   call-SDL_BlitScaled(src, lo-src-rect, dst, lo-dst-rect)
    
 public defn sdl-update (window : Long):
    call-SDL_UpdateWindowSurface(window)
+
+public defn sdl-surface-size (surface : Long) -> [Int Int] :
+   [SDL-surface-w(surface) SDL-surface-h(surface)]
 
 ; copied fro SDL_events.h
 val SDL_FIRSTEVENT     = 0,     ; /**< Unused (do not remove) */
@@ -468,6 +482,12 @@ public defn sdl-event-loop () -> Tuple<SDL-event>:
                         event1(e) event2(e) event3(e) event4(e) event5(e) event6(e) event7(e) event8(e) event9(e) event10(e) ))
    to-tuple(v)
          
+public defstruct sdl-surface :
+   flags        : Int
+   pPixelFormat : Long
+   w : Int
+   h : Int
+
 
 public defn test-sdl2 () :
    println("Calling SDL_Init()")

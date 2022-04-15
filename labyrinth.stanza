@@ -587,8 +587,7 @@ public defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplaye
             if playOneTurn(lab):
                break(false)
    catch (e : CommException) :
-      gprint(reason(e))
-
+      gprintln("[CommException] reason:%_" % [reason(e)])
    ;except WebAbort:
    ;   return False, '', '', self.turn, ''
    ; determine winner

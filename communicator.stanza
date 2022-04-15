@@ -52,7 +52,7 @@ defn input ( msg : String, gbg : GameBoardGraphics) -> String :
                         xs
                     )
                 (t : True) :
-                    throw( Exception("Program Quit") )
+                    throw( CommException("Program Quit") )
                 (f) : false
             
             ; val c = get-char(STANDARD-INPUT-STREAM) ; do not return until '\n' is gotten

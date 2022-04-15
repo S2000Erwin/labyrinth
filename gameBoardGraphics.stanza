@@ -5,17 +5,25 @@ defpackage GameBoardGraphics :
     import labyrinth
 
 public defstruct GameBoardGraphics :
+    size : [Int, Int]
     window : Long
     win-surface : Long 
     baseBoard : Long
-        
+    scale : Float               ; use normalized scale. 1.0 = full source screen, 2.0 quarter source screen zoomed in
+    center : [Float, Float] with : (setter => set-center)     ; use nomralized x, y coordinates. 1.0 = right/bottom, 0.0 = left/top
+
 public defn make-GameBoardGraphics () -> GameBoardGraphics :
-    val [window win-surface] = sdl-create-window("Labyrinth", 1024, 768)
+    val width = 1024
+    val height = 768
+    val [window win-surface] = sdl-create-window("Labyrinth", width, height)
 
     val gbg = GameBoardGraphics( 
+        [width, height]
         window
         win-surface
         sdl-load-image( "vassalimages/Labyrinth Map 2016.jpg", win-surface)    ; baseBoard
+        2.0f
+        [0.5f 0.5f] 
     )
     ; test-sdl2()
     print("GameBoardGraphics %_ %_ %_" % [window win-surface baseBoard(gbg)])
@@ -26,10 +34,29 @@ public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
     show(gbg)
 
 public defn show (gbg : GameBoardGraphics) :
-    print("show")
-    print("GameBoardGraphics %_ %_ %_" % [window(gbg) win-surface(gbg) baseBoard(gbg)])
-    sdl-overlay(baseBoard(gbg), false, win-surface(gbg), false)
+    println("show")
+    println("GameBoardGraphics %_ %_ %_" % [window(gbg) win-surface(gbg) baseBoard(gbg)])
+    val size = sdl-surface-size(baseBoard(gbg))
+    val scaled-size = map( { to-float(_) / scale(gbg) } size)
+    val [center-x center-y] = [to-int(get(center(gbg), 0) * to-float(size[0])), to-int(get(center(gbg), 1) * to-float(size[1]))]
+    val src-rect = SDL-rect( 
+        to-int(to-float(center-x) - scaled-size[0] * 0.5f)
+        to-int(to-float(center-y) - scaled-size[1] * 0.5f)
+        to-int(scaled-size[0])
+        to-int(scaled-size[1])
+    )
+    sdl-clear-surface(win-surface(gbg))
+    sdl-overlay(baseBoard(gbg), src-rect, win-surface(gbg), false)
     sdl-update(window(gbg))
+
+defn move-center (gbg : GameBoardGraphics, x : Int, y : Int) :
+    val size = sdl-surface-size(win-surface(gbg))
+    val scaled-size = [ to-float((- x)) / to-float(size[0]) / scale(gbg) to-float((- y)) / to-float(size[1]) / scale(gbg)]
+    val new-center = [scaled-size[0] + get(center(gbg), 0), scaled-size[1] + get(center(gbg), 1)]
+    if new-center[0] >= 0.0f and new-center[0] < 1.0f and new-center[1] >= 0.0f and new-center[1] < 1.0f :
+        set-center(gbg, new-center)
+
+
 
 public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
     val char-buffer = Vector<Char>()
@@ -39,6 +66,11 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
                 match(e) :
                     (e : SDL-window-event) : false ; todo: Once p is known, need to call call-SDL_UpdateWindowSurface(p)
                     (e : SDL-generic-event) : return(true) when SDL_QUIT == type(e)
+                    (e : SDL-mouse-motion-event) :
+                        if (state(e) & 1) == 1 :
+                            println("drag: %_" % [e])
+                            move-center(gbg, xrel(e), yrel(e))
+                            show(gbg)
                     (e : SDL-keyboard-event) :
                         if state(e) == 0Y and mod(e) == 0 :
                             val c = to-char(sym(e))
