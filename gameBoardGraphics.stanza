@@ -4,31 +4,56 @@ defpackage GameBoardGraphics :
     import sdl2
     import labyrinth
 
+; some enum
+val scale-step = 0.25f
+
 public defstruct GameBoardGraphics :
-    size : [Int, Int]
+    size : [Int, Int] with : (setter => set-size)
     window : Long
-    win-surface : Long 
+    win-surface : Long with : (setter => set-win-surface)
     baseBoard : Long
-    scale : Float               ; use normalized scale. 1.0 = full source screen, 2.0 quarter source screen zoomed in
-    center : [Float, Float] with : (setter => set-center)     ; use nomralized x, y coordinates. 1.0 = right/bottom, 0.0 = left/top
+    scalar : Float with : (setter => set-scalar)           ; nominal scale
+    scale : Tuple<Float> with : (setter => set-scale)     ; use normalized scale. 1.0 = full source screen, 2.0 quarter source screen zoomed in
+    center : Tuple<Float> with : (setter => set-center)   ; use nomralized x, y coordinates. 1.0 = right/bottom, 0.0 = left/top
 
 public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val width = 1024
     val height = 768
+    val default-scale = 4.0f
     val [window win-surface] = sdl-create-window("Labyrinth", width, height)
+
+    val screen-aspect = to-float(width) / to-float(height)
+    val board = sdl-load-image( "vassalimages/Labyrinth Map 2016.jpg", win-surface)    ; baseBoard
+    val [board-w board-h] = sdl-surface-size(board)
+    val board-aspect = to-float(board-w) / to-float(board-h)
+    val adjustment = screen-aspect / board-aspect
 
     val gbg = GameBoardGraphics( 
         [width, height]
         window
         win-surface
-        sdl-load-image( "vassalimages/Labyrinth Map 2016.jpg", win-surface)    ; baseBoard
-        2.0f
+        board
+        default-scale
+        [1.0f adjustment]
         [0.5f 0.5f] 
     )
     ; test-sdl2()
     print("GameBoardGraphics %_ %_ %_" % [window win-surface baseBoard(gbg)])
     show(gbg)
     gbg
+
+defn recalculate (gbg : GameBoardGraphics) :
+    val ws = sdl-get-window-surface(window(gbg))
+    val size = sdl-surface-size(ws)
+    set-size(gbg, size)
+    set-win-surface(gbg, ws)
+
+    val screen-aspect = to-float(size[0]) / to-float(size[1])
+    val [board-w board-h] = sdl-surface-size(baseBoard(gbg))
+    val board-aspect = to-float(board-w) / to-float(board-h)
+    val adjustment = screen-aspect / board-aspect
+    set-scale(gbg [1.0f adjustment])
+    move-center(gbg, 0, 0)
 
 public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
     show(gbg)
@@ -37,11 +62,13 @@ public defn show (gbg : GameBoardGraphics) :
     println("show")
     println("GameBoardGraphics %_ %_ %_" % [window(gbg) win-surface(gbg) baseBoard(gbg)])
     val size = sdl-surface-size(baseBoard(gbg))
-    val scaled-size = map( { to-float(_) / scale(gbg) } size)
-    val [center-x center-y] = [to-int(get(center(gbg), 0) * to-float(size[0])), to-int(get(center(gbg), 1) * to-float(size[1]))]
+    val scaled-size = map({to-float(_) / _ / scalar(gbg) } to-list(size) scale(gbg))
+    val cs = map({to-int(_ * to-float(_))} to-list $ center(gbg) size)
+    println("size=%_ scaled-size=%_ center=%_" % [size scaled-size cs])
+    
     val src-rect = SDL-rect( 
-        to-int(to-float(center-x) - scaled-size[0] * 0.5f)
-        to-int(to-float(center-y) - scaled-size[1] * 0.5f)
+        to-int(to-float(cs[0]) - scaled-size[0] * 0.5f)
+        to-int(to-float(cs[1]) - scaled-size[1] * 0.5f)
         to-int(scaled-size[0])
         to-int(scaled-size[1])
     )
@@ -51,12 +78,35 @@ public defn show (gbg : GameBoardGraphics) :
 
 defn move-center (gbg : GameBoardGraphics, x : Int, y : Int) :
     val size = sdl-surface-size(win-surface(gbg))
-    val scaled-size = [ to-float((- x)) / to-float(size[0]) / scale(gbg) to-float((- y)) / to-float(size[1]) / scale(gbg)]
-    val new-center = [scaled-size[0] + get(center(gbg), 0), scaled-size[1] + get(center(gbg), 1)]
-    if new-center[0] >= 0.0f and new-center[0] < 1.0f and new-center[1] >= 0.0f and new-center[1] < 1.0f :
-        set-center(gbg, new-center)
+    val new-center = map( 
+        {_ + _}
+        map(
+            {_ / to-float(_) / _ / scalar(gbg)} 
+            to-list([to-float((- x)) to-float((- y))])
+            to-tuple(size)
+            scale(gbg)
+        )
+        center(gbg) 
+    )
+    println("new-center=%_" % [new-center])
 
+    val final-center =
+        map(
+            fn (c s) : max((0.5f / s / scalar(gbg)) min(c (1.0f - 0.5f / s / scalar(gbg))))
+            new-center
+            scale(gbg)
+        ) when scalar(gbg) > 1.0f else
+        new-center
+    
+    println("final-center=%_" % [final-center])
+    set-center(gbg, to-tuple(final-center))
 
+defn change-scale ( gbg : GameBoardGraphics, change : Float ) :
+    val new-scalar = scalar(gbg) + change
+    if new-scalar >= 0.5f :
+        set-scalar(gbg new-scalar)
+        move-center(gbg 0 0)
+        show(gbg)
 
 public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
     val char-buffer = Vector<Char>()
@@ -64,7 +114,18 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
         do( fn (e) :
                 ;println(e)
                 match(e) :
-                    (e : SDL-window-event) : false ; todo: Once p is known, need to call call-SDL_UpdateWindowSurface(p)
+                    (e : SDL-window-event) : ; todo: Once p is known, need to call call-SDL_UpdateWindowSurface(p)
+                        println("window event %_" % [e])
+                        if event(e) == SDL_WINDOWEVENT_SIZE_CHANGED :
+                            val width = data1(e)
+                            val height = data2(e)
+                            println("resized %_ %_" % [width height] )
+                            recalculate(gbg)
+                            show(gbg)
+                        else if event(e) == SDL_WINDOWEVENT_EXPOSED :
+                            recalculate(gbg)
+                            show(gbg)
+
                     (e : SDL-generic-event) : return(true) when SDL_QUIT == type(e)
                     (e : SDL-mouse-motion-event) :
                         if (state(e) & 1) == 1 :
@@ -74,10 +135,13 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
                     (e : SDL-keyboard-event) :
                         if state(e) == 0Y and mod(e) == 0 :
                             val c = to-char(sym(e))
-                            add(char-buffer, c)
+                            if c == ',' :
+                                change-scale(gbg (- scale-step))
+                            else if c == '.' :
+                                change-scale(gbg scale-step)
+                            else :
+                                add(char-buffer, c)
                     (e) : false 
             sdl-event-loop()
         )  
         to-tuple(char-buffer)
-        
-        

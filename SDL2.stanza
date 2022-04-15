@@ -262,6 +262,9 @@ public defn sdl-create-window (name : String, width : Int, height : Int) -> [Lon
    val win-surface = call-SDL_GetWindowSurface(window)
    [window, win-surface]
 
+public defn sdl-get-window-surface (window : Long) -> Long :
+   call-SDL_GetWindowSurface(window)
+
 public defn sdl-load-image (name : String, win-surface : Long ) -> Long :
    val img-surface = call-IMG_Load(name)
    if img-surface != 0L :
@@ -365,6 +368,36 @@ val SDL_USEREVENT    = 0x8000,
    ;  */
 val SDL_LASTEVENT    = 0xFFFF
 ; } SDL_EventType;
+
+
+; copied from SDL_video.h
+;typedef enum
+;{
+val SDL_WINDOWEVENT_NONE = 0  ;/**< Never used */
+val SDL_WINDOWEVENT_SHOWN = 1 ;   /**< Window has been shown */
+val SDL_WINDOWEVENT_HIDDEN = 2 ;         /**< Window has been hidden */
+public val SDL_WINDOWEVENT_EXPOSED = 3 ; /**< Window has been exposed and should be redrawn */
+val SDL_WINDOWEVENT_MOVED = 4 ; /**< Window has been moved to data1, data2 */
+val SDL_WINDOWEVENT_RESIZED = 5 ;/**< Window has been resized to data1xdata2 */
+public val SDL_WINDOWEVENT_SIZE_CHANGED = 6 ; /**< The window size has changed, either as
+                                     ;    a result of an API call or through the
+                                     ;    system or user changing the window size. */
+val SDL_WINDOWEVENT_MINIMIZED = 7 ;      /**< Window has been minimized */
+val SDL_WINDOWEVENT_MAXIMIZED = 8 ;     /**< Window has been maximized */
+val SDL_WINDOWEVENT_RESTORED = 9  ;      /**< Window has been restored to normal size
+                                   ;      and position */
+val SDL_WINDOWEVENT_ENTER = 10   ;/**< Window has gained mouse focus */
+val SDL_WINDOWEVENT_LEAVE = 11          ;/**< Window has lost mouse focus */
+val SDL_WINDOWEVENT_FOCUS_GAINED = 12   ;/**< Window has gained keyboard focus */
+val SDL_WINDOWEVENT_FOCUS_LOST = 13     ;/**< Window has lost keyboard focus */
+val SDL_WINDOWEVENT_CLOSE = 14          ;/**< The window manager requests that the window be closed */
+val SDL_WINDOWEVENT_TAKE_FOCUS = 15     ;/**< Window is being offered a focus (should SetWindowInputFocus() on itself or a subwindow, or ignore) */
+val SDL_WINDOWEVENT_HIT_TEST = 16       ;/**< Window had a hit test that wasn't SDL_HITTEST_NORMAL. */
+val SDL_WINDOWEVENT_ICCPROF_CHANGED = 17 ;/**< The ICC profile of the window's display has changed. */
+val SDL_WINDOWEVENT_DISPLAY_CHANGED = 18 ;/**< Window has been moved to display data1. */
+; } SDL_WindowEventID;
+
+
 
 ; generic SDL-event
 public deftype SDL-event
