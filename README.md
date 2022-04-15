@@ -24,13 +24,21 @@ To compile:
 7. To play type "./labyrinth" or "labyrinth.exe" in Windows
     
 
-To play: ./labrinth (or labyrinth.exe in Windows)
+During Play
+===========
+Zoom
+----
+There are 2 ways to zoom in and out
+Keyboard: Use COMMA and FULLSTOP ( ',' and '.' ) to zoom
+Multigesture: Two fingers pinch in and out
 
-This is my first attempt to use Stanza in a non-trivial coding project.
-I am still exploring the features of Stanza language. Any suggestions to make the code better and in better functional programming style are welcome.  
+
 
 Design Notes
 ============
+This is my first attempt to use Stanza in a non-trivial coding project.
+I am still exploring the features of Stanza language. Any suggestions to make the code better and in better functional programming style are welcome.  
+
 I choose to re-implement one of my past projects Labyrinth.
 It is a computerized play of a traditional board game from GMT Games.
 Interested parties should check out www.gmtgames.com to look for this elegant game about War on Terror since 2001.
@@ -40,7 +48,7 @@ Stanza is a functional programming language. I find it interesting in ways that
 2. Instead of passing around references/pointers to interfaces in traditional OOP, functions are the main elements in Stanza.
    Labyrinth is a game of Event Cards. These Events require lots of functions to handle. I would like to explore how to use software functions effectively to implement game Events.
 
-A thing that occupies my mind is how to use HashTable effectively for country states in the game. I hope there is a way to write down key => value where value can be an Int, a String or yet another HashTable. And this can go recursively to an arbitrary level. It is because it was how the game state was designed.
+One thing that occupies my mind is how to use HashTable effectively for country states in the game. I hope there is a way to write down key => value where value can be an Int, a String or yet another HashTable. And this can go recursively to an arbitrary level. It is because it was how the game state was designed.
 
 Now I need to initialize with a Tuple to KeyValue pairs and use it to translate to HashTable. The more I use it the more I prefer to do a late conversion. i.e. stay in Tuples until someone uses it. At that time, convert to HashTable until next time the game state is changed again. (Is it a good method? I don't know. I need to learn more about Stanza to tell.)
 
@@ -198,3 +206,39 @@ Replace "fn (name)" by curried bracket, and put real-candidates inside "filter",
         )
 
 but it looks more cryptic.
+
+
+Using SDL_Event Structure
+-------------------------
+SDL Event structures are a big union of multiple types of the structure. Currently this designer is using multiple lostanza types and Stanza structs to re-write the C structure. There are sometimes a lot of guesswork on the field lengths and architecture (32- or 64-bit). Marshalling between lostanza and Stanza for pointers, float, uint16, uint32 etc. takes a lot of time in experimentations.
+
+Mutiple List/Seq map(ping)
+--------------------------
+One of the fun stuff in FP is the use of 'do' and 'map' to get rid of the loops.
+As many as three (3) List and Seqable are supported.  
+However, if more than 3 are needed, I have to break them down into multiple 'map' statements.
+Like this...
+
+    val size = sdl-surface-size(win-surface(gbg))
+    val new-center = map( 
+        {_ + _}
+        map(
+            {_ / to-float(_) / _ / scalar(gbg)} 
+            to-list([to-float((- x)) to-float((- y))])
+            to-tuple(size)
+            scale(gbg)
+        )
+        center(gbg) 
+    )
+
+I wish there was a version to support arbitrary number of seqables. Like this...
+
+    val new-center = map( 
+      {_ / to-float(_) / _ / scalar(gbg) + _} 
+      to-list([to-float((- x)) to-float((- y))])
+      to-tuple(size)
+      scale(gbg)
+      center(gbg) 
+    )
+
+Let me know if there is a way to do this in a single shot.
