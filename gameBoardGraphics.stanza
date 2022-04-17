@@ -7,6 +7,23 @@ defpackage GameBoardGraphics :
 ; some enum
 val scale-step = 0.25f
 
+
+val upperleft = [
+    "us" => [12 118] "uk" => [92 102] "canada" => [58 38]
+    "spain" => [86 258] "france" => [134 190] "benelux" => [172 118]
+    "scandinavia" => [246 34] "italy" => [212 226] "germany" => [240 126] "easterneurope" => [306 102]
+    "serbia" => [294 188] "russia" => [400 72] "caucasus" => [436 166] "china" => [730 272] "thailand" => [816 420]
+    "israel" => [342 338]
+    "india" => [674 358] "philippines" => [932 468] "kenya" => [422 606]
+    "iran" => [534 260]
+    "morocco" => [66 338] "algeria" => [162 332] "libya" => [236 350] "egypt" => [318 404] "sudan" => [354 486]
+    "somalia" => [466 496]
+    "turkey" => [358 178] "lebanon" => [350 256] "syria" => [418 252] "iraq" => [466 324] "jordan" => [402 340]
+    "saudiarabia" => [466 408] "yemen" => [538 432] "gulfstates" => [530 342] "centralasia" => [578 164]
+    "afghanistan" => [602 252] "pakistan" => [598 334] "indonesia" => [846 516]
+    "mali" => [84 562] "nigeria" => [180 570]
+]
+
 public defstruct GameBoardGraphics :
     size : [Int, Int] with : (setter => set-size)
     window : Long
@@ -16,6 +33,10 @@ public defstruct GameBoardGraphics :
     scalar : Float with : (setter => set-scalar)           ; nominal scale
     scale : Tuple<Float> with : (setter => set-scale)     ; use normalized scale. 1.0 = full source screen, 2.0 quarter source screen zoomed in
     center : Tuple<Float> with : (setter => set-center)   ; use nomralized x, y coordinates. 1.0 = right/bottom, 0.0 = left/top
+    cardsInBox : Int with : (setter => set-cardsInBox)
+    middle : Int with : (setter => set-middle)
+    left : Int with : (setter => set-left)
+    right : Int with : (setter => set-right)
     ; stock images
     syria : Long
     iranMuslim : Long
@@ -44,6 +65,15 @@ public defstruct GameBoardGraphics :
     fgc : Long
     gr : Long
     ir : Long
+    usHard : Long
+    usSoft : Long        
+    gwotHard : Long
+    gwotSoft : Long
+    prestige : Long
+    firstPlot : Long
+    lapsing : Long
+    hard : Long
+    soft : Long    
 
 public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val width = 1024
@@ -67,6 +97,10 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
         default-scale
         [1.0f adjustment]
         [0.5f 0.5f] 
+        0   ; cardsInBox
+        0   ; middle
+        0   ; left
+        0   ; right
         ; stock images
         sdl-load-image("vassalimages/MapTiles_Syria.jpg" canvas)
         sdl-load-image("vassalimages/MapTiles_Iran(Muslim).jpg" canvas)
@@ -95,6 +129,15 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
         sdl-load-image("vassalimages/Fair-Good.png" canvas)
         sdl-load-image("vassalimages/Resources_Good.png" canvas)
         sdl-load-image("vassalimages/Resources_Jihadists.png" canvas)
+        sdl-load-image("vassalimages/US Hard.png" canvas)
+        sdl-load-image("vassalimages/US Soft.png" canvas)
+        sdl-load-image("vassalimages/World Hard.png" canvas)
+        sdl-load-image("vassalimages/World Soft.png" canvas)    
+        sdl-load-image("vassalimages/US Prestige.png" canvas)
+        sdl-load-image("vassalimages/1stPlot.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Lapsing.png" canvas)
+        sdl-load-image("vassalimages/Hard.png" canvas)
+        sdl-load-image("vassalimages/Soft.png" canvas)
     )
     ; test-sdl2()
     build-board(gbg)
@@ -126,7 +169,7 @@ defn build-board (gbg : GameBoardGraphics) :
 
 public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
     build-board(gbg)
-    var cardsInBox = 0
+    set-cardsInBox(gbg 0)
     if isMuslim(lab "iran") :
         overlay(gbg iranMuslim(gbg) [1780, 826])
     if not isSunni(lab "syria"):
@@ -138,10 +181,10 @@ public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
             overlay(gbg nigeria_muslim(gbg), [567, 1787])
         else:
             overlay(gbg nigeria_nonMuslim(gbg), [567, 1787])
-    ; do(
-    ;     {drawCountry(gbg, key(_))}
-    ;     c(countries(lab))
-    ; )
+    do(
+        {drawCountry(gbg lab key(_))}
+        c(countries(lab))
+    )
     drawTroopTrack(gbg lab)
     drawCellTrack(gbg lab)
     drawMarkers(gbg lab)
@@ -151,10 +194,10 @@ public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
     drawUsedPlots(gbg lab)
     drawDeck(gbg lab)
     drawScores(gbg lab)
-    ; drawGWOT(gbg)
-    ; drawPrestige(gbg)
-    ; drawFirstPlot(gbg)
-    ; drawLapsing(gbg)
+    drawGWOT(gbg lab)
+    drawPrestige(gbg lab)
+    drawFirstPlot(gbg lab)
+    drawLapsing(gbg lab)
 
 public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
     show(gbg)
@@ -330,14 +373,13 @@ defn drawReserves (gbg : GameBoardGraphics lab : Labyrinth) :
     overlay(gbg usreserve(gbg) [2648 (848 - usreserve(lab) * 87)])
     overlay(gbg jihadistreserve(gbg) [2726 (848 - jihadistreserve(lab) * 87)])
 
-
 defn drawPhase (gbg : GameBoardGraphics lab : Labyrinth) :
     val x = 1653 + (214 when currentplayer(lab) == "us" else 0) + (107 when currentphase(lab) == 1 else 0)
     val y = 153
     overlay(gbg phase(gbg) [x y])
 
 defn drawDeck (gbg : GameBoardGraphics lab : Labyrinth) :
-    val x = 1960 + (3 - nbDeck(lab)) * 110 + (333 when nbDeck(lab) == 0 else 0)
+    val x = 1960 + (3 - nbDeck(lab)) * 100 + (333 when nbDeck(lab) == 0 else 0)
     val y = 273
     overlay(gbg deck(gbg) [x y])
 
@@ -375,3 +417,317 @@ defn showScores (gbg : GameBoardGraphics scores : Vector<Vector<Long>>):
                 )
         0 to 16
     )
+
+defn drawGWOT (gbg : GameBoardGraphics lab : Labyrinth) :
+    val us = getPosture(lab "us")
+    val gwot = getGWOTHard(lab)
+    val marker = gwotHard(gbg) when gwot > 0 else gwotSoft(gbg) when gwot < 0 else gwotHard(gbg) when us == "hard" else gwotSoft(gbg)
+    val interval = 83
+    val coord = [100 1367]
+    overlay(gbg marker [(coord[0] + (gwot + 3) * interval) coord[1]])
+    if us == "hard":
+        overlay(gbg usHard(gbg) [420, 1440])
+    else:
+        overlay(gbg usSoft(gbg) [280, 1440])
+
+defn drawPrestige (gbg : GameBoardGraphics lab : Labyrinth) :
+    val coord = [73 1573]
+    val interval = 83
+    overlay(gbg prestige(gbg) [(coord[0] + interval * (prestige(lab) - 1)) coord[1] ])
+
+defn drawFirstPlot (gbg : GameBoardGraphics lab : Labyrinth) :
+    label<False> return :
+        if not firstPlot(lab) :
+            return(false)
+        val card = firstPlotCard(lab)
+        if card == 0:
+            return(false)
+        drawCardInBox(gbg card firstPlot(gbg))
+
+defn drawLapsing (gbg : GameBoardGraphics lab : Labyrinth) :
+    do(
+        {drawCardInBox(gbg _ lapsing(gbg))}
+        lapsing(lab)
+    )
+
+defn drawCardInBox (gbg : GameBoardGraphics card : Int marker : Long) :
+    val cardBox = [827 1767]
+    val filename = append-all(["vassalimages/Card" "_0" when card < 10 else "_" to-string(card) ".png"]) when card < 241 else
+        append-all(["vassalimages/" to-string(card) ".png"])
+    val image = sdl-load-image(filename board(gbg))
+    val x = cardBox[0] + cardsInBox(gbg) * 167
+    val y = cardBox[1] + cardsInBox(gbg) * 33
+    overlay(gbg image [x, y])
+    sdl-free-surface(image)
+    overlay(gbg marker [(x + 100) (y + 167)])
+    set-cardsInBox(gbg (cardsInBox(gbg) + 1))
+
+defn drawCountry (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    ; println("drawCountry: %_" % [name])
+    set-middle(gbg 0)
+    set-left(gbg 0)
+    set-right(gbg 0)
+    if isMuslim(lab name):
+        pasteGovern(gbg lab name)
+        ;pasteCaliphate(gbg lab name)
+        ;pasteCivilWar(gbg lab name)
+        ;pasteRegimeChange(gbg lab name)
+        ;pasteAid(gbg lab name)
+        ;pasteBesiegedRegime(gbg lab name)
+        ;pasteAwaken(gbg lab name)
+        ;pasteReact(gbg lab name)
+    else:
+        if name != "us" and name !="iran":
+            pastePosture(gbg lab name)
+    ;pastePlot(gbg lab name)
+    ;pasteMarkers(gbg lab name)
+    pasteArsenal(gbg lab name)
+    ;pasteTroop(gbg lab name)
+    ;pasteMilitia(gbg lab name)
+    ;pasteCell(gbg lab name)
+    ;pasteCadre(gbg lab name)
+
+defn get-upperleft (name : String) -> [Int Int]|False :
+    match(lookup?(upperleft name)) :
+        (rs : [Int Int]) : 
+            map({_ * 10 / 3} rs) as [Int Int]
+        (f) : false
+    
+defn pasteArsenal (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        ([ox oy] : [Int Int]) : 
+            val [x y] = [ox (oy + 233)] when name == "pakistan" else [(ox + 53) (oy - 100)]
+            do(
+                {overlay(gbg plotW(gbg) [(x + _ * 70), y])}
+                0 to getArsenal(lab name)
+            )
+        (f) : false
+
+defn pastePosture (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    if name != "us" and name != "israel" and name != "iran" :
+        match(get-upperleft(name)) :
+            (r : [Int Int]) :
+                val posture = getPosture(lab name)
+                match(hard(gbg) when posture == "hard" else soft(gbg) when posture == "soft" else false) :
+                    (image : Long) : overlay(gbg image r)
+                    (f) : false
+            (f) : false
+
+defn pasteGovern (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    false
+;     if name not in self.upperleft:
+;         return
+;     if self.game.isUntested(name):
+;         return
+;     x, y = self.upperleft[name]
+;     align = self.game.getAlign(name)
+;     x = x + 20 if align == 'neutral' else x
+;     x = x + 40 if align == 'adversary' else x
+;     govern = self.game.getGovern(name)
+;     if govern == 'good':
+;         self.board.alpha_composite(self.good, dest=(x, y))
+;     elif govern == 'fair':
+;         self.board.alpha_composite(self.fair, dest=(x, y))
+;     elif govern == 'poor':
+;         self.board.alpha_composite(self.poor, dest=(x, y))
+;     elif govern == 'islamrule':
+;         self.board.alpha_composite(self.islamrule, dest=(x, y))
+
+; def pasteCaliphate(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 20
+;     y += 20 * (self.middle + 1)
+;     if self.game.isCaliphateCapital(name):
+;         self.board.alpha_composite(self.caliphateCapital, (x, y))
+;         self.middle += 1
+;     elif self.game.isCaliphate(name):
+;         self.board.alpha_composite(self.caliphateCountry, (x, y))
+;         self.middle += 1
+
+; def pasteCivilWar(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 20
+;     y += 20 * (self.middle + 1)
+;     if self.game.isCivilWar(name):
+;         self.board.alpha_composite(self.civilWar, (x, y))
+;         self.middle += 1
+
+; def pasteRegimeChange(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 20
+;     y += 20 * (self.middle + 1)
+;     if self.game.isGreenRegimeChange(name):
+;         self.board.alpha_composite(self.greenRegimeChange, (x, y))
+;         self.middle += 1
+;     elif self.game.isTanRegimeChange(name):
+;         self.board.alpha_composite(self.tanRegimeChange, (x, y))
+;         self.middle += 1
+
+; def pasteAid(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 20
+;     y += 20 * (self.middle + 1)
+;     aid = self.game.getAid(name)
+;     for i in range(aid):
+;         self.board.alpha_composite(self.aid, (x, y))
+;         y += 20
+;         self.middle += 1
+
+; def pasteBesiegedRegime(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 20
+;     y += 20 * (self.middle + 1)
+;     if self.game.isBesiegedRegime(name):
+;         self.board.alpha_composite(self.besiegedRegime, (x, y))
+;         self.middle += 1
+
+; def pasteCylinder(self, image, number, x, y):
+;     for i in range(number):
+;         row = i // 2
+;         col = i % 2
+;         local_x = x + col * 10
+;         local_y = y + row * 10
+;         if row % 2 == 1:
+;             local_x -= 5
+;         self.board.alpha_composite(image, (local_x, local_y))
+
+; def pasteMilitia(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     y += 20 * (self.left + 1)
+;     militia = self.game.getMilitia(name)
+;     self.pasteCylinder(self.militia, militia, x, y)
+;     self.left += (militia+3) // 4
+
+; def pasteCadre(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 40
+;     y += 20 * (self.right + 1 if self.game.isMuslim(name) else 0)
+;     if self.game.isCadre(name):
+;         self.board.alpha_composite(self.cadre, (x, y))
+;         self.right += 1
+
+; def pasteTroop(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     y += 20 * (self.left + 1)
+;     troop = self.game.getTroop(name)
+;     self.pasteCylinder(self.troop, troop, x, y)
+;     self.left += (troop+3) // 4
+
+; def pasteCell(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 40
+;     y += 20 * (self.right + 1 if self.game.isMuslim(name) else 0)
+;     activeCell = self.game.getActiveCell(name, False)
+;     self.pasteCylinder(self.activeCell, activeCell, x, y)
+;     self.right += (activeCell+3) // 4
+;     y += ((activeCell+3) // 4) * 20
+;     sleeperCell = self.game.getSleeperCell(name, False)
+;     self.pasteCylinder(self.sleeperCell, sleeperCell, x, y)
+;     self.right += (sleeperCell + 3) // 4
+
+; def pasteAwaken(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     y += 40
+;     awaken = self.game.getAwaken(name)
+;     if awaken == 0:
+;         return
+;     self.board.alpha_composite(self.awaken, (x, y))
+;     ImageDraw.Draw(self.board).text((x+10, y+6), str(awaken), (255, 255, 255))
+
+; def pasteReact(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 40
+;     y += 40
+;     react = self.game.getReact(name)
+;     if react == 0:
+;         return
+;     self.board.alpha_composite(self.react, (x, y))
+;     ImageDraw.Draw(self.board).text((x+10, y+6), str(react), (255, 255, 255))
+
+; def pastePlot(self, name):
+;     if name not in self.upperleft:
+;         return
+;     x, y = self.upperleft[name]
+;     x += 20
+;     y += 20 * (self.middle + 1 if self.game.isMuslim(name) else 0)
+;     for pname, plot in self.game.plots:
+;         if pname != name:
+;             continue
+;         print(pname, plot)
+;         if isinstance(plot, str) and plot == '-w':
+;             plot = 'w'
+;         else:
+;             plot = abs(plot)
+;         if plot == 1:
+;             self.board.alpha_composite(self.plot1, (x,y))
+;         elif plot == 2:
+;             self.board.alpha_composite(self.plot2, (x, y))
+;         elif plot == 3:
+;             self.board.alpha_composite(self.plot3, (x, y))
+;         elif plot == 'w':
+;             self.board.alpha_composite(self.plotW, (x, y))
+;         y += 20
+;         self.middle += 1
+
+; def getCoord(self, name, pos):
+;     if name not in self.upperleft:
+;         return 0, 0
+;     x, y = self.upperleft[name]
+;     if pos == 'middle':
+;         x += 20
+;         y += 20 * (self.middle + 1 if self.game.isMuslim(name) else 0)
+;     elif pos == 'right':
+;         x += 40
+;         y += 20 * (self.right + 1 if self.game.isMuslim(name) else 0)
+;     else:
+;         y += 20 * (self.left + 1)
+;     return x, y
+
+; def pasteMarkers(self, name):
+;     nato = self.game.getNATO(name)
+;     for i in range(nato):
+;         self.board.alpha_composite(self.nato, self.getCoord(name, 'left'))
+;         self.left += 1
+;     advisors = self.game.isAdvisors(name)
+;     for i in range(advisors):
+;         self.board.alpha_composite(self.advisors, self.getCoord(name, 'middle'))
+;         self.middle += 1
+;     if self.game.isUNSCR1973(name):
+;         self.board.alpha_composite(self.UNSCR1973, self.getCoord(name, 'middle'))
+;         self.middle += 1
+;     markerTable = { 'scsc': self.scsc, 'qataricrisis': self.qataricrisis, 'trainingcamps': self.trainingcamps,
+;                     'truce': self.truce, 'bloodyThursday': self.bloodyThursday, '3cupsoftea': self.threeCupsOfTea,
+;                     'anbarawakening': self.anbarAwakening, 'benazirbhutto': self.benazirBhutto,
+;                     'indopakistanitalks': self.indoPakistaniTalks, 'bhuttoshot': self.bhuttoShot,
+;                     'alanbar': self.alanbar, 'sadr': self.sadr, 'fata': self.fata}
+;     for marker, image in markerTable.items():
+;         if self.game.isMarker(name, marker):
+;             if marker == 'sadr':
+;                 self.board.alpha_composite(image, self.getCoord(name, 'right'))
+;                 self.right += 1
+;             else:
+;                 self.board.alpha_composite(image, self.getCoord(name, 'middle'))
+;                 self.middle += 1
+

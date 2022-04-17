@@ -45,7 +45,7 @@ defn to-country (name : String, xs : Tuple<KeyValue<String,?>>) -> Country :
    val country = Country(name, h)
    country
 
-defstruct Countries :
+public defstruct Countries :
    c : HashTable<String,Country>
 
 defn to-countries ( kvs : Tuple<KeyValue<String,?>> ) -> Countries :
@@ -1814,13 +1814,13 @@ defn addCountryToCurrentPhase (lab : Labyrinth, name : String) :
    if f is False :
       add(cpc, name)
 
-defn getPosture (lab : Labyrinth, name : String) -> String :
+public defn getPosture (lab : Labyrinth, name : String) -> String :
    val posture = getAttr(lab, name, "posture")
    match(posture) :
       (posture : String) : posture
       (f) : "untested"
 
-defn getGWOTHard (lab : Labyrinth) :
+public defn getGWOTHard (lab : Labyrinth) :
    ; count hard as 1 and soft as -1
    var gwot = 0
    for country in c(countries(lab)) do:
@@ -2779,7 +2779,7 @@ defn setMilitia (lab : Labyrinth, name : String, m : Int):
          setAttr(lab, name, "militia", m)
          testCountry(lab, name)
    
-defn getArsenal (lab : Labyrinth, name : String) :
+public defn getArsenal (lab : Labyrinth, name : String) :
    val arsenal = getAttr(lab, name, "arsenal")
    match(arsenal):
       (a : Int) : a
