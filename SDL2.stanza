@@ -82,6 +82,7 @@ extern IMG_Quit: () -> int
 extern IMG_Load: (ptr<byte>) -> long
 extern SDL_PollEvent: (ptr<SDL_Event>) -> int
 extern SDL_Delay: (int) -> int
+extern SDL_SetSurfaceBlendMode: (long, int) -> int
 
 lostanza defn call-SDL_version () -> ref<Int> :
    val v = new SDL_version{0Y, 0Y, 0Y}
@@ -130,7 +131,7 @@ lostanza defn call-SDL_UpdateWindowSurface (window : ref<Long>) -> ref<Int> :
    return new Int{result}
 
 lostanza defn call-SDL_CreateRGBSurface (w : ref<Int>, h : ref<Int>) -> ref<Long> :
-   val result = call-c SDL_CreateRGBSurface(0, w.value, h.value, 32, 0, 0, 0, 0)
+   val result = call-c SDL_CreateRGBSurface(0, w.value, h.value, 32, 0xff, 0xff00, 0xff0000, 0xff000000)
    return new Long{result}
 
 lostanza defn call-SDL_FreeSurface (surface : ref<Long> ) -> ref<False> :
@@ -254,6 +255,10 @@ lostanza defn event10 (e:ref<SDL_Event>) -> ref<Int> :
    return new Int{e.event10}
 lostanza defn event11 (e:ref<SDL_Event>) -> ref<Int> :
    return new Int{e.event11}
+
+lostanza defn call-SDL_SetSurfaceBlendMode (surface : ref<Long> mode : ref<Int>) -> ref<Int> :
+   val result = call-c SDL_SetSurfaceBlendMode(surface.value mode.value)
+   return new Int{result}
 
 ; ================
 ; pulbic interface
@@ -559,6 +564,31 @@ public defstruct sdl-surface :
    pPixelFormat : Long
    w : Int
    h : Int
+
+; from SDL_blendmode.h
+;typedef enum
+;{
+public val SDL_BLENDMODE_NONE = 0x00000000,   ;     /**< no blending
+                                       ;       dstRGBA = srcRGBA */
+public val SDL_BLENDMODE_BLEND = 0x00000001,  ;    /**< alpha blending
+                                       ;       dstRGB = (srcRGB * srcA) + (dstRGB * (1-srcA))
+                                       ;       dstA = srcA + (dstA * (1-srcA)) */
+public val SDL_BLENDMODE_ADD = 0x00000002,    ;     /**< additive blending
+                                       ;       dstRGB = (srcRGB * srcA) + dstRGB
+                                       ;       dstA = dstA */
+public val SDL_BLENDMODE_MOD = 0x00000004,    ;      /**< color modulate
+                                       ;       dstRGB = srcRGB * dstRGB
+                                       ;       dstA = dstA */
+public val SDL_BLENDMODE_MUL = 0x00000008,    ;     /**< color multiply
+                                       ;       dstRGB = (srcRGB * dstRGB) + (dstRGB * (1-srcA))
+                                       ;       dstA = (srcA * dstA) + (dstA * (1-srcA)) */
+public val SDL_BLENDMODE_INVALID = 0x7FFFFFFF
+
+   ;/* Additional custom blend modes can be returned by SDL_ComposeCustomBlendMode() */
+;} SDL_BlendMode;
+public defn sdl-set-surface-blend-mode (surface : Long mode : Int) -> Int :
+   call-SDL_SetSurfaceBlendMode(surface mode)
+
 
 
 public defn test-sdl2 () :

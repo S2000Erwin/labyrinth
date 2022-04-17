@@ -1930,7 +1930,7 @@ defn getGovern (lab : Labyrinth, name : String) -> String|False :
       (g: String) : g
       (g) : false
 
-defn isMuslim (lab : Labyrinth, name : String) -> True|False :
+public defn isMuslim (lab : Labyrinth, name : String) -> True|False :
    val im = getAttr(lab, name, "muslim")
    match(im) :
       (im:True) : true
@@ -2214,14 +2214,14 @@ defn getPIC (lab : Labyrinth) -> Int :
                count = count + 1
    count
 
-defn getTroopLevel (lab : Labyrinth) -> String :
+public defn getTroopLevel (lab : Labyrinth) -> String :
    label<String> return :
-   if trooptrack(lab) >= 10:
-      return("low")
-   else if trooptrack(lab) >= 5:
-      return("war")
-   else:
-      return("overstretch")
+      if trooptrack(lab) >= 10:
+         return("low")
+      else if trooptrack(lab) >= 5:
+         return("war")
+      else:
+         return("overstretch")
 
 defn getCellOnMap (lab : Labyrinth) -> Int:
    var cell = 0
@@ -2406,7 +2406,15 @@ defn isGreenRegimeChange (lab : Labyrinth, name : String) -> True|False :
    val rc = getAttr(lab, name, "regimechange")
    match(rc):
       (rc : String) : true when rc == "green" else false
-      (rc) : false        
+      (rc) : false   
+
+public defn isSunni (lab : Labyrinth, name : String) -> True|False :
+   match(getAttr(lab, name "sunni")) :
+      (f : False) : false
+      (t) : true
+
+public defn isShia (lab : Labyrinth, name : String) -> True|False :
+   isMuslim(lab name) and not isSunni(lab name)     
 
 defn findTrainingCamps (lab : Labyrinth) -> String|False :
    val validCountries = extract(lab, fn (x:String) : isMarker(lab, x, "trainingcamps"), false)

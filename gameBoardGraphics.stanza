@@ -16,6 +16,15 @@ public defstruct GameBoardGraphics :
     scalar : Float with : (setter => set-scalar)           ; nominal scale
     scale : Tuple<Float> with : (setter => set-scale)     ; use normalized scale. 1.0 = full source screen, 2.0 quarter source screen zoomed in
     center : Tuple<Float> with : (setter => set-center)   ; use nomralized x, y coordinates. 1.0 = right/bottom, 0.0 = left/top
+    ; stock images
+    syria : Long
+    iranMuslim : Long
+    mali : Long
+    nigeria_nonMuslim : Long
+    nigeria_muslim : Long
+    troop : Long
+    troopLevel : Long
+    troopoffmap : Long
 
 public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val width = 1024
@@ -25,6 +34,7 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
 
     val screen-aspect = to-float(width) / to-float(height)
     val game-board = sdl-load-image( "vassalimages/Labyrinth Map 2016.jpg", win-surface)    ; baseBoard
+    val canvas = sdl-create-surface(sdl-surface-size(game-board))
     val [board-w board-h] = sdl-surface-size(game-board)
     val board-aspect = to-float(board-w) / to-float(board-h)
     val adjustment = screen-aspect / board-aspect
@@ -34,10 +44,20 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
         window
         win-surface
         game-board
-        sdl-create-surface(sdl-surface-size(game-board))
+        canvas
         default-scale
         [1.0f adjustment]
         [0.5f 0.5f] 
+        ; stock images
+        sdl-load-image("vassalimages/MapTiles_Syria.jpg", canvas)
+        sdl-load-image("vassalimages/MapTiles_Iran(Muslim).jpg", canvas)
+        sdl-load-image("vassalimages/MapTiles_Mali.jpg", canvas)
+        sdl-load-image("vassalimages/MapTiles_Nigeria(non-Muslim).jpg", canvas)
+        sdl-load-image("vassalimages/MapTiles_Nigeria(Muslim).jpg", canvas)
+        sdl-load-image("vassalimages/Troops.png", canvas)
+        sdl-load-image("vassalimages/TroopsLevel.png", canvas)
+        sdl-load-image("vassalimages/MapTiles_Off Map Box.png", canvas)        
+        
     )
     ; test-sdl2()
     build-board(gbg)
@@ -57,8 +77,47 @@ defn recalculate (gbg : GameBoardGraphics) :
     set-scale(gbg [1.0f adjustment])
     move-center(gbg, 0, 0)
 
+defn overlay (gbg : GameBoardGraphics src-surface : Long top-left : [Int Int]) :
+    val [w h] = sdl-surface-size(src-surface)
+    val rect = SDL-rect(top-left[0] top-left[1] w h)
+    sdl-set-surface-blend-mode(src-surface SDL_BLENDMODE_BLEND)
+    sdl-overlay(src-surface false board(gbg) rect)
+
 defn build-board (gbg : GameBoardGraphics) :
+    sdl-set-surface-blend-mode(baseBoard(gbg) SDL_BLENDMODE_BLEND)
     sdl-overlay(baseBoard(gbg) false board(gbg) false)
+
+public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
+    build-board(gbg)
+    var cardsInBox = 0
+    if isMuslim(lab "iran") :
+        overlay(gbg iranMuslim(gbg) [1780, 826])
+    if not isSunni(lab "syria"):
+        overlay(gbg syria(gbg) [1393, 800])
+    if get(countries(lab) "mali") is-not False :
+        overlay(gbg mali(gbg) [267, 1787])
+    if get(countries(lab) "nigeria") is-not False :
+        if isMuslim(lab "nigeria") :
+            overlay(gbg nigeria_muslim(gbg), [567, 1787])
+        else:
+            overlay(gbg nigeria_nonMuslim(gbg), [567, 1787])
+    ; do(
+    ;     {drawCountry(gbg, key(_))}
+    ;     c(countries(lab))
+    ; )
+    drawTroopTrack(gbg lab)
+    ; drawCellTrack(gbg)
+    ; drawMarkers(gbg)
+    ; drawAvailablePlots(gbg)
+    ; drawReserves(gbg)
+    ; drawPhase(gbg)
+    ; drawUsedPlots(gbg)
+    ; drawDeck(gbg)
+    ; drawScores(gbg)
+    ; drawGWOT(gbg)
+    ; drawPrestige(gbg)
+    ; drawFirstPlot(gbg)
+    ; drawLapsing(gbg)
 
 public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
     show(gbg)
@@ -152,3 +211,20 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
             sdl-event-loop()
         )  
         to-tuple(char-buffer)
+
+defn drawTroopTrack (gbg : GameBoardGraphics lab : Labyrinth) :
+    val coord = [3167 153]
+    for i in 0 to trooptrack(lab) do:
+        val x = (coord[0] - 12 * i) - (i / 5) * 22
+        overlay(gbg troop(gbg) [x, coord[1]])
+    val troop-level = getTroopLevel(lab)
+    val x = 2447 when troop-level == "low" else 2727 when troop-level == "war" else 2993
+    overlay(gbg troopLevel(gbg) [x, coord[1] - 4])
+    val offmap = offmap(lab)
+    if offmap != 0:
+        overlay(gbg troopoffmap(gbg) [3000 273])
+        val coord = [3100 293]
+        val x = coord[0] - (offmap / 2) * 12
+        val y = coord[1]
+        for i in 0 to offmap do:
+            overlay(gbg troop(gbg) [x + 12 * i, y])
