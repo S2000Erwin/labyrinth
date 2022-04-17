@@ -25,6 +25,25 @@ public defstruct GameBoardGraphics :
     troop : Long
     troopLevel : Long
     troopoffmap : Long
+    funding : Long
+    activeCell : Long
+    sleeperCell : Long
+    censorship : Long 
+    smartphones : Long
+    maerskAlabama : Long 
+    pirates : Long
+    plot1 : Long
+    plot2 : Long
+    plot3 : Long
+    plotW : Long 
+    usreserve : Long
+    jihadistreserve : Long
+    phase : Long
+    deck : Long
+    pic : Long
+    fgc : Long
+    gr : Long
+    ir : Long
 
 public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val width = 1024
@@ -49,15 +68,33 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
         [1.0f adjustment]
         [0.5f 0.5f] 
         ; stock images
-        sdl-load-image("vassalimages/MapTiles_Syria.jpg", canvas)
-        sdl-load-image("vassalimages/MapTiles_Iran(Muslim).jpg", canvas)
-        sdl-load-image("vassalimages/MapTiles_Mali.jpg", canvas)
-        sdl-load-image("vassalimages/MapTiles_Nigeria(non-Muslim).jpg", canvas)
-        sdl-load-image("vassalimages/MapTiles_Nigeria(Muslim).jpg", canvas)
-        sdl-load-image("vassalimages/Troops.png", canvas)
-        sdl-load-image("vassalimages/TroopsLevel.png", canvas)
-        sdl-load-image("vassalimages/MapTiles_Off Map Box.png", canvas)        
-        
+        sdl-load-image("vassalimages/MapTiles_Syria.jpg" canvas)
+        sdl-load-image("vassalimages/MapTiles_Iran(Muslim).jpg" canvas)
+        sdl-load-image("vassalimages/MapTiles_Mali.jpg" canvas)
+        sdl-load-image("vassalimages/MapTiles_Nigeria(non-Muslim).jpg" canvas)
+        sdl-load-image("vassalimages/MapTiles_Nigeria(Muslim).jpg" canvas)
+        sdl-load-image("vassalimages/Troops.png" canvas)
+        sdl-load-image("vassalimages/TroopsLevel.png" canvas)
+        sdl-load-image("vassalimages/MapTiles_Off Map Box.png" canvas)        
+        sdl-load-image("vassalimages/Jihadist Funding.png" canvas)
+        sdl-load-image("vassalimages/Cells (Active).png" canvas)
+        sdl-load-image("vassalimages/Cells.png" canvas)   
+        sdl-load-image("vassalimages/Awakening_Event_Censorship.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_Smart Phones.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_Maresk Alabama.png" canvas)
+        sdl-load-image("vassalimages/Event_Pirates.png" canvas)             
+        sdl-load-image("vassalimages/TerrorPlot_1.png" canvas)
+        sdl-load-image("vassalimages/TerrorPlot_2.png" canvas)
+        sdl-load-image("vassalimages/TerrorPlot_3.png" canvas)
+        sdl-load-image("vassalimages/TerrorPlot_WMD.png" canvas)
+        sdl-load-image("vassalimages/Reserves_US.png" canvas)
+        sdl-load-image("vassalimages/Reserves_Jihadists.png" canvas)
+        sdl-load-image("vassalimages/Card.png" canvas)
+        sdl-load-image("vassalimages/Deck.png" canvas)        
+        sdl-load-image("vassalimages/Poor-Islamist.png" canvas)
+        sdl-load-image("vassalimages/Fair-Good.png" canvas)
+        sdl-load-image("vassalimages/Resources_Good.png" canvas)
+        sdl-load-image("vassalimages/Resources_Jihadists.png" canvas)
     )
     ; test-sdl2()
     build-board(gbg)
@@ -106,14 +143,14 @@ public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
     ;     c(countries(lab))
     ; )
     drawTroopTrack(gbg lab)
-    ; drawCellTrack(gbg)
-    ; drawMarkers(gbg)
-    ; drawAvailablePlots(gbg)
-    ; drawReserves(gbg)
-    ; drawPhase(gbg)
-    ; drawUsedPlots(gbg)
-    ; drawDeck(gbg)
-    ; drawScores(gbg)
+    drawCellTrack(gbg lab)
+    drawMarkers(gbg lab)
+    drawAvailablePlots(gbg lab)
+    drawReserves(gbg lab)
+    drawPhase(gbg lab)
+    drawUsedPlots(gbg lab)
+    drawDeck(gbg lab)
+    drawScores(gbg lab)
     ; drawGWOT(gbg)
     ; drawPrestige(gbg)
     ; drawFirstPlot(gbg)
@@ -215,16 +252,126 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
 defn drawTroopTrack (gbg : GameBoardGraphics lab : Labyrinth) :
     val coord = [3167 153]
     for i in 0 to trooptrack(lab) do:
-        val x = (coord[0] - 12 * i) - (i / 5) * 22
+        val x = (coord[0] - 40 * i) - (i / 5) * 72
         overlay(gbg troop(gbg) [x, coord[1]])
     val troop-level = getTroopLevel(lab)
     val x = 2447 when troop-level == "low" else 2727 when troop-level == "war" else 2993
-    overlay(gbg troopLevel(gbg) [x, coord[1] - 4])
+    overlay(gbg troopLevel(gbg) [x, coord[1] - 13])
     val offmap = offmap(lab)
     if offmap != 0:
         overlay(gbg troopoffmap(gbg) [3000 273])
         val coord = [3100 293]
-        val x = coord[0] - (offmap / 2) * 12
+        val x = coord[0] - (offmap / 2) * 40
         val y = coord[1]
         for i in 0 to offmap do:
-            overlay(gbg troop(gbg) [x + 12 * i, y])
+            overlay(gbg troop(gbg) [(x + 40 * i) y])
+
+defn drawCellTrack (gbg : GameBoardGraphics lab : Labyrinth) :
+    overlay(gbg funding(gbg) [(102 * (funding(lab) - 1) + 2280) 413])
+    val coord = [3113 533]
+    for i in 0 to celltrack(lab) do :
+        val x = (coord[0] - i * 50) - (i / 5) * 67
+        overlay(gbg sleeperCell(gbg) [x, coord[1]])
+    if cellcamps(lab) > 0:
+        pasteCylinder(gbg sleeperCell(gbg) cellcamps(lab) [3193 407])
+
+defn pasteCylinder (gbg image number [x, y]):
+    for i in 0 to number do :
+        val row = i / 2
+        val col = i % 2
+        val local_x = x + col * 33 - (17 when row % 2 == 1 else 0)
+        val local_y = y + row * 33
+        overlay(gbg image [local_x, local_y])
+
+defn drawMarkers (gbg : GameBoardGraphics lab : Labyrinth) :
+    val coord = [2867 673]
+    val markerTable = [ 
+        "censorship" => censorship(gbg)
+        "smartphones" => smartphones(gbg)
+        "maerskalabama" => maerskAlabama(gbg)
+        "pirates" => pirates(gbg)
+    ]
+    do(
+        {overlay(gbg lookup(markerTable _) [(coord[0] + _ * 67) coord[1]])}
+        markers(lab)
+        0 to length(markers(lab))
+    )
+
+defn drawUsedPlots (gbg :GameBoardGraphics lab : Labyrinth) :
+    drawPlots(gbg usedPlots(lab) [2100 53])
+
+defn drawAvailablePlots (gbg : GameBoardGraphics lab : Labyrinth) :
+    drawPlots(gbg plotAvailables(lab) [2867 807])
+
+defn drawPlots (gbg : GameBoardGraphics plots : Vector<Int|String> coord : [Int Int]) :
+    do(
+        fn (plot i) :
+            val row = i / 6
+            val col = i % 6
+            val x = coord[0] + col * 73
+            val y = coord[1] + row * 73
+            val p = switch {plot == _} :
+                1 : plot1(gbg)
+                -1 : plot1(gbg)
+                2 : plot2(gbg)
+                -2 : plot2(gbg)
+                3 : plot3(gbg)
+                -3 : plot3(gbg)
+                "w" : plotW(gbg)
+                "-w" : plotW(gbg)
+                else : plot1(gbg)
+            overlay(gbg p [x, y])
+        plots
+        0 to length(plots)
+    )
+
+
+defn drawReserves (gbg : GameBoardGraphics lab : Labyrinth) :
+    overlay(gbg usreserve(gbg) [2648 (848 - usreserve(lab) * 87)])
+    overlay(gbg jihadistreserve(gbg) [2726 (848 - jihadistreserve(lab) * 87)])
+
+
+defn drawPhase (gbg : GameBoardGraphics lab : Labyrinth) :
+    val x = 1653 + (214 when currentplayer(lab) == "us" else 0) + (107 when currentphase(lab) == 1 else 0)
+    val y = 153
+    overlay(gbg phase(gbg) [x y])
+
+defn drawDeck (gbg : GameBoardGraphics lab : Labyrinth) :
+    val x = 1960 + (3 - nbDeck(lab)) * 110 + (333 when nbDeck(lab) == 0 else 0)
+    val y = 273
+    overlay(gbg deck(gbg) [x y])
+
+defn drawScores (gbg : GameBoardGraphics lab : Labyrinth) :
+    val scores = Vector<Vector<Long>>()
+    do(
+        {add(scores Vector<Long>())}
+        0 to 16
+    )
+    drawScore(getPIC(lab) pic(gbg) scores)
+    drawScore(getFGC(lab) fgc(gbg) scores)
+    drawScore(getGoodResource(lab) gr(gbg) scores)
+    drawScore(getIslamResource(lab) ir(gbg) scores)
+    showScores(gbg scores)
+
+defn drawScore (score : Int marker : Long scores : Vector<Vector<Long>>):
+    if 0 <= score and score <= 15 :
+        add(scores[score] marker)
+
+defn showScores (gbg : GameBoardGraphics scores : Vector<Vector<Long>>):
+    val coord = [1893, 1773]
+    val interval = 87
+    do(
+        fn (score) :
+            val markers = scores[score]
+            val num = length(markers)
+            if num > 0:
+                val row = 1 when score >= 7 else 0
+                val col = (score - 6) when score >= 7 else score
+                val x = coord[0] + interval * col
+                val y = coord[1] - (num - 1) * 33 + row * interval
+                do(
+                    fn (i) : overlay(gbg markers[i] [x  (y + i * 67)])
+                    0 to num
+                )
+        0 to 16
+    )

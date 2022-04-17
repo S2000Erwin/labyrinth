@@ -2168,14 +2168,14 @@ defn changePrestige (lab : Labyrinth, inc : Int) :
       set-prestige(lab, 1)
    gprintln("Change Prestige from %_ by %_ to %_" % [oPrestige inc prestige(lab)])
 
-defn getGoodResource (lab : Labyrinth):
+public defn getGoodResource (lab : Labyrinth):
    var resources = 0
    val validCountries = extract(lab, fn (x : String) : isMuslim(lab, x) and getGovern(lab, x) == "good", false)
    for name in validCountries do:
       resources = resources + getResource(lab, name)
    resources
 
-defn getIslamResource (lab : Labyrinth) :
+public defn getIslamResource (lab : Labyrinth) :
    var resources = 0
    val validCountries = extract( lab,
       fn (x : String) : isMuslim(lab, x) and (getGovern(lab, x) == "islamrule" or isCaliphateCapital(lab, x)), 
@@ -2187,7 +2187,7 @@ defn getIslamResource (lab : Labyrinth) :
             resources = resources + 1
    resources
 
-defn getFGC (lab : Labyrinth) -> Int:
+public defn getFGC (lab : Labyrinth) -> Int:
    var count : Int = 0
    for country in c(countries(lab)) do:
       val name = key(country)
@@ -2203,7 +2203,7 @@ defn getFGC (lab : Labyrinth) -> Int:
 defn isSchengen (lab : Labyrinth, name : String) -> True|False :
    contains?(schengens, name)
 
-defn getPIC (lab : Labyrinth) -> Int :
+public defn getPIC (lab : Labyrinth) -> Int :
    var count : Int = 0
    for country in c(countries(lab)) do :
       val name = key(country)
