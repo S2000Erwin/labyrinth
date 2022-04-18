@@ -7,7 +7,6 @@ defpackage GameBoardGraphics :
 ; some enum
 val scale-step = 0.25f
 
-
 val upperleft = [
     "us" => [12 118] "uk" => [92 102] "canada" => [58 38]
     "spain" => [86 258] "france" => [134 190] "benelux" => [172 118]
@@ -28,6 +27,7 @@ public defstruct GameBoardGraphics :
     size : [Int, Int] with : (setter => set-size)
     window : Long
     win-surface : Long with : (setter => set-win-surface)
+    font : Long
     baseBoard : Long
     board : Long
     scalar : Float with : (setter => set-scalar)           ; nominal scale
@@ -74,6 +74,37 @@ public defstruct GameBoardGraphics :
     lapsing : Long
     hard : Long
     soft : Long    
+    good : Long
+    fair : Long
+    poor : Long
+    islamrule : Long
+    militia : Long
+    cadre : Long
+    caliphateCapital : Long
+    caliphateCountry : Long
+    civilWar : Long
+    tanRegimeChange : Long
+    greenRegimeChange : Long
+    aid : Long
+    besiegedRegime : Long
+    awaken : Long
+    react : Long
+    nato : Long
+    advisors : Long
+    UNSCR1973 : Long
+    scsc : Long
+    trainingcamps : Long
+    qataricrisis : Long
+    truce : Long
+    bloodyThursday : Long
+    threeCupsOfTea : Long
+    anbarAwakening : Long
+    benazirBhutto : Long
+    indoPakistaniTalks : Long
+    bhuttoShot : Long
+    alanbar : Long
+    sadr : Long
+    fata : Long
 
 public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val width = 1024
@@ -92,6 +123,7 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
         [width, height]
         window
         win-surface
+        sdl-open-font("arial.ttf" 30)
         game-board
         canvas
         default-scale
@@ -138,6 +170,37 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
         sdl-load-image("vassalimages/Awakening_Lapsing.png" canvas)
         sdl-load-image("vassalimages/Hard.png" canvas)
         sdl-load-image("vassalimages/Soft.png" canvas)
+        sdl-load-image("vassalimages/Governance_Good.png" canvas)
+        sdl-load-image("vassalimages/Governance_Fair.png" canvas)
+        sdl-load-image("vassalimages/Governance_Poor.png" canvas)
+        sdl-load-image("vassalimages/Governance_Islamist.png" canvas)
+        sdl-load-image("vassalimages/Militia.png" canvas)
+        sdl-load-image("vassalimages/Cadre.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Caliphate Capital.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Caliphate Country.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Civil War.png" canvas)
+        sdl-load-image("vassalimages/RegimeChange.png" canvas)
+        sdl-load-image("vassalimages/RegimeChange(green).png" canvas)
+        sdl-load-image("vassalimages/Aid.png" canvas)
+        sdl-load-image("vassalimages/BesiegedRegime.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Awakening.png" canvas)
+        sdl-load-image("vassalimages/Awakening_AwakeningReaction.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_NATO.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_Advisors.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_UNSCR 1973.png" canvas)
+        sdl-load-image("vassalimages/Laby3_Event_SCSC.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_Training Camps.png" canvas)
+        sdl-load-image("vassalimages/Laby3_Event_QatariCrisis.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_Truce.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_Bloody Thursday.png" canvas)
+        sdl-load-image("vassalimages/Awakening_Event_3 Cups of Tea.png" canvas)
+        sdl-load-image("vassalimages/Event_AnbarAwakening.png" canvas)
+        sdl-load-image("vassalimages/Event_BenazirBhutto.png" canvas)
+        sdl-load-image("vassalimages/Event_Indo-PakTalks.png" canvas)
+        sdl-load-image("vassalimages/Event_Bhutto Shot.png" canvas)
+        sdl-load-image("vassalimages/Event_Anbar.png" canvas)
+        sdl-load-image("vassalimages/Event_Sadr.png" canvas)
+        sdl-load-image("vassalimages/Event_FATA.png" canvas)
     )
     ; test-sdl2()
     build-board(gbg)
@@ -166,6 +229,8 @@ defn overlay (gbg : GameBoardGraphics src-surface : Long top-left : [Int Int]) :
 defn build-board (gbg : GameBoardGraphics) :
     sdl-set-surface-blend-mode(baseBoard(gbg) SDL_BLENDMODE_BLEND)
     sdl-overlay(baseBoard(gbg) false board(gbg) false)
+    sdl-draw-text(board(gbg) [0 0] "Digital Adaption by Erwin Lau" font(gbg) 0xffffffff)
+
 
 public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
     build-board(gbg)
@@ -318,14 +383,6 @@ defn drawCellTrack (gbg : GameBoardGraphics lab : Labyrinth) :
     if cellcamps(lab) > 0:
         pasteCylinder(gbg sleeperCell(gbg) cellcamps(lab) [3193 407])
 
-defn pasteCylinder (gbg image number [x, y]):
-    for i in 0 to number do :
-        val row = i / 2
-        val col = i % 2
-        val local_x = x + col * 33 - (17 when row % 2 == 1 else 0)
-        val local_y = y + row * 33
-        overlay(gbg image [local_x, local_y])
-
 defn drawMarkers (gbg : GameBoardGraphics lab : Labyrinth) :
     val coord = [2867 673]
     val markerTable = [ 
@@ -463,29 +520,28 @@ defn drawCardInBox (gbg : GameBoardGraphics card : Int marker : Long) :
     set-cardsInBox(gbg (cardsInBox(gbg) + 1))
 
 defn drawCountry (gbg : GameBoardGraphics lab : Labyrinth name : String) :
-    ; println("drawCountry: %_" % [name])
     set-middle(gbg 0)
     set-left(gbg 0)
     set-right(gbg 0)
     if isMuslim(lab name):
         pasteGovern(gbg lab name)
-        ;pasteCaliphate(gbg lab name)
-        ;pasteCivilWar(gbg lab name)
-        ;pasteRegimeChange(gbg lab name)
-        ;pasteAid(gbg lab name)
-        ;pasteBesiegedRegime(gbg lab name)
-        ;pasteAwaken(gbg lab name)
-        ;pasteReact(gbg lab name)
+        pasteCaliphate(gbg lab name)
+        pasteCivilWar(gbg lab name)
+        pasteRegimeChange(gbg lab name)
+        pasteAid(gbg lab name)
+        pasteBesiegedRegime(gbg lab name)
+        pasteAwaken(gbg lab name)
+        pasteReact(gbg lab name)
     else:
         if name != "us" and name !="iran":
             pastePosture(gbg lab name)
-    ;pastePlot(gbg lab name)
-    ;pasteMarkers(gbg lab name)
+    pastePlot(gbg lab name)
+    pasteMarkers(gbg lab name)
     pasteArsenal(gbg lab name)
-    ;pasteTroop(gbg lab name)
-    ;pasteMilitia(gbg lab name)
-    ;pasteCell(gbg lab name)
-    ;pasteCadre(gbg lab name)
+    pasteTroop(gbg lab name)
+    pasteMilitia(gbg lab name)
+    pasteCell(gbg lab name)
+    pasteCadre(gbg lab name)
 
 defn get-upperleft (name : String) -> [Int Int]|False :
     match(lookup?(upperleft name)) :
@@ -514,220 +570,224 @@ defn pastePosture (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             (f) : false
 
 defn pasteGovern (gbg : GameBoardGraphics lab : Labyrinth name : String) :
-    false
-;     if name not in self.upperleft:
-;         return
-;     if self.game.isUntested(name):
-;         return
-;     x, y = self.upperleft[name]
-;     align = self.game.getAlign(name)
-;     x = x + 20 if align == 'neutral' else x
-;     x = x + 40 if align == 'adversary' else x
-;     govern = self.game.getGovern(name)
-;     if govern == 'good':
-;         self.board.alpha_composite(self.good, dest=(x, y))
-;     elif govern == 'fair':
-;         self.board.alpha_composite(self.fair, dest=(x, y))
-;     elif govern == 'poor':
-;         self.board.alpha_composite(self.poor, dest=(x, y))
-;     elif govern == 'islamrule':
-;         self.board.alpha_composite(self.islamrule, dest=(x, y))
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            if not isUntested(lab name) :
+                val align = getAlign(lab name)
+                val x = (r[0] + 67) when align == "neutral" else (r[0] + 134) when align == "adversary" else r[0]
+                val y = r[1]
+                val govern = getGovern(lab name)
+                val image = switch {govern == _} :
+                    "good" : good(gbg)
+                    "fair" : fair(gbg)
+                    "poor" : poor(gbg)
+                    "islamrule" : islamrule(gbg)
+                    else : false
+                match(image) :
+                    (image : Long) : overlay(gbg image [x y])
+                    (f) : false
 
-; def pasteCaliphate(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 20
-;     y += 20 * (self.middle + 1)
-;     if self.game.isCaliphateCapital(name):
-;         self.board.alpha_composite(self.caliphateCapital, (x, y))
-;         self.middle += 1
-;     elif self.game.isCaliphate(name):
-;         self.board.alpha_composite(self.caliphateCountry, (x, y))
-;         self.middle += 1
+defn pasteCaliphate (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :        
+            val x = r[0] + 67
+            val y = r[1] + 67 * (middle(gbg) + 1)
+            if isCaliphateCapital(lab name) :
+                overlay(gbg caliphateCapital(gbg) [x y])
+                set-middle(gbg middle(gbg) + 1)
+            else if isCaliphate(lab name) :
+                overlay(gbg caliphateCountry(gbg) [x y])
+                set-middle(gbg middle(gbg) + 1)
+        (f) : false
 
-; def pasteCivilWar(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 20
-;     y += 20 * (self.middle + 1)
-;     if self.game.isCivilWar(name):
-;         self.board.alpha_composite(self.civilWar, (x, y))
-;         self.middle += 1
+defn pasteCivilWar (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :        
+            val x = r[0] + 67
+            val y = r[1] + 67 * (middle(gbg) + 1)
+            if isCivilWar(lab name) :
+                overlay(gbg civilWar(gbg) [x y])
+                set-middle(gbg middle(gbg) + 1)
+        (f) : false
 
-; def pasteRegimeChange(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 20
-;     y += 20 * (self.middle + 1)
-;     if self.game.isGreenRegimeChange(name):
-;         self.board.alpha_composite(self.greenRegimeChange, (x, y))
-;         self.middle += 1
-;     elif self.game.isTanRegimeChange(name):
-;         self.board.alpha_composite(self.tanRegimeChange, (x, y))
-;         self.middle += 1
+defn pasteRegimeChange (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :        
+            val x = r[0] + 67
+            val y = r[1] + 67 * (middle(gbg) + 1)
+            val image = greenRegimeChange(gbg) when isGreenRegimeChange(lab name) 
+                else tanRegimeChange(gbg) when isTanRegimeChange(lab name) else false
+            match(image) :
+                (image : Long) :
+                    overlay(gbg image [x y])
+                    set-middle(gbg middle(gbg) + 1)
+                (f) : false
+        (f) : false
 
-; def pasteAid(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 20
-;     y += 20 * (self.middle + 1)
-;     aid = self.game.getAid(name)
-;     for i in range(aid):
-;         self.board.alpha_composite(self.aid, (x, y))
-;         y += 20
-;         self.middle += 1
+defn pasteAid (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :        
+            val x = r[0] + 67
+            val y = r[1] + 67 * (middle(gbg) + 1)
+            do(
+                { overlay(gbg aid(gbg) [x _ * 67 + y]) set-middle(gbg middle(gbg) + 1) }
+                0 to getAid(lab name)
+            )
+        (f) : false
 
-; def pasteBesiegedRegime(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 20
-;     y += 20 * (self.middle + 1)
-;     if self.game.isBesiegedRegime(name):
-;         self.board.alpha_composite(self.besiegedRegime, (x, y))
-;         self.middle += 1
+defn pasteBesiegedRegime (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :        
+            val x = r[0] + 67
+            val y = r[1] + 67 * (middle(gbg) + 1)
+            if isBesiegedRegime(lab name) :
+                overlay(gbg besiegedRegime(gbg) [x y])
+                set-middle(gbg middle(gbg) + 1)
+        (f) : false
 
-; def pasteCylinder(self, image, number, x, y):
-;     for i in range(number):
-;         row = i // 2
-;         col = i % 2
-;         local_x = x + col * 10
-;         local_y = y + row * 10
-;         if row % 2 == 1:
-;             local_x -= 5
-;         self.board.alpha_composite(image, (local_x, local_y))
+defn pasteCylinder (gbg : GameBoardGraphics image : Long number : Int [x y] : [Int Int]) :
+    do(
+        fn (i) :
+            val row = i / 2
+            val col = i % 2
+            val local_x = x + col * 33 - (17 when row % 2 == 1 else 0)
+            val local_y = y + row * 33
+            overlay(gbg image [local_x local_y])
+        0 to number
+    )
 
-; def pasteMilitia(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     y += 20 * (self.left + 1)
-;     militia = self.game.getMilitia(name)
-;     self.pasteCylinder(self.militia, militia, x, y)
-;     self.left += (militia+3) // 4
+defn pasteMilitia (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            val x = r[0]
+            val y = r[1] + 67 * (left(gbg) + 1)
+            val nb-militia = getMilitia(lab name)
+            pasteCylinder(gbg militia(gbg) nb-militia [x y])
+            set-left(gbg (left(gbg) + (nb-militia + 3) / 4))
+        (f) : false
 
-; def pasteCadre(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 40
-;     y += 20 * (self.right + 1 if self.game.isMuslim(name) else 0)
-;     if self.game.isCadre(name):
-;         self.board.alpha_composite(self.cadre, (x, y))
-;         self.right += 1
+defn pasteCadre (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            val x = r[0] + 134
+            val y = r[1] + 67 * (right(gbg) + 1 when isMuslim(lab name) else 0)
+            if isCadre(lab name) :
+                overlay(gbg cadre(gbg) [x y])
+                set-right(gbg right(gbg) + 1)
+        (f) : false
 
-; def pasteTroop(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     y += 20 * (self.left + 1)
-;     troop = self.game.getTroop(name)
-;     self.pasteCylinder(self.troop, troop, x, y)
-;     self.left += (troop+3) // 4
+defn pasteTroop (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            val x = r[0]
+            val y = r[1] + 67 * (left(gbg) + 1)
+            val nb-troop = getTroop(lab name)
+            pasteCylinder(gbg troop(gbg) nb-troop [x y])
+            set-left(gbg (left(gbg) + (nb-troop + 3) / 4))
+        (f) : false
 
-; def pasteCell(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 40
-;     y += 20 * (self.right + 1 if self.game.isMuslim(name) else 0)
-;     activeCell = self.game.getActiveCell(name, False)
-;     self.pasteCylinder(self.activeCell, activeCell, x, y)
-;     self.right += (activeCell+3) // 4
-;     y += ((activeCell+3) // 4) * 20
-;     sleeperCell = self.game.getSleeperCell(name, False)
-;     self.pasteCylinder(self.sleeperCell, sleeperCell, x, y)
-;     self.right += (sleeperCell + 3) // 4
+defn pasteCell (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            val x = r[0] + 134
+            val y = r[1] + 67 * (right(gbg) + 1 when isMuslim(lab name) else 0)
+            val nb-activeCell = getActiveCell(lab name false)
+            pasteCylinder(gbg activeCell(gbg) nb-activeCell [x y])
+            set-right(gbg (right(gbg) + (nb-activeCell + 3) / 4))
+            val sc-y = y + ((nb-activeCell + 3) / 4) * 67
+            val nb-sleeperCell = getSleeperCell(lab name false)
+            pasteCylinder(gbg sleeperCell(gbg) nb-sleeperCell [x sc-y])
+            set-right(gbg right(gbg) + (nb-sleeperCell + 3) / 4)
+        (f) : false
 
-; def pasteAwaken(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     y += 40
-;     awaken = self.game.getAwaken(name)
-;     if awaken == 0:
-;         return
-;     self.board.alpha_composite(self.awaken, (x, y))
-;     ImageDraw.Draw(self.board).text((x+10, y+6), str(awaken), (255, 255, 255))
+defn pasteAwaken (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            val x = r[0]
+            val y = r[1] + 134
+            val nb-awaken = getAwaken(lab name)
+            if nb-awaken > 0 :
+                overlay(gbg awaken(gbg) [x y])
+                sdl-draw-text(board(gbg) [x + 38 y + 25] to-string(nb-awaken) font(gbg) 0x00ffffff)
+        (f) : false
 
-; def pasteReact(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 40
-;     y += 40
-;     react = self.game.getReact(name)
-;     if react == 0:
-;         return
-;     self.board.alpha_composite(self.react, (x, y))
-;     ImageDraw.Draw(self.board).text((x+10, y+6), str(react), (255, 255, 255))
+defn pasteReact (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            val x = r[0] + 134
+            val y = r[1] + 134
+            val nb-react = getReact(lab name)
+            if nb-react > 0 :
+                overlay(gbg react(gbg) [x y])
+                sdl-draw-text(board(gbg) [x + 38 y + 25] to-string(nb-react) font(gbg) 0x00ffffff)
+                ;ImageDraw.Draw(self.board).text((x+10, y+6), str(nb-react), (255, 255, 255))
+        (f) : false
 
-; def pastePlot(self, name):
-;     if name not in self.upperleft:
-;         return
-;     x, y = self.upperleft[name]
-;     x += 20
-;     y += 20 * (self.middle + 1 if self.game.isMuslim(name) else 0)
-;     for pname, plot in self.game.plots:
-;         if pname != name:
-;             continue
-;         print(pname, plot)
-;         if isinstance(plot, str) and plot == '-w':
-;             plot = 'w'
-;         else:
-;             plot = abs(plot)
-;         if plot == 1:
-;             self.board.alpha_composite(self.plot1, (x,y))
-;         elif plot == 2:
-;             self.board.alpha_composite(self.plot2, (x, y))
-;         elif plot == 3:
-;             self.board.alpha_composite(self.plot3, (x, y))
-;         elif plot == 'w':
-;             self.board.alpha_composite(self.plotW, (x, y))
-;         y += 20
-;         self.middle += 1
+defn pastePlot (gbg : GameBoardGraphics lab : Labyrinth name : String) :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            val x = r[0] + 67
+            val y = r[1] + 67 * (middle(gbg) + 1 when isMuslim(lab name) else 0)
+            do(
+                fn ( [pname p] inc-y ) :
+                    if pname == name :    
+                        ; println(pname, p)
+                        val plot : String|Int = "w" when p is String else abs(p as Int)
+                        val image = switch {plot == _} :
+                            1    : plot1(gbg)
+                            2    : plot2(gbg)
+                            3    : plot3(gbg)
+                            "w"  : plotW(gbg)
+                            else : false
+                        match(image) :
+                            (image : Long) : overlay(gbg image [x y + 67 * inc-y])
+                            (f) : false
+                        set-middle(gbg middle(gbg) + 1)
+                plots(lab)
+                0 to length(plots(lab))
+            )
+        (f) : false
 
-; def getCoord(self, name, pos):
-;     if name not in self.upperleft:
-;         return 0, 0
-;     x, y = self.upperleft[name]
-;     if pos == 'middle':
-;         x += 20
-;         y += 20 * (self.middle + 1 if self.game.isMuslim(name) else 0)
-;     elif pos == 'right':
-;         x += 40
-;         y += 20 * (self.right + 1 if self.game.isMuslim(name) else 0)
-;     else:
-;         y += 20 * (self.left + 1)
-;     return x, y
+defn getCoord (gbg : GameBoardGraphics lab : Labyrinth name : String pos : String) -> [Int Int] :
+    match(get-upperleft(name)) :
+        (r : [Int Int]) :
+            val x = r[0] + 67 when pos == "middle" else 134 when pos == "right" else 0
+            val y = r[1] + (67 * (middle(gbg) + 1 when isMuslim(lab name) else 0)) when pos == "middle" else
+                           (67 * (right(gbg) + 1 when isMuslim(lab name) else 0)) when pos == "right" else
+                           (67 * (left(gbg) + 1))
+            [x y]
+        (f) : [0 0]
 
-; def pasteMarkers(self, name):
-;     nato = self.game.getNATO(name)
-;     for i in range(nato):
-;         self.board.alpha_composite(self.nato, self.getCoord(name, 'left'))
-;         self.left += 1
-;     advisors = self.game.isAdvisors(name)
-;     for i in range(advisors):
-;         self.board.alpha_composite(self.advisors, self.getCoord(name, 'middle'))
-;         self.middle += 1
-;     if self.game.isUNSCR1973(name):
-;         self.board.alpha_composite(self.UNSCR1973, self.getCoord(name, 'middle'))
-;         self.middle += 1
-;     markerTable = { 'scsc': self.scsc, 'qataricrisis': self.qataricrisis, 'trainingcamps': self.trainingcamps,
-;                     'truce': self.truce, 'bloodyThursday': self.bloodyThursday, '3cupsoftea': self.threeCupsOfTea,
-;                     'anbarawakening': self.anbarAwakening, 'benazirbhutto': self.benazirBhutto,
-;                     'indopakistanitalks': self.indoPakistaniTalks, 'bhuttoshot': self.bhuttoShot,
-;                     'alanbar': self.alanbar, 'sadr': self.sadr, 'fata': self.fata}
-;     for marker, image in markerTable.items():
-;         if self.game.isMarker(name, marker):
-;             if marker == 'sadr':
-;                 self.board.alpha_composite(image, self.getCoord(name, 'right'))
-;                 self.right += 1
-;             else:
-;                 self.board.alpha_composite(image, self.getCoord(name, 'middle'))
-;                 self.middle += 1
+defn pasteMarkers (gbg : GameBoardGraphics lab : Labyrinth name : String) -> False :
+    do( {overlay(gbg nato(gbg) getCoord(gbg lab name "left")) set-left(gbg left(gbg) + 1)}
+        0 to getNATO(lab name)
+    )
+    do( {overlay(gbg advisors(gbg) getCoord(gbg lab name "middle")) set-middle(gbg middle(gbg) + 1)}
+        0 to getAdvisors(lab name)
+    )
+    if isUNSCR1973(lab name) :
+        overlay(gbg UNSCR1973(gbg) getCoord(gbg lab name "middle"))
+        set-middle(gbg middle(gbg) + 1)
 
+    val markerTable = [ 
+        "scsc" => scsc(gbg)
+        "qataricrisis" => qataricrisis(gbg) "trainingcamps" => trainingcamps(gbg)
+        "truce" => truce(gbg) "bloodyThursday" => bloodyThursday(gbg)
+        "3cupsoftea" => threeCupsOfTea(gbg) "anbarawakening" => anbarAwakening(gbg)
+        "benazirbhutto" => benazirBhutto(gbg) "indopakistanitalks" => indoPakistaniTalks(gbg) 
+        "bhuttoshot" => bhuttoShot(gbg) "alanbar" => alanbar(gbg)
+        "sadr" => sadr(gbg) "fata" => fata(gbg)
+    ]
+    do( 
+        fn (item) :
+            val marker = key(item)
+            val image = value(item) 
+            if isMarker(lab name marker) :
+                if marker == "sadr":
+                    overlay(gbg image getCoord(gbg lab name "right"))
+                    set-right(gbg right(gbg) + 1)
+                else :
+                    overlay(gbg image getCoord(gbg lab name "middle"))
+                    set-middle(gbg middle(gbg) + 1)
+        markerTable
+    )

@@ -132,7 +132,7 @@ val board_tuple = [
 
    ; Muslim countries
    "indonesia" => ["name" => "indonesia", "muslim" => true, "resource" => 3, "oil" => true, "sunni" => true],
-   "pakistan" => ["name" => "pakistan", "muslim" => true, "resource" => 2, "arsenal" => 3],
+   "pakistan" => ["name" => "pakistan", "muslim" => true, "resource" => 2, "arsenal" => 3 ],
    "afghanistan" => ["name" => "afghanistan", "muslim" => true, "resource" => 1],
    "centralasia" => ["name" => "centralasia", "muslim" => true, "resource" => 2, "sunni" => true],
    "gulfstates" => ["name" => "gulfstates", "muslim" => true, "resource" => 3, "oil" => true],
@@ -1859,7 +1859,7 @@ defn cellAvailable (lab : Labyrinth, event: True|False) :
       result = buildable
    result
 
-defn isCaliphate (lab : Labyrinth, name : String) -> True|False:
+public defn isCaliphate (lab : Labyrinth, name : String) -> True|False:
    val ic = getAttr(lab, name, "caliphate")
    match(ic):
       (ic:True) : ic
@@ -1868,7 +1868,7 @@ defn isCaliphate (lab : Labyrinth, name : String) -> True|False:
 defn removeCaliphate (lab : Labyrinth, name : String) :
    setAttr(lab, name, "caliphate", false)
    
-defn getActiveCell (lab : Labyrinth, name : String, withMarkers: True|False) -> Int :
+public defn getActiveCell (lab : Labyrinth, name : String, withMarkers: True|False) -> Int :
    var cell = 0
    val ac = getAttr(lab, name, "activecell")
    match(ac):
@@ -1883,7 +1883,7 @@ defn getActiveCell (lab : Labyrinth, name : String, withMarkers: True|False) -> 
 defn setActiveCell (lab : Labyrinth, name : String, cell : Int) :
    setAttr(lab, name, "activecell", cell)
    
-defn getSleeperCell (lab : Labyrinth, name : String, withMarkers : True|False) -> Int:
+public defn getSleeperCell (lab : Labyrinth, name : String, withMarkers : True|False) -> Int:
    val sc = getAttr(lab, name, "sleepercell")
    match(sc):
       (sc:Int) : sc
@@ -1899,7 +1899,7 @@ defn removeCadre (lab : Labyrinth, name : String) :
    if setAttr(lab, name, "cadre", false) :
       gprintln("Cadre removed in %_" % [name])
 
-defn isCadre (lab : Labyrinth, name : String) -> True|False :
+public defn isCadre (lab : Labyrinth, name : String) -> True|False :
    val cadre = getAttr(lab, name, "cadre")
    match(cadre):
       (c : True) : true
@@ -1918,13 +1918,13 @@ defn testCountry (lab : Labyrinth, name : String) -> False :
             break(false)
          rollPosture(lab, name, 0)
 
-defn getAlign (lab : Labyrinth, name : String) -> String :
+public defn getAlign (lab : Labyrinth, name : String) -> String :
    val a = getAttr(lab, name, "align")
    match(a):
       (a : String) : a
       (a) : "untested"
 
-defn getGovern (lab : Labyrinth, name : String) -> String|False :
+public defn getGovern (lab : Labyrinth, name : String) -> String|False :
    val g = getAttr(lab, name, "govern")
    match(g):
       (g: String) : g
@@ -1936,7 +1936,7 @@ public defn isMuslim (lab : Labyrinth, name : String) -> True|False :
       (im:True) : true
       (im) : false
       
-defn isUntested (lab : Labyrinth, name : String) -> True|False:
+public defn isUntested (lab : Labyrinth, name : String) -> True|False:
    if isMuslim(lab, name):
       match(getGovern(lab, name)):
          (f : False) : true
@@ -1952,7 +1952,7 @@ defn isUntested (lab : Labyrinth, name : String) -> True|False:
       else:
          false
 
-defn getAid (lab : Labyrinth, name : String) :
+public defn getAid (lab : Labyrinth, name : String) :
    val a = getAttr(lab, name, "aid")
    match(a):
       (a : Int) : a
@@ -2033,7 +2033,7 @@ defn isAdjacent (lab : Labyrinth, fromname : String, toname : String, travel : T
                   return(true)
       return(false)
 
-defn isMarker (lab : Labyrinth, name : String, marker : String) :
+public defn isMarker (lab : Labyrinth, name : String, marker : String) :
    if name == "markers":
       contains?(markers(lab), marker)
    else:
@@ -2080,7 +2080,7 @@ defn setCaliphateCapital (lab : Labyrinth, name : String) :
    setAttr(lab, name, "caliphate", "capital")
    gprint("%_ becomes Caliphate Capital" % [name])
 
-defn isCaliphateCapital (lab : Labyrinth, name : String) :
+public defn isCaliphateCapital (lab : Labyrinth, name : String) :
    val value = getAttr(lab, name, "caliphate")
    match(value) :
       (value : String) : if value == "capital" : true
@@ -2254,13 +2254,13 @@ defn countReact (lab : Labyrinth) -> Int:
       react = react + getReact(lab, name)
    react
 
-defn getAwaken (lab : Labyrinth, name : String) -> Int:
+public defn getAwaken (lab : Labyrinth, name : String) -> Int:
    val awaken = getAttr(lab, name, "awaken")
    match(awaken) :
       (awaken : Int) : awaken
       (awaken) : 0
    
-defn getReact (lab : Labyrinth, name : String) -> Int:
+public defn getReact (lab : Labyrinth, name : String) -> Int:
    val react = getAttr(lab, name, "react")
    match(react) :
       (react : Int) : react
@@ -2402,11 +2402,14 @@ defn isRegimeChange (lab : Labyrinth, name : String) -> True|False:
       (color:String) : true
       (color) : false
 
-defn isGreenRegimeChange (lab : Labyrinth, name : String) -> True|False :
+public defn isGreenRegimeChange (lab : Labyrinth, name : String) -> True|False :
    val rc = getAttr(lab, name, "regimechange")
    match(rc):
       (rc : String) : true when rc == "green" else false
       (rc) : false   
+
+public defn isTanRegimeChange (lab : Labyrinth name : String) -> True|False :
+   isRegimeChange(lab name) and not isGreenRegimeChange(lab name)
 
 public defn isSunni (lab : Labyrinth, name : String) -> True|False :
    match(getAttr(lab, name "sunni")) :
@@ -2557,13 +2560,13 @@ defn getTroopStrength (lab : Labyrinth, name : String, forPrestige : True|False)
    ; gprintln("Total Strength=%_" % [troop])
    troop
 
-defn getMilitia (lab : Labyrinth, name : String) -> Int :
+public defn getMilitia (lab : Labyrinth, name : String) -> Int :
    val militia = getAttr(lab, name, "militia")
    match(militia):
       (m : Int) : m
       (m) : 0
 
-defn getTroop (lab : Labyrinth, name : String) -> Int :
+public defn getTroop (lab : Labyrinth, name : String) -> Int :
    label<Int> return:
       if name == "track" :
          return(trooptrack(lab))
@@ -2635,7 +2638,7 @@ defn getGovernNum (lab : Labyrinth, name : String) -> Int :
             else :   0
       (g) : 0
 
-defn isCivilWar (lab : Labyrinth, name : String) -> True|False :
+public defn isCivilWar (lab : Labyrinth, name : String) -> True|False :
    val civilwar = getAttr(lab, name, "civilwar")
    match(civilwar):
       (c:False) : false
@@ -2821,7 +2824,7 @@ defn setReact (lab : Labyrinth, name : String, react : Int ) :
 defn removeUNSCR1973 (lab : Labyrinth, name : String):
    setAttr(lab, name, "unscr1973", false)
    
-defn isBesiegedRegime (lab : Labyrinth, name : String) -> True|False :
+public defn isBesiegedRegime (lab : Labyrinth, name : String) -> True|False :
    val br = getAttr(lab, name, "besiegedregime")
    match(br):
       (br : False) : false
@@ -2952,7 +2955,23 @@ defn setCadre (lab : Labyrinth, name : String) :
    setAttr(lab, name, "cadre", true)
    gprintln("Cadre is placed in %_" % [name])
 
-defn isAdvisors (lab : Labyrinth, name : String) :
+public defn getAdvisors (lab : Labyrinth name : String) -> Int :
+   match(getAttr(lab name "advisors")) :
+      (i : Int) : i
+      (i : True) : 1
+      (f) : 0
+
+public defn isAdvisors (lab : Labyrinth, name : String) -> True|False :
    match(getAttr(lab, name, "advisors")) :
       (a : False) : false
       (a) : true
+
+public defn getNATO (lab : Labyrinth name : String) -> Int :
+   match(getAttr(lab name "nato")) :
+      (a : Int) : a
+      (f) : 0
+
+public defn isUNSCR1973 (lab : Labyrinth name : String) -> True|False :
+   match(getAttr(lab name "unscr1973")) :
+      (f : False) : false
+      (t) : true

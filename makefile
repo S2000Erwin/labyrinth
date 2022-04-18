@@ -2,4 +2,4 @@ STANZAFILES = main.stanza labyrinth.stanza cards.stanza communicator.stanza even
 OBJ = labyrinth
 
 $(OBJ): $(STANZAFILES)
-	stanza $(STANZAFILES) -ccfiles libSDL2.dll.a libSDL2_image.dll.a -o $(OBJ)
+	stanza $(STANZAFILES) -ccfiles libSDL2.dll.a libSDL2_image.dll.a SDL2_ttf.lib -o $(OBJ)

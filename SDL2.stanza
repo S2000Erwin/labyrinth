@@ -83,6 +83,9 @@ extern IMG_Load: (ptr<byte>) -> long
 extern SDL_PollEvent: (ptr<SDL_Event>) -> int
 extern SDL_Delay: (int) -> int
 extern SDL_SetSurfaceBlendMode: (long, int) -> int
+extern TTF_Init: () -> int
+extern TTF_OpenFont: (ptr<byte>, int) -> long
+extern TTF_RenderText_Blended: (long, ptr<byte>, int) -> long
 
 lostanza defn call-SDL_version () -> ref<Int> :
    val v = new SDL_version{0Y, 0Y, 0Y}
@@ -260,6 +263,18 @@ lostanza defn call-SDL_SetSurfaceBlendMode (surface : ref<Long> mode : ref<Int>)
    val result = call-c SDL_SetSurfaceBlendMode(surface.value mode.value)
    return new Int{result}
 
+lostanza defn call-TTF_Init () -> ref<Int> :
+   val result = call-c TTF_Init()
+   return new Int{result}
+
+lostanza defn call-TTF_OpenFont (fontname : ref<String>, size : ref<Int>) -> ref<Long> :
+   val result = call-c TTF_OpenFont(addr!(fontname.chars), size.value)
+   return new Long{result} 
+
+lostanza defn call-TTF_RenderText_Blended (font : ref<Long>, text : ref<String>, color : ref<Int>) -> ref<Long> :
+   val surface = call-c TTF_RenderText_Blended(font.value, addr!(text.chars), color.value)
+   return new Long{surface}
+
 ; ================
 ; pulbic interface
 ; ================
@@ -279,7 +294,12 @@ public defn sdl-create-window (name : String, width : Int, height : Int) -> [Lon
    println("IMG_Init: %_" % [img_result])
    val window = call-SDL_CreateWindow(name, width, height)
    val win-surface = call-SDL_GetWindowSurface(window)
+   val ttf-result = call-TTF_Init()
+   println("TTF_Init: %_" % [ttf-result])
    [window, win-surface]
+
+public defn sdl-open-font (fontname : String size : Int) -> Long :
+   call-TTF_OpenFont(fontname size)
 
 public defn sdl-get-window-surface (window : Long) -> Long :
    call-SDL_GetWindowSurface(window)
@@ -589,7 +609,12 @@ public val SDL_BLENDMODE_INVALID = 0x7FFFFFFF
 public defn sdl-set-surface-blend-mode (surface : Long mode : Int) -> Int :
    call-SDL_SetSurfaceBlendMode(surface mode)
 
-
+public defn sdl-draw-text (surface : Long upper-left : [Int Int] text : String font : Long color : Int ) -> False :
+   val text-surface = call-TTF_RenderText_Blended(font text color)
+   val [w h] = sdl-surface-size(text-surface)
+   val rect = SDL_Rect(upper-left[0] upper-left[1] w h)
+   call-SDL_BlitSurface(text-surface, false, surface, rect)
+   call-SDL_FreeSurface(text-surface)
 
 public defn test-sdl2 () :
    println("Calling SDL_Init()")
