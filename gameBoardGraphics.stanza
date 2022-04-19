@@ -27,6 +27,8 @@ public defstruct GameBoardGraphics :
     lab : Labyrinth|False with : (setter => set-lab)
     board-window : Window
     cards-window : Window 
+    buttons-window : Window
+    windows : Tuple<Window>
     focused-window-id : Int with : (setter => set-focused-window-id)
     font : Long
     baseBoard : Long
@@ -130,14 +132,24 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val adjustment = screen-aspect / board-aspect
 
     val cards-canvas = sdl-create-surface([cards-width cards-height])
-    val [cards-w cards-h] = sdl-surface-size(cards-canvas)
-    val cards-aspect = to-float(cards-w) / to-float(cards-h)
-    val cards-adjustment = cards-aspect / cards-aspect
+    val cards-adjustment = 1.0f
+
+    val buttons-width = 64
+    val buttons-height = 768
+    val [buttons-window buttons-surface] = sdl-create-window("Buttons Control" buttons-width buttons-height)
+    val buttons-canvas = sdl-create-surface([buttons-width buttons-height])
+    val buttons-adjustment = 1.0f
+
+    val board-win = Window( [width, height] window win-surface default-scale [1.0f adjustment] [0.5f 0.5f] canvas )
+    val cards-win = Window( [cards-width cards-height] cards-window cards-surface 1.0f [1.0f cards-adjustment] [0.5f 0.5f] cards-canvas) 
+    val buttons-win = Window( [buttons-width buttons-height] buttons-window buttons-surface 1.0f [1.0f buttons-adjustment] [0.5f 0.5f] buttons-canvas)
 
     val gbg = GameBoardGraphics( 
         false   ; lab
-        Window( [width, height] window win-surface default-scale [1.0f adjustment] [0.5f 0.5f] canvas )
-        Window( [cards-width cards-height] cards-window cards-surface 1.0f [1.0f cards-adjustment] [0.5f 0.5f] cards-canvas) 
+        board-win
+        cards-win
+        buttons-win
+        [board-win cards-win buttons-win]
         0   ; focused-window-id
         sdl-open-font("arial.ttf" 30)
         game-board
@@ -238,7 +250,7 @@ defn recalculate (win : Window) :
 defn recalculate (gbg : GameBoardGraphics  w-id : Int) :
     do(
         fn (win) : recalculate(win) when get-window-id(win) == w-id else false
-        [board-window(gbg) cards-window(gbg)]
+        windows(gbg)
     )
 
 defn overlay (win : Window src-surface : Long top-left : [Int Int]) :
@@ -250,7 +262,7 @@ defn overlay (win : Window src-surface : Long top-left : [Int Int]) :
 defn build-board (gbg : GameBoardGraphics) :
     sdl-set-surface-blend-mode(baseBoard(gbg) SDL_BLENDMODE_BLEND)
     sdl-overlay(baseBoard(gbg) false canvas(board-window(gbg)) false)
-    sdl-draw-text(canvas(board-window(gbg)) [0 0] "Digital Adaption by Erwin Lau" font(gbg) 0xffffffff)
+    sdl-draw-text(canvas(board-window(gbg)) [0 0] "Digital Adaption by Erwin Lau" font(gbg) SDL-color(255Y 255Y 255Y 255Y))
 
 public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
     set-lab(gbg lab)
@@ -308,16 +320,10 @@ public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
     show(gbg)
 
 public defn show (gbg : GameBoardGraphics) :
-    show(board-window(gbg))
-    show(cards-window(gbg))
+    do({show(_)} windows(gbg))
 
 defn show (gbg : GameBoardGraphics  w-id : Int) :
-    do(
-        fn (win) :
-            if get-window-id(win) == w-id :
-                show(win)
-        [board-window(gbg) cards-window(gbg)]
-    )
+    do( fn (win) : show(win) when get-window-id(win) == w-id windows(gbg) )
 
 defn show (win : Window) :
     val size = sdl-surface-size(canvas(win))
@@ -359,13 +365,7 @@ defn move-center (win : Window x : Int y : Int) :
     set-center(win, to-tuple(final-center))
 
 defn move-center (gbg : GameBoardGraphics  window-id : Int x : Int y : Int) :
-    do(
-        fn (win) :
-            if get-window-id(win) == window-id :
-                move-center(win x y)
-        [board-window(gbg) cards-window(gbg)]
-    )
-
+    do( fn (win) : move-center(win x y) when get-window-id(win) == window-id windows(gbg) )
 
 defn change-scale ( win : Window change : Float ) :
     val new-scalar = scalar(win) + change
@@ -375,12 +375,7 @@ defn change-scale ( win : Window change : Float ) :
         show(win)
 
 defn change-scale (gbg : GameBoardGraphics w-id : Int change : Float) :
-    do(
-        fn (win) :
-            if get-window-id(win) == w-id :
-                change-scale(win change)
-        [board-window(gbg) cards-window(gbg)]
-    )
+    do( fn (win) : change-scale(win change) when get-window-id(win) == w-id windows(gbg) )
 
 public defstruct GameBoardGraphicsException <: Exception :
     reason : String
@@ -789,7 +784,7 @@ defn pasteAwaken (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             val nb-awaken = getAwaken(lab name)
             if nb-awaken > 0 :
                 overlay(board-window(gbg) awaken(gbg) [x y])
-                sdl-draw-text(canvas $ board-window $ gbg [x + 38 y + 25] to-string(nb-awaken) font(gbg) 0x00ffffff)
+                sdl-draw-text(canvas $ board-window $ gbg [x + 38 y + 25] to-string(nb-awaken) font(gbg) SDL-color(255Y 255Y 255Y 0Y))
         (f) : false
 
 defn pasteReact (gbg : GameBoardGraphics lab : Labyrinth name : String) :
@@ -800,7 +795,7 @@ defn pasteReact (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             val nb-react = getReact(lab name)
             if nb-react > 0 :
                 overlay(board-window(gbg) react(gbg) [x y])
-                sdl-draw-text(canvas $ board-window $ gbg [x + 38 y + 25] to-string(nb-react) font(gbg) 0x00ffffff)
+                sdl-draw-text(canvas $ board-window $ gbg [x + 38 y + 25] to-string(nb-react) font(gbg) SDL-color(255Y 255Y 255Y 0Y))
                 ;ImageDraw.Draw(self.board).text((x+10, y+6), str(nb-react), (255, 255, 255))
         (f) : false
 
@@ -872,3 +867,27 @@ defn pasteMarkers (gbg : GameBoardGraphics lab : Labyrinth name : String) -> Fal
                     set-middle(gbg middle(gbg) + 1)
         markerTable
     )
+
+deftype Button
+
+defmulti draw (button : Button dst-surface : Long dst-rect : SDL-rect)
+
+defn make-button (
+    [width height] : [Int Int] 
+    button-colors : Tuple<SDL-color> 
+    text : String 
+    font : Long 
+    text-color : SDL-color 
+    callback : (String -> False) ) -> Button :
+    val button-surface = sdl-create-surface([width height])
+    val upper-rect = SDL-rect(0 0 width height / 2)
+    val lower-rect = SDL-rect(0 height / 2 width height / 2)
+    sdl-fill-rect(button-surface false SDL-color(0Y 0Y 0Y 255Y))
+    sdl-fill-rect(button-surface upper-rect button-colors[0])
+    sdl-fill-rect(button-surface lower-rect button-colors[1])
+    sdl-draw-text(button-surface [0 0] text font text-color)
+    new Button :
+        defmethod draw (this dst-surface : Long dst-rect : SDL-rect ) :
+            sdl-overlay(button-surface false dst-surface dst-rect)
+        
+

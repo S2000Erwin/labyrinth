@@ -334,6 +334,20 @@ public defn sdl-load-image (name : String, win-surface : Long ) -> Long :
 public defn sdl-clear-surface (surface : Long) :
    call-SDL_FillRect(surface, false, SDL_RGBA(0Y, 0Y, 0Y, 0Y))
 
+public defstruct SDL-color :
+   r : Byte
+   g : Byte
+   b : Byte
+   a : Byte
+
+public defn sdl-fill-rect (surface : Long rect : SDL-rect|False color : SDL-color) :
+   val c = SDL_RGBA(r(color) g(color) b(color) a(color))
+   val r = match(rect) :
+      (rect : SDL-rect) :
+         SDL_Rect(x(rect) y(rect) w(rect) h(rect))
+      (f) : false
+   call-SDL_FillRect(surface r c)
+
 public defn sdl-overlay (src : Long, src-rect : SDL-rect|False, dst : Long, dst-rect : SDL-rect|False) :
    val lo-src-rect : SDL_Rect|False = 
       SDL_Rect(x(src-rect as SDL-rect), y(src-rect as SDL-rect), w(src-rect as SDL-rect), h(src-rect as SDL-rect)) when src-rect is-not False else false
@@ -621,11 +635,12 @@ public val SDL_BLENDMODE_INVALID = 0x7FFFFFFF
 public defn sdl-set-surface-blend-mode (surface : Long mode : Int) -> Int :
    call-SDL_SetSurfaceBlendMode(surface mode)
 
-public defn sdl-draw-text (surface : Long upper-left : [Int Int] text : String font : Long color : Int ) -> False :
-   val text-surface = call-TTF_RenderText_Blended(font text color)
+public defn sdl-draw-text (surface : Long upper-left : [Int Int] text : String font : Long color : SDL-color ) -> False :
+   val c : Int = to-int(r(color)) + (to-int(g(color)) << 8) + (to-int(b(color)) << 16) + (to-int(a(color)) << 24)
+   val text-surface = call-TTF_RenderText_Blended(font text c)
    val [w h] = sdl-surface-size(text-surface)
    val rect = SDL_Rect(upper-left[0] upper-left[1] w h)
-   call-SDL_BlitSurface(text-surface, false, surface, rect)
+   call-SDL_BlitSurface(text-surface false surface rect)
    call-SDL_FreeSurface(text-surface)
 
 public defn test-sdl2 () :
