@@ -588,6 +588,8 @@ public defn playOneGame (lab : Labyrinth, usplayer : String|False, jihadistplaye
                break(false)
    catch (e : CommException) :
       gprintln("[CommException] reason:%_" % [reason(e)])
+   catch (e : GameBoardGraphicsException) :
+      gprintln("[GameBoardGraphicsException] reason:%_" % [reason(e)])
    ;except WebAbort:
    ;   return False, '', '', self.turn, ''
    ; determine winner

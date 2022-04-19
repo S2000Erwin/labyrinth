@@ -117,7 +117,7 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val height = 768
     val default-scale = 4.0f
     val [window win-surface] = sdl-create-window("Labyrinth", width, height)
-    val cards-width = 252 * 10
+    val cards-width = 252 * 8
     val cards-height = 353
     val [cards-window cards-surface] = sdl-create-window("Cards" cards-width cards-height)
 
@@ -235,9 +235,7 @@ defn recalculate (win : Window) :
 
 defn recalculate (gbg : GameBoardGraphics  w-id : Int) :
     do(
-        fn (win) :
-            if get-window-id(win) == w-id :
-                recalculate(win)
+        fn (win) : recalculate(win) when get-window-id(win) == w-id else false
         [board-window(gbg) cards-window(gbg)]
     )
 
@@ -372,11 +370,14 @@ defn change-scale (gbg : GameBoardGraphics w-id : Int change : Float) :
         [board-window(gbg) cards-window(gbg)]
     )
 
+public defstruct GameBoardGraphicsException <: Exception :
+    reason : String
+
 public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
     val char-buffer = Vector<Char>()
     label<Tuple<Char>|True|False> return :
         do( fn (e) :
-                println(e)
+                ; println(e)
                 match(e) :
                     (e : SDL-window-event) : 
                         ; println("window event %_" % [e])
@@ -384,7 +385,7 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
                             val width = data1(e)
                             val height = data2(e)
                             val w-id = window-id(e)
-                            println("window:%_ resized %_ %_" % [w width height] )
+                            ; println("window:%_ resized %_ %_" % [w width height] )
                             recalculate(gbg w-id)
                             show(gbg w-id)
                         else if event(e) == SDL_WINDOWEVENT_EXPOSED :
@@ -393,15 +394,14 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
                             show(gbg w-id)
                         else if event(e) == SDL_WINDOWEVENT_FOCUS_GAINED :
                             set-focused-window-id(gbg window-id(e))
-
+                        else if event(e) == SDL_WINDOWEVENT_CLOSE :
+                            throw(GameBoardGraphicsException("Close"))
                     (e : SDL-multigesture-event) :
                         val d = dDistance(e) * 125.0f
                         if abs(d) >= 0.1f :
                             change-scale(gbg focused-window-id(gbg) d)
-
                     (e : SDL-generic-event) : 
                         return(true) when SDL_QUIT == type(e)
-                        
                     (e : SDL-mouse-motion-event) :
                         if (state(e) & 1) == 1 :
                             ; println("drag: %_" % [e])
