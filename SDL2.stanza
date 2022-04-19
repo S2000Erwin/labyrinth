@@ -68,6 +68,7 @@ extern SDL_GetVersion: (ptr<SDL_version>) -> int
 extern SDL_Init: int -> int
 extern SDL_Quit: () -> int
 extern SDL_CreateWindow: (ptr<byte>, int, int, int, int, int) -> long
+extern SDL_GetWindowID: (long) -> int
 extern SDL_DestroyWindow: (long) -> int
 extern SDL_GetWindowSurface: (long) -> long
 extern SDL_CreateRGBSurface: (int, int, int, int, int, int, int, int) -> int
@@ -107,6 +108,10 @@ lostanza defn call-SDL_CreateWindow (name : ref<String>, width : ref<Int>, heigh
                            width.value, height.value, 
                            SDL_WINDOW_RESIZABLE.value)
    return new Long{p}
+
+lostanza defn call-SDL_GetWindowID ( window : ref<Long> ) -> ref<Int> :
+   val win-id = call-c SDL_GetWindowID(window.value)
+   return new Int{win-id}
 
 lostanza defn call-SDL_DestroyWindow (window : ref<Long>) -> ref<False> :
    call-c SDL_DestroyWindow(window.value)
@@ -287,16 +292,23 @@ public defstruct SDL-rect :
 public defmethod print (o : OutputStream r : SDL-rect) :
    print(o, "x=%_ y=%_ w=%_ h=%_" % [x(r) y(r) w(r) h(r)])
 
-public defn sdl-create-window (name : String, width : Int, height : Int) -> [Long Long] :
+public defn sdl-init () -> Int :
    val result = call-SDL_Init(SDL_INIT_EVERYTHING)
    println("SDL_Init:%_" % [result])
-   val img_result = call-IMG_Init(IMG_INIT_JPG|IMG_INIT_PNG)
-   println("IMG_Init: %_" % [img_result])
+   if result == 0 :
+      val img_result = call-IMG_Init(IMG_INIT_JPG|IMG_INIT_PNG)
+      println("IMG_Init: %_" % [img_result])
+      val ttf-result = call-TTF_Init()
+      println("TTF_Init: %_" % [ttf-result])
+   result
+
+public defn sdl-create-window (name : String, width : Int, height : Int) -> [Long Long] :
    val window = call-SDL_CreateWindow(name, width, height)
    val win-surface = call-SDL_GetWindowSurface(window)
-   val ttf-result = call-TTF_Init()
-   println("TTF_Init: %_" % [ttf-result])
    [window, win-surface]
+
+public defn sdl-get-window-id (window : Long) -> Int :
+   call-SDL_GetWindowID(window)
 
 public defn sdl-open-font (fontname : String size : Int) -> Long :
    call-TTF_OpenFont(fontname size)
@@ -438,7 +450,7 @@ val SDL_WINDOWEVENT_RESTORED = 9  ;      /**< Window has been restored to normal
                                    ;      and position */
 val SDL_WINDOWEVENT_ENTER = 10   ;/**< Window has gained mouse focus */
 val SDL_WINDOWEVENT_LEAVE = 11          ;/**< Window has lost mouse focus */
-val SDL_WINDOWEVENT_FOCUS_GAINED = 12   ;/**< Window has gained keyboard focus */
+public val SDL_WINDOWEVENT_FOCUS_GAINED = 12   ;/**< Window has gained keyboard focus */
 val SDL_WINDOWEVENT_FOCUS_LOST = 13     ;/**< Window has lost keyboard focus */
 val SDL_WINDOWEVENT_CLOSE = 14          ;/**< The window manager requests that the window be closed */
 val SDL_WINDOWEVENT_TAKE_FOCUS = 15     ;/**< Window is being offered a focus (should SetWindowInputFocus() on itself or a subwindow, or ignore) */

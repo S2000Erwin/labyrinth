@@ -24,15 +24,11 @@ val upperleft = [
 ]
 
 public defstruct GameBoardGraphics :
-    size : [Int, Int] with : (setter => set-size)
-    window : Long
-    win-surface : Long with : (setter => set-win-surface)
+    board-window : Window
+    cards-window : Window 
+    focused-window-id : Int with : (setter => set-focused-window-id)
     font : Long
     baseBoard : Long
-    board : Long
-    scalar : Float with : (setter => set-scalar)           ; nominal scale
-    scale : Tuple<Float> with : (setter => set-scale)     ; use normalized scale. 1.0 = full source screen, 2.0 quarter source screen zoomed in
-    center : Tuple<Float> with : (setter => set-center)   ; use nomralized x, y coordinates. 1.0 = right/bottom, 0.0 = left/top
     cardsInBox : Int with : (setter => set-cardsInBox)
     middle : Int with : (setter => set-middle)
     left : Int with : (setter => set-left)
@@ -106,11 +102,24 @@ public defstruct GameBoardGraphics :
     sadr : Long
     fata : Long
 
-public defn make-GameBoardGraphics () -> GameBoardGraphics :
+defstruct Window :
+    size : [Int Int] with : (setter => set-size)
+    window : Long
+    win-surface : Long with : (setter => set-win-surface)
+    scalar : Float with : (setter => set-scalar)
+    scale : Tuple<Float> with : (setter => set-scale)
+    center : Tuple<Float> with : (setter => set-center)
+    canvas : Long
+
+public defn make-GameBoardGraphics () -> GameBoardGraphics :    
+    sdl-init()
     val width = 1024
     val height = 768
     val default-scale = 4.0f
     val [window win-surface] = sdl-create-window("Labyrinth", width, height)
+    val cards-width = 1024
+    val cards-height = 240
+    val [cards-window cards-surface] = sdl-create-window("Cards" cards-width cards-height)
 
     val screen-aspect = to-float(width) / to-float(height)
     val game-board = sdl-load-image( "vassalimages/Labyrinth Map 2016.jpg", win-surface)    ; baseBoard
@@ -119,16 +128,17 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val board-aspect = to-float(board-w) / to-float(board-h)
     val adjustment = screen-aspect / board-aspect
 
+    val cards-canvas = sdl-create-surface([cards-width cards-height])
+    val [cards-w cards-h] = sdl-surface-size(cards-canvas)
+    val cards-aspect = to-float(cards-w) / to-float(cards-h)
+    val cards-adjustment = cards-aspect / cards-aspect
+
     val gbg = GameBoardGraphics( 
-        [width, height]
-        window
-        win-surface
+        Window( [width, height] window win-surface default-scale [1.0f adjustment] [0.5f 0.5f] canvas )
+        Window( [cards-width cards-height] cards-window cards-surface 1.0f [1.0f cards-adjustment] [0.5f 0.5f] cards-canvas) 
+        0   ; focused-window-id
         sdl-open-font("arial.ttf" 30)
         game-board
-        canvas
-        default-scale
-        [1.0f adjustment]
-        [0.5f 0.5f] 
         0   ; cardsInBox
         0   ; middle
         0   ; left
@@ -207,45 +217,56 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     show(gbg)
     gbg
 
-defn recalculate (gbg : GameBoardGraphics) :
-    val ws = sdl-get-window-surface(window(gbg))
+defn get-window-id (win : Window) -> Int :
+    sdl-get-window-id(window(win))
+
+defn recalculate (win : Window) :
+    val ws = sdl-get-window-surface(window(win))
     val size = sdl-surface-size(ws)
-    set-size(gbg, size)
-    set-win-surface(gbg, ws)
+    set-size(win size)
+    set-win-surface(win ws)
 
     val screen-aspect = to-float(size[0]) / to-float(size[1])
-    val [board-w board-h] = sdl-surface-size(baseBoard(gbg))
+    val [board-w board-h] = sdl-surface-size(canvas(win))
     val board-aspect = to-float(board-w) / to-float(board-h)
     val adjustment = screen-aspect / board-aspect
-    set-scale(gbg [1.0f adjustment])
-    move-center(gbg, 0, 0)
+    set-scale(win [1.0f adjustment])
+    move-center(win 0 0)
 
-defn overlay (gbg : GameBoardGraphics src-surface : Long top-left : [Int Int]) :
+defn recalculate (gbg : GameBoardGraphics  w-id : Int) :
+    do(
+        fn (win) :
+            if get-window-id(win) == w-id :
+                recalculate(win)
+        [board-window(gbg) cards-window(gbg)]
+    )
+
+defn overlay (win : Window src-surface : Long top-left : [Int Int]) :
     val [w h] = sdl-surface-size(src-surface)
     val rect = SDL-rect(top-left[0] top-left[1] w h)
     sdl-set-surface-blend-mode(src-surface SDL_BLENDMODE_BLEND)
-    sdl-overlay(src-surface false board(gbg) rect)
+    sdl-overlay(src-surface false canvas(win) rect)
 
 defn build-board (gbg : GameBoardGraphics) :
     sdl-set-surface-blend-mode(baseBoard(gbg) SDL_BLENDMODE_BLEND)
-    sdl-overlay(baseBoard(gbg) false board(gbg) false)
-    sdl-draw-text(board(gbg) [0 0] "Digital Adaption by Erwin Lau" font(gbg) 0xffffffff)
-
+    sdl-overlay(baseBoard(gbg) false canvas(board-window(gbg)) false)
+    sdl-draw-text(canvas(board-window(gbg)) [0 0] "Digital Adaption by Erwin Lau" font(gbg) 0xffffffff)
 
 public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
     build-board(gbg)
     set-cardsInBox(gbg 0)
+    val win = board-window(gbg)
     if isMuslim(lab "iran") :
-        overlay(gbg iranMuslim(gbg) [1780, 826])
+        overlay(win iranMuslim(gbg) [1780, 826])
     if not isSunni(lab "syria"):
-        overlay(gbg syria(gbg) [1393, 800])
+        overlay(win syria(gbg) [1393, 800])
     if get(countries(lab) "mali") is-not False :
-        overlay(gbg mali(gbg) [267, 1787])
+        overlay(win mali(gbg) [267, 1787])
     if get(countries(lab) "nigeria") is-not False :
         if isMuslim(lab "nigeria") :
-            overlay(gbg nigeria_muslim(gbg), [567, 1787])
+            overlay(win nigeria_muslim(gbg), [567, 1787])
         else:
-            overlay(gbg nigeria_nonMuslim(gbg), [567, 1787])
+            overlay(win nigeria_nonMuslim(gbg), [567, 1787])
     do(
         {drawCountry(gbg lab key(_))}
         c(countries(lab))
@@ -268,9 +289,22 @@ public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
     show(gbg)
 
 public defn show (gbg : GameBoardGraphics) :
-    val size = sdl-surface-size(baseBoard(gbg))
-    val scaled-size = map({to-float(_) / _ / scalar(gbg) } to-list(size) scale(gbg))
-    val cs = map({to-int(_ * to-float(_))} to-list $ center(gbg) size)
+    show(board-window(gbg))
+    show(cards-window(gbg))
+
+defn show (gbg : GameBoardGraphics  w-id : Int) :
+    do(
+        fn (win) :
+            if get-window-id(win) == w-id :
+                show(win)
+        [board-window(gbg) cards-window(gbg)]
+    )
+
+
+defn show (win : Window) :
+    val size = sdl-surface-size(canvas(win))
+    val scaled-size = map({to-float(_) / _ / scalar(win) } to-list(size) scale(win))
+    val cs = map({to-int(_ * to-float(_))} to-list $ center(win) size)
     
     val src-rect = SDL-rect( 
         to-int(to-float(cs[0]) - scaled-size[0] * 0.5f)
@@ -278,62 +312,84 @@ public defn show (gbg : GameBoardGraphics) :
         to-int(scaled-size[0])
         to-int(scaled-size[1])
     )
-    sdl-clear-surface(win-surface(gbg))
-    sdl-overlay(board(gbg), src-rect, win-surface(gbg), false)
-    sdl-update(window(gbg))
+    sdl-clear-surface(win-surface(win))
+    sdl-overlay(canvas(win), src-rect, win-surface(win), false)
+    sdl-update(window(win))
 
-defn move-center (gbg : GameBoardGraphics, x : Int, y : Int) :
-    val size = sdl-surface-size(win-surface(gbg))
+defn move-center (win : Window x : Int y : Int) :
+    val size = sdl-surface-size(win-surface(win))
     val new-center = map( 
         {_ + _}
         map(
-            {_ / to-float(_) / _ / scalar(gbg)} 
+            {_ / to-float(_) / _ / scalar(win)} 
             to-list([to-float((- x)) to-float((- y))])
             to-tuple(size)
-            scale(gbg)
+            scale(win)
         )
-        center(gbg) 
+        center(win) 
     )
     val final-center =
         map(
-            fn (c s) : max((0.5f / s / scalar(gbg)) min(c (1.0f - 0.5f / s / scalar(gbg))))
+            fn (c s) : max((0.5f / s / scalar(win)) min(c (1.0f - 0.5f / s / scalar(win))))
             new-center
-            scale(gbg)
-        ) when scalar(gbg) > 1.0f else
+            scale(win)
+        ) when scalar(win) > 1.0f else
         map(
             {max(0.0f min(_ 1.0f))}
             new-center
         )
-    set-center(gbg, to-tuple(final-center))
+    set-center(win, to-tuple(final-center))
 
-defn change-scale ( gbg : GameBoardGraphics, change : Float ) :
-    val new-scalar = scalar(gbg) + change
+defn move-center (gbg : GameBoardGraphics  window-id : Int x : Int y : Int) :
+    do(
+        fn (win) :
+            if get-window-id(win) == window-id :
+                move-center(win x y)
+        [board-window(gbg) cards-window(gbg)]
+    )
+
+
+defn change-scale ( win : Window change : Float ) :
+    val new-scalar = scalar(win) + change
     if new-scalar >= 0.5f :
-        set-scalar(gbg new-scalar)
-        move-center(gbg 0 0)
-        show(gbg)
+        set-scalar(win new-scalar)
+        move-center(win 0 0)
+        show(win)
+
+defn change-scale (gbg : GameBoardGraphics w-id : Int change : Float) :
+    do(
+        fn (win) :
+            if get-window-id(win) == w-id :
+                change-scale(win change)
+        [board-window(gbg) cards-window(gbg)]
+    )
 
 public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
     val char-buffer = Vector<Char>()
     label<Tuple<Char>|True|False> return :
         do( fn (e) :
-                ;println(e)
+                println(e)
                 match(e) :
                     (e : SDL-window-event) : 
                         ; println("window event %_" % [e])
                         if event(e) == SDL_WINDOWEVENT_SIZE_CHANGED :
                             val width = data1(e)
                             val height = data2(e)
-                            ; println("resized %_ %_" % [width height] )
-                            recalculate(gbg)
-                            show(gbg)
+                            val w-id = window-id(e)
+                            println("window:%_ resized %_ %_" % [w width height] )
+                            recalculate(gbg w-id)
+                            show(gbg w-id)
                         else if event(e) == SDL_WINDOWEVENT_EXPOSED :
-                            recalculate(gbg)
-                            show(gbg)
+                            val w-id = window-id(e)
+                            recalculate(gbg w-id)
+                            show(gbg w-id)
+                        else if event(e) == SDL_WINDOWEVENT_FOCUS_GAINED :
+                            set-focused-window-id(gbg window-id(e))
+
                     (e : SDL-multigesture-event) :
                         val d = dDistance(e) * 125.0f
                         if abs(d) >= 0.1f :
-                            change-scale(gbg d)
+                            change-scale(gbg focused-window-id(gbg) d)
 
                     (e : SDL-generic-event) : 
                         return(true) when SDL_QUIT == type(e)
@@ -341,15 +397,15 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
                     (e : SDL-mouse-motion-event) :
                         if (state(e) & 1) == 1 :
                             ; println("drag: %_" % [e])
-                            move-center(gbg, xrel(e), yrel(e))
-                            show(gbg)
+                            move-center(gbg window-id(e) xrel(e) yrel(e))
+                            show(gbg window-id(e))
                     (e : SDL-keyboard-event) :
                         if state(e) == 0Y and mod(e) == 0 :
                             val c = to-char(sym(e))
                             if c == ',' :
-                                change-scale(gbg (- scale-step))
+                                change-scale(gbg focused-window-id(gbg) (- scale-step))
                             else if c == '.' :
-                                change-scale(gbg scale-step)
+                                change-scale(gbg focused-window-id(gbg) scale-step)
                             else :
                                 add(char-buffer, c)
                     (e) : false 
@@ -361,25 +417,25 @@ defn drawTroopTrack (gbg : GameBoardGraphics lab : Labyrinth) :
     val coord = [3167 153]
     for i in 0 to trooptrack(lab) do:
         val x = (coord[0] - 40 * i) - (i / 5) * 72
-        overlay(gbg troop(gbg) [x, coord[1]])
+        overlay(board-window(gbg) troop(gbg) [x, coord[1]])
     val troop-level = getTroopLevel(lab)
     val x = 2447 when troop-level == "low" else 2727 when troop-level == "war" else 2993
-    overlay(gbg troopLevel(gbg) [x, coord[1] - 13])
+    overlay(board-window(gbg) troopLevel(gbg) [x, coord[1] - 13])
     val offmap = offmap(lab)
     if offmap != 0:
-        overlay(gbg troopoffmap(gbg) [3000 273])
+        overlay(board-window(gbg) troopoffmap(gbg) [3000 273])
         val coord = [3100 293]
         val x = coord[0] - (offmap / 2) * 40
         val y = coord[1]
         for i in 0 to offmap do:
-            overlay(gbg troop(gbg) [(x + 40 * i) y])
+            overlay(board-window(gbg) troop(gbg) [(x + 40 * i) y])
 
 defn drawCellTrack (gbg : GameBoardGraphics lab : Labyrinth) :
-    overlay(gbg funding(gbg) [(102 * (funding(lab) - 1) + 2280) 413])
+    overlay(board-window(gbg) funding(gbg) [(102 * (funding(lab) - 1) + 2280) 413])
     val coord = [3113 533]
     for i in 0 to celltrack(lab) do :
         val x = (coord[0] - i * 50) - (i / 5) * 67
-        overlay(gbg sleeperCell(gbg) [x, coord[1]])
+        overlay(board-window(gbg) sleeperCell(gbg) [x, coord[1]])
     if cellcamps(lab) > 0:
         pasteCylinder(gbg sleeperCell(gbg) cellcamps(lab) [3193 407])
 
@@ -392,7 +448,7 @@ defn drawMarkers (gbg : GameBoardGraphics lab : Labyrinth) :
         "pirates" => pirates(gbg)
     ]
     do(
-        {overlay(gbg lookup(markerTable _) [(coord[0] + _ * 67) coord[1]])}
+        {overlay(board-window(gbg) lookup(markerTable _) [(coord[0] + _ * 67) coord[1]])}
         markers(lab)
         0 to length(markers(lab))
     )
@@ -420,25 +476,25 @@ defn drawPlots (gbg : GameBoardGraphics plots : Vector<Int|String> coord : [Int 
                 "w" : plotW(gbg)
                 "-w" : plotW(gbg)
                 else : plot1(gbg)
-            overlay(gbg p [x, y])
+            overlay(board-window(gbg) p [x, y])
         plots
         0 to length(plots)
     )
 
 
 defn drawReserves (gbg : GameBoardGraphics lab : Labyrinth) :
-    overlay(gbg usreserve(gbg) [2648 (848 - usreserve(lab) * 87)])
-    overlay(gbg jihadistreserve(gbg) [2726 (848 - jihadistreserve(lab) * 87)])
+    overlay(board-window(gbg) usreserve(gbg) [2648 (848 - usreserve(lab) * 87)])
+    overlay(board-window(gbg) jihadistreserve(gbg) [2726 (848 - jihadistreserve(lab) * 87)])
 
 defn drawPhase (gbg : GameBoardGraphics lab : Labyrinth) :
     val x = 1653 + (214 when currentplayer(lab) == "us" else 0) + (107 when currentphase(lab) == 1 else 0)
     val y = 153
-    overlay(gbg phase(gbg) [x y])
+    overlay(board-window(gbg) phase(gbg) [x y])
 
 defn drawDeck (gbg : GameBoardGraphics lab : Labyrinth) :
     val x = 1960 + (3 - nbDeck(lab)) * 100 + (333 when nbDeck(lab) == 0 else 0)
     val y = 273
-    overlay(gbg deck(gbg) [x y])
+    overlay(board-window(gbg) deck(gbg) [x y])
 
 defn drawScores (gbg : GameBoardGraphics lab : Labyrinth) :
     val scores = Vector<Vector<Long>>()
@@ -469,7 +525,7 @@ defn showScores (gbg : GameBoardGraphics scores : Vector<Vector<Long>>):
                 val x = coord[0] + interval * col
                 val y = coord[1] - (num - 1) * 33 + row * interval
                 do(
-                    fn (i) : overlay(gbg markers[i] [x  (y + i * 67)])
+                    fn (i) : overlay(board-window(gbg) markers[i] [x  (y + i * 67)])
                     0 to num
                 )
         0 to 16
@@ -481,16 +537,16 @@ defn drawGWOT (gbg : GameBoardGraphics lab : Labyrinth) :
     val marker = gwotHard(gbg) when gwot > 0 else gwotSoft(gbg) when gwot < 0 else gwotHard(gbg) when us == "hard" else gwotSoft(gbg)
     val interval = 83
     val coord = [100 1367]
-    overlay(gbg marker [(coord[0] + (gwot + 3) * interval) coord[1]])
+    overlay(board-window(gbg) marker [(coord[0] + (gwot + 3) * interval) coord[1]])
     if us == "hard":
-        overlay(gbg usHard(gbg) [420, 1440])
+        overlay(board-window(gbg) usHard(gbg) [420, 1440])
     else:
-        overlay(gbg usSoft(gbg) [280, 1440])
+        overlay(board-window(gbg) usSoft(gbg) [280, 1440])
 
 defn drawPrestige (gbg : GameBoardGraphics lab : Labyrinth) :
     val coord = [73 1573]
     val interval = 83
-    overlay(gbg prestige(gbg) [(coord[0] + interval * (prestige(lab) - 1)) coord[1] ])
+    overlay(board-window(gbg) prestige(gbg) [(coord[0] + interval * (prestige(lab) - 1)) coord[1] ])
 
 defn drawFirstPlot (gbg : GameBoardGraphics lab : Labyrinth) :
     label<False> return :
@@ -511,12 +567,12 @@ defn drawCardInBox (gbg : GameBoardGraphics card : Int marker : Long) :
     val cardBox = [827 1767]
     val filename = append-all(["vassalimages/Card" "_0" when card < 10 else "_" to-string(card) ".png"]) when card < 241 else
         append-all(["vassalimages/" to-string(card) ".png"])
-    val image = sdl-load-image(filename board(gbg))
+    val image = sdl-load-image(filename canvas $ board-window $ gbg)
     val x = cardBox[0] + cardsInBox(gbg) * 167
     val y = cardBox[1] + cardsInBox(gbg) * 33
-    overlay(gbg image [x, y])
+    overlay(board-window(gbg) image [x, y])
     sdl-free-surface(image)
-    overlay(gbg marker [(x + 100) (y + 167)])
+    overlay(board-window(gbg) marker [(x + 100) (y + 167)])
     set-cardsInBox(gbg (cardsInBox(gbg) + 1))
 
 defn drawCountry (gbg : GameBoardGraphics lab : Labyrinth name : String) :
@@ -554,7 +610,7 @@ defn pasteArsenal (gbg : GameBoardGraphics lab : Labyrinth name : String) :
         ([ox oy] : [Int Int]) : 
             val [x y] = [ox (oy + 233)] when name == "pakistan" else [(ox + 53) (oy - 100)]
             do(
-                {overlay(gbg plotW(gbg) [(x + _ * 70), y])}
+                {overlay(board-window(gbg) plotW(gbg) [(x + _ * 70), y])}
                 0 to getArsenal(lab name)
             )
         (f) : false
@@ -565,7 +621,7 @@ defn pastePosture (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             (r : [Int Int]) :
                 val posture = getPosture(lab name)
                 match(hard(gbg) when posture == "hard" else soft(gbg) when posture == "soft" else false) :
-                    (image : Long) : overlay(gbg image r)
+                    (image : Long) : overlay(board-window(gbg) image r)
                     (f) : false
             (f) : false
 
@@ -584,7 +640,7 @@ defn pasteGovern (gbg : GameBoardGraphics lab : Labyrinth name : String) :
                     "islamrule" : islamrule(gbg)
                     else : false
                 match(image) :
-                    (image : Long) : overlay(gbg image [x y])
+                    (image : Long) : overlay(board-window(gbg) image [x y])
                     (f) : false
 
 defn pasteCaliphate (gbg : GameBoardGraphics lab : Labyrinth name : String) :
@@ -593,10 +649,10 @@ defn pasteCaliphate (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             val x = r[0] + 67
             val y = r[1] + 67 * (middle(gbg) + 1)
             if isCaliphateCapital(lab name) :
-                overlay(gbg caliphateCapital(gbg) [x y])
+                overlay(board-window(gbg) caliphateCapital(gbg) [x y])
                 set-middle(gbg middle(gbg) + 1)
             else if isCaliphate(lab name) :
-                overlay(gbg caliphateCountry(gbg) [x y])
+                overlay(board-window(gbg) caliphateCountry(gbg) [x y])
                 set-middle(gbg middle(gbg) + 1)
         (f) : false
 
@@ -606,7 +662,7 @@ defn pasteCivilWar (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             val x = r[0] + 67
             val y = r[1] + 67 * (middle(gbg) + 1)
             if isCivilWar(lab name) :
-                overlay(gbg civilWar(gbg) [x y])
+                overlay(board-window(gbg) civilWar(gbg) [x y])
                 set-middle(gbg middle(gbg) + 1)
         (f) : false
 
@@ -619,7 +675,7 @@ defn pasteRegimeChange (gbg : GameBoardGraphics lab : Labyrinth name : String) :
                 else tanRegimeChange(gbg) when isTanRegimeChange(lab name) else false
             match(image) :
                 (image : Long) :
-                    overlay(gbg image [x y])
+                    overlay(board-window(gbg) image [x y])
                     set-middle(gbg middle(gbg) + 1)
                 (f) : false
         (f) : false
@@ -630,7 +686,7 @@ defn pasteAid (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             val x = r[0] + 67
             val y = r[1] + 67 * (middle(gbg) + 1)
             do(
-                { overlay(gbg aid(gbg) [x _ * 67 + y]) set-middle(gbg middle(gbg) + 1) }
+                { overlay(board-window(gbg) aid(gbg) [x _ * 67 + y]) set-middle(gbg middle(gbg) + 1) }
                 0 to getAid(lab name)
             )
         (f) : false
@@ -641,7 +697,7 @@ defn pasteBesiegedRegime (gbg : GameBoardGraphics lab : Labyrinth name : String)
             val x = r[0] + 67
             val y = r[1] + 67 * (middle(gbg) + 1)
             if isBesiegedRegime(lab name) :
-                overlay(gbg besiegedRegime(gbg) [x y])
+                overlay(board-window(gbg) besiegedRegime(gbg) [x y])
                 set-middle(gbg middle(gbg) + 1)
         (f) : false
 
@@ -652,7 +708,7 @@ defn pasteCylinder (gbg : GameBoardGraphics image : Long number : Int [x y] : [I
             val col = i % 2
             val local_x = x + col * 33 - (17 when row % 2 == 1 else 0)
             val local_y = y + row * 33
-            overlay(gbg image [local_x local_y])
+            overlay(board-window(gbg) image [local_x local_y])
         0 to number
     )
 
@@ -672,7 +728,7 @@ defn pasteCadre (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             val x = r[0] + 134
             val y = r[1] + 67 * (right(gbg) + 1 when isMuslim(lab name) else 0)
             if isCadre(lab name) :
-                overlay(gbg cadre(gbg) [x y])
+                overlay(board-window(gbg) cadre(gbg) [x y])
                 set-right(gbg right(gbg) + 1)
         (f) : false
 
@@ -707,8 +763,8 @@ defn pasteAwaken (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             val y = r[1] + 134
             val nb-awaken = getAwaken(lab name)
             if nb-awaken > 0 :
-                overlay(gbg awaken(gbg) [x y])
-                sdl-draw-text(board(gbg) [x + 38 y + 25] to-string(nb-awaken) font(gbg) 0x00ffffff)
+                overlay(board-window(gbg) awaken(gbg) [x y])
+                sdl-draw-text(canvas $ board-window $ gbg [x + 38 y + 25] to-string(nb-awaken) font(gbg) 0x00ffffff)
         (f) : false
 
 defn pasteReact (gbg : GameBoardGraphics lab : Labyrinth name : String) :
@@ -718,8 +774,8 @@ defn pasteReact (gbg : GameBoardGraphics lab : Labyrinth name : String) :
             val y = r[1] + 134
             val nb-react = getReact(lab name)
             if nb-react > 0 :
-                overlay(gbg react(gbg) [x y])
-                sdl-draw-text(board(gbg) [x + 38 y + 25] to-string(nb-react) font(gbg) 0x00ffffff)
+                overlay(board-window(gbg) react(gbg) [x y])
+                sdl-draw-text(canvas $ board-window $ gbg [x + 38 y + 25] to-string(nb-react) font(gbg) 0x00ffffff)
                 ;ImageDraw.Draw(self.board).text((x+10, y+6), str(nb-react), (255, 255, 255))
         (f) : false
 
@@ -740,7 +796,7 @@ defn pastePlot (gbg : GameBoardGraphics lab : Labyrinth name : String) :
                             "w"  : plotW(gbg)
                             else : false
                         match(image) :
-                            (image : Long) : overlay(gbg image [x y + 67 * inc-y])
+                            (image : Long) : overlay(board-window(gbg) image [x y + 67 * inc-y])
                             (f) : false
                         set-middle(gbg middle(gbg) + 1)
                 plots(lab)
@@ -759,14 +815,14 @@ defn getCoord (gbg : GameBoardGraphics lab : Labyrinth name : String pos : Strin
         (f) : [0 0]
 
 defn pasteMarkers (gbg : GameBoardGraphics lab : Labyrinth name : String) -> False :
-    do( {overlay(gbg nato(gbg) getCoord(gbg lab name "left")) set-left(gbg left(gbg) + 1)}
+    do( {overlay(board-window(gbg) nato(gbg) getCoord(gbg lab name "left")) set-left(gbg left(gbg) + 1)}
         0 to getNATO(lab name)
     )
-    do( {overlay(gbg advisors(gbg) getCoord(gbg lab name "middle")) set-middle(gbg middle(gbg) + 1)}
+    do( {overlay(board-window(gbg) advisors(gbg) getCoord(gbg lab name "middle")) set-middle(gbg middle(gbg) + 1)}
         0 to getAdvisors(lab name)
     )
     if isUNSCR1973(lab name) :
-        overlay(gbg UNSCR1973(gbg) getCoord(gbg lab name "middle"))
+        overlay(board-window(gbg) UNSCR1973(gbg) getCoord(gbg lab name "middle"))
         set-middle(gbg middle(gbg) + 1)
 
     val markerTable = [ 
@@ -784,10 +840,10 @@ defn pasteMarkers (gbg : GameBoardGraphics lab : Labyrinth name : String) -> Fal
             val image = value(item) 
             if isMarker(lab name marker) :
                 if marker == "sadr":
-                    overlay(gbg image getCoord(gbg lab name "right"))
+                    overlay(board-window(gbg) image getCoord(gbg lab name "right"))
                     set-right(gbg right(gbg) + 1)
                 else :
-                    overlay(gbg image getCoord(gbg lab name "middle"))
+                    overlay(board-window(gbg) image getCoord(gbg lab name "middle"))
                     set-middle(gbg middle(gbg) + 1)
         markerTable
     )
