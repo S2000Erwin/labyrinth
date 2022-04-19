@@ -24,6 +24,7 @@ val upperleft = [
 ]
 
 public defstruct GameBoardGraphics :
+    lab : Labyrinth|False with : (setter => set-lab)
     board-window : Window
     cards-window : Window 
     focused-window-id : Int with : (setter => set-focused-window-id)
@@ -134,6 +135,7 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val cards-adjustment = cards-aspect / cards-aspect
 
     val gbg = GameBoardGraphics( 
+        false   ; lab
         Window( [width, height] window win-surface default-scale [1.0f adjustment] [0.5f 0.5f] canvas )
         Window( [cards-width cards-height] cards-window cards-surface 1.0f [1.0f cards-adjustment] [0.5f 0.5f] cards-canvas) 
         0   ; focused-window-id
@@ -251,6 +253,7 @@ defn build-board (gbg : GameBoardGraphics) :
     sdl-draw-text(canvas(board-window(gbg)) [0 0] "Digital Adaption by Erwin Lau" font(gbg) 0xffffffff)
 
 public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
+    set-lab(gbg lab)
     build-board(gbg)
     set-cardsInBox(gbg 0)
     val win = board-window(gbg)
@@ -291,6 +294,15 @@ public defn build-cards (gbg : GameBoardGraphics, lab : Labyrinth) :
         ushand(lab) when currentplayer(lab) == "us" else jihadisthand(lab)
         0 to false
     )
+
+defn rebuild (gbg : GameBoardGraphics window-id : Int) :
+    match(lab(gbg)) :
+        (lab : Labyrinth) :
+            if get-window-id(board-window(gbg)) == window-id :
+                build-board(gbg lab)
+            else if get-window-id(cards-window(gbg)) == window-id :
+                build-cards(gbg lab)
+        (f) : false
 
 public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
     show(gbg)
@@ -390,6 +402,7 @@ public defn handle-events (gbg : GameBoardGraphics) -> Tuple<Char>|True|False :
                             show(gbg w-id)
                         else if event(e) == SDL_WINDOWEVENT_EXPOSED :
                             val w-id = window-id(e)
+                            rebuild(gbg w-id)
                             recalculate(gbg w-id)
                             show(gbg w-id)
                         else if event(e) == SDL_WINDOWEVENT_FOCUS_GAINED :
