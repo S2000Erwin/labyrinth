@@ -35,6 +35,7 @@ public defstruct CommException <: Exception :
 
 defn input ( msg : String, gbg : GameBoardGraphics game : Labyrinth) -> String :
     build-board(gbg game)
+    build-cards(gbg game)
     cprintln(append(msg, "> "))
     val input-buffer = Vector<Char>()
     label<False> break :

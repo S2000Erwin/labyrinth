@@ -117,8 +117,8 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val height = 768
     val default-scale = 4.0f
     val [window win-surface] = sdl-create-window("Labyrinth", width, height)
-    val cards-width = 1024
-    val cards-height = 240
+    val cards-width = 252 * 10
+    val cards-height = 353
     val [cards-window cards-surface] = sdl-create-window("Cards" cards-width cards-height)
 
     val screen-aspect = to-float(width) / to-float(height)
@@ -285,6 +285,15 @@ public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
     drawFirstPlot(gbg lab)
     drawLapsing(gbg lab)
 
+public defn build-cards (gbg : GameBoardGraphics, lab : Labyrinth) :
+    val win = cards-window(gbg)
+    sdl-clear-surface(win-surface(win))
+    do(
+        {drawCard(gbg _ cards-window(gbg) [_ * 252 0])}
+        ushand(lab) when currentplayer(lab) == "us" else jihadisthand(lab)
+        0 to false
+    )
+
 public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
     show(gbg)
 
@@ -299,7 +308,6 @@ defn show (gbg : GameBoardGraphics  w-id : Int) :
                 show(win)
         [board-window(gbg) cards-window(gbg)]
     )
-
 
 defn show (win : Window) :
     val size = sdl-surface-size(canvas(win))
@@ -565,15 +573,19 @@ defn drawLapsing (gbg : GameBoardGraphics lab : Labyrinth) :
 
 defn drawCardInBox (gbg : GameBoardGraphics card : Int marker : Long) :
     val cardBox = [827 1767]
-    val filename = append-all(["vassalimages/Card" "_0" when card < 10 else "_" to-string(card) ".png"]) when card < 241 else
-        append-all(["vassalimages/" to-string(card) ".png"])
-    val image = sdl-load-image(filename canvas $ board-window $ gbg)
     val x = cardBox[0] + cardsInBox(gbg) * 167
     val y = cardBox[1] + cardsInBox(gbg) * 33
-    overlay(board-window(gbg) image [x, y])
-    sdl-free-surface(image)
+    drawCard(gbg card board-window(gbg) [x y])
     overlay(board-window(gbg) marker [(x + 100) (y + 167)])
     set-cardsInBox(gbg (cardsInBox(gbg) + 1))
+
+defn drawCard (gbg : GameBoardGraphics card : Int win : Window r : [Int Int]) :
+    val filename = append-all(["vassalimages/Card" "_0" when card < 10 else "_" to-string(card) ".png"]) when card < 241 else
+        append-all(["vassalimages/" to-string(card) ".png"])
+    val image = sdl-load-image(filename canvas $ win)
+    overlay(win image r)
+    sdl-free-surface(image)
+
 
 defn drawCountry (gbg : GameBoardGraphics lab : Labyrinth name : String) :
     set-middle(gbg 0)
