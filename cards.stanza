@@ -168,12 +168,12 @@ defmethod print (o: OutputStream, cards : Cards) :
 
 public val cards = to-cards(cards_tuple)
 
-public defn getCardInfo (card-id : Int) -> [Int, String, String] :
+public defn getCardInfo (card-id : Int) -> [Int String String] :
    val card = get?(cards, card-id)
    match(card):
       (card : Card) :
          [ops(card) association(card) title(card)]
-      (card) : [0, "", ""]
+      (card) : [0 "" ""]
 
 public defn getEventString (who : String, card-id : Int) -> [String|False String|False] :
    val card = get?(cards, card-id)

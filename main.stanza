@@ -4,7 +4,7 @@ defpackage main :
 
 ; un-comment the line below to test SDL_PollEvent loop
 ;test-sdl2()
-val labyrinth = make-labyrinth(true, false, "Surge", "human", "human", true, 1)
-playOneGame(labyrinth, "human", "human")
+val labyrinth = make-labyrinth(true, false, "Surge", "gui", "gui", true, 1)
+playOneGame(labyrinth, "gui", "gui")
 
 

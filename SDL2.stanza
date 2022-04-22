@@ -341,7 +341,7 @@ public defstruct SDL-color :
    a : Byte
 
 public defn sdl-fill-rect (surface : Long rect : SDL-rect|False color : SDL-color) :
-   val c = SDL_RGBA(r(color) g(color) b(color) a(color))
+   val c = (to-int $ a(color)) << 24 + (to-int $ b(color)) << 16 + (to-int $ g(color)) << 8 + (to-int $ r(color))
    val r = match(rect) :
       (rect : SDL-rect) :
          SDL_Rect(x(rect) y(rect) w(rect) h(rect))
@@ -642,6 +642,14 @@ public defn sdl-draw-text (surface : Long upper-left : [Int Int] text : String f
    val rect = SDL_Rect(upper-left[0] upper-left[1] w h)
    call-SDL_BlitSurface(text-surface false surface rect)
    call-SDL_FreeSurface(text-surface)
+
+public defn sdl-text-size (text : String font : Long color : SDL-color) -> [Int Int] :
+   val c : Int = to-int(r(color)) + (to-int(g(color)) << 8) + (to-int(b(color)) << 16) + (to-int(a(color)) << 24)
+   val text-surface = call-TTF_RenderText_Blended(font text c)
+   val [w h] = sdl-surface-size(text-surface)
+   call-SDL_FreeSurface(text-surface)
+   [w h]
+
 
 public defn test-sdl2 () :
    println("Calling SDL_Init()")

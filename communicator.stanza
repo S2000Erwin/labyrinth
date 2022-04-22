@@ -33,43 +33,60 @@ defn cprintln<?T> (msg : ?T ) :
 public defstruct CommException <: Exception :
     reason : String
 
-defn input ( msg : String, gbg : GameBoardGraphics game : Labyrinth) -> String :
+defn input ( msg : String, gbg : GameBoardGraphics game : Labyrinth ) -> String :
+    match(gui-input(msg gbg game 
+                [" "] false false 
+                false)) :
+        (s : String) : s
+        (s : Int) : to-string(s)
+
+defn gui-input ( msg : String, gbg : GameBoardGraphics game : Labyrinth
+             validAnswers : Tuple<String|Int> displays : Tuple<String>|False tooltips : Tuple<String>|False
+             color-hint : String|False) -> String|Int :
     build-board(gbg game)
     build-cards(gbg game)
+    build-buttons(gbg game validAnswers displays color-hint)
     cprintln(append(msg, "> "))
     val input-buffer = Vector<Char>()
-    label<False> break :
-        while true :
-            val result = handle-events(gbg)
-            ;println(result)
-            match(result) :
-                (xs : Tuple<Char>) :
-                    do(
-                        fn (x) :
-                            break(false) when (to-int(x) == 10 or to-int(x) == 13)
-                            throw(CommException("Escape")) when (to-int(x) == 27)
-                            if to-int(x) >= 0x20 :
-                                cprint(x)
-                                add(input-buffer, x)
-                        xs
-                    )
-                (t : True) :
-                    throw( CommException("Program Quit") )
-                (f) : false
-            
-            ; val c = get-char(STANDARD-INPUT-STREAM) ; do not return until '\n' is gotten
-            ; match(c):
-            ;     (c : Char) :
-            ;         match(to-int(c)):
-            ;             (i : Int) : 
-            ;                 break(false) when i == 10
-            ;             (f) : false
-            ;         add(input-buffer, c)
-            ;     (c) : false
-    cprintln("")
-    val result = string-join(input-buffer)
-    ; println(result)
-    result
+    label<String|Int> return :
+        label<False> break :
+            while true :
+                val result = handle-events(gbg validAnswers)
+                ;println(result)
+                match(result) :
+                    (xs : Tuple<Char>) :
+                        do(
+                            fn (x) :
+                                break(false) when (to-int(x) == 10 or to-int(x) == 13)
+                                throw(CommException("Escape")) when (to-int(x) == 27)
+                                if to-int(x) >= 0x20 :
+                                    cprint(x)
+                                    add(input-buffer, x)
+                            xs
+                        )
+                    (t : True) :
+                        throw( CommException("Program Quit") )
+                    (ans : String|Int) :
+                        return(ans)
+                    (f) : false
+                
+                ; val c = get-char(STANDARD-INPUT-STREAM) ; do not return until '\n' is gotten
+                ; match(c):
+                ;     (c : Char) :
+                ;         match(to-int(c)):
+                ;             (i : Int) : 
+                ;                 break(false) when i == 10
+                ;             (f) : false
+                ;         add(input-buffer, c)
+                ;     (c) : false
+        cprintln("")
+
+        val result = string-join(input-buffer)
+        ; println(result)
+        return(result)
+
+
+    
 
 public defstruct Communicator :
     game : Labyrinth
@@ -298,6 +315,39 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                 ans = 0
                 if ans is Int:
                     ans = ans as Int
+
+            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+                val displays = map(
+                    {
+                        val [ops assoc title] = getCardInfo(_)
+                        string-join([to-string(ops) title] " ")
+                    }
+                    validAnswers
+                )
+                val tooltips = map(
+                    {
+                        val [condition description] = getEventString(who, _)
+                        var msg : String = " "
+                        match(condition) :
+                            (cond : String) :
+                                msg = append(msg cond)
+                                msg = append(msg "\n")
+                            (f) :false
+                        match(description) :
+                            (desc : String) :
+                                msg = append(msg desc)
+                            (f) : false
+                        msg
+                    }
+                    validAnswers
+                )
+                val gui-ans = gui-input(message gameBoard(game) game validAnswers displays tooltips "card")
+                match(gui-ans) :
+                    (gui-ans : Int) : ans = gui-ans
+                    (gui-ans : String) : 
+                        match(to-int $ gui-ans) :
+                            (a : Int) : ans = a
+                            (f) : false
             else:
                 ; console
                 var ans-str : String = lower-case(input(message gameBoard(game) game))
