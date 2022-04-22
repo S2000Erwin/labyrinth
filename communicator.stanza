@@ -45,7 +45,7 @@ defn gui-input ( msg : String, gbg : GameBoardGraphics game : Labyrinth
              color-hint : String|False) -> String|Int :
     build-board(gbg game)
     build-cards(gbg game)
-    build-buttons(gbg game validAnswers displays color-hint)
+    build-buttons(gbg game msg validAnswers displays color-hint)
     cprintln(append(msg, "> "))
     val input-buffer = Vector<Char>()
     label<String|Int> return :

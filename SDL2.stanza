@@ -68,6 +68,7 @@ extern SDL_GetVersion: (ptr<SDL_version>) -> int
 extern SDL_Init: int -> int
 extern SDL_Quit: () -> int
 extern SDL_CreateWindow: (ptr<byte>, int, int, int, int, int) -> long
+extern SDL_SetWindowTitle: (long, ptr<byte>) -> int
 extern SDL_GetWindowID: (long) -> int
 extern SDL_DestroyWindow: (long) -> int
 extern SDL_GetWindowSurface: (long) -> long
@@ -108,6 +109,10 @@ lostanza defn call-SDL_CreateWindow (name : ref<String>, width : ref<Int>, heigh
                            width.value, height.value, 
                            SDL_WINDOW_RESIZABLE.value)
    return new Long{p}
+
+lostanza defn call-SDL_SetWindowTitle (win : ref<Long>, name : ref<String>) -> ref<False> :
+   call-c SDL_SetWindowTitle( win.value addr!(name.chars) )
+   return false
 
 lostanza defn call-SDL_GetWindowID ( window : ref<Long> ) -> ref<Int> :
    val win-id = call-c SDL_GetWindowID(window.value)
@@ -306,6 +311,10 @@ public defn sdl-create-window (name : String, width : Int, height : Int) -> [Lon
    val window = call-SDL_CreateWindow(name, width, height)
    val win-surface = call-SDL_GetWindowSurface(window)
    [window, win-surface]
+
+public defn sdl-set-window-title (win : Long name : String ) -> False :
+   call-SDL_SetWindowTitle(win name)
+   false
 
 public defn sdl-get-window-id (window : Long) -> Int :
    call-SDL_GetWindowID(window)

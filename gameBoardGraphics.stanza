@@ -941,7 +941,10 @@ defn reverse-color ( c : SDL-color ) -> SDL-color :
     SDL-color(255Y - r(c) 255Y - g(c) 255Y - b(c) a(c))
 
 public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth 
+                            msg : String
                             validAnswers : Tuple<String|Int> displays : Tuple<String>|False color-hint : String|False) :
+    val win = window $ buttons-window $ gbg
+    sdl-set-window-title(win msg)
     val [width height] = sdl-surface-size(canvas(buttons-window(gbg)))
     val grid-size = [width to-int(to-float(height) / 10.0f)]
     val button-size = [to-int(0.8f * to-float(width)) to-int(0.8f * to-float(height) / 10.0f)]
