@@ -18,7 +18,7 @@ To compile:
 3. download SDL_Image 2.0 in https://www.libsdl.org/projects/SDL_image/
 4. download SDL_TTF 2.0.15 from https://www.libsdl.org/projects/SDL_ttf/release/
 5. Go to VASSL to download the "Labyrinth" module. (located here as if this writing: https://vassalengine.org/wiki/Module:Labyrinth:_The_War_on_Terror). Extract the images and put in a subfolder "vassalimages". Please note that .vmod file is just a .zip file. You can rename and uncompress to extract the image files. 
-6. In main.stanza, modify usplayer and/or jihadistplayer to "human", "bot", "ai", or "web" ("ai" and "web" are not supported in Stanza Labyrinth) 
+6. In main.stanza, modify usplayer and/or jihadistplayer to "gui", "human", "bot", "ai", or "web" ("ai" and "web" are not supported in Stanza Labyrinth) 
 7. Once setup is done, in a Terminal type: 
     make
    to build. Currently only Windows is targeted. Change "makefile" to suit your system and architecture
