@@ -41,7 +41,7 @@ defn input ( msg : String, gbg : GameBoardGraphics game : Labyrinth ) -> String 
         (s : Int) : to-string(s)
 
 defn gui-input ( msg : String, gbg : GameBoardGraphics game : Labyrinth
-             validAnswers : Tuple<String|Int> displays : Tuple<String>|False tooltips : Tuple<String>|False
+             validAnswers : Seqable<String|Int> displays : Seqable<String>|False tooltips : Seqable<String>|False
              color-hint : String|False) -> String|Int :
     build-board(gbg game)
     build-cards(gbg game)
@@ -154,6 +154,11 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                 else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web" :
                     ; ans = to-lower(wait_for_webanswer(comm, msg, validAnswers, displays, tooltips)
                     false
+                else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+                    match(gui-input(message gameBoard(game) game validAnswers displays tooltips false)) :
+                        (str : String) : ans = str
+                        (num : Int) : ans = to-string(num)
+                        (f) : false
                 else:
                     ans = lower-case(input(message gameBoard(game) game))
                 if canNull and ans is False:
@@ -262,9 +267,13 @@ public defn queryCountry (comm : Communicator, who : String, msg : String, names
                 ;name = queryCountry(jbot(comm), message, names, reason)
                 false
             else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web" :
-               ; todo
-               ; name = lower-case(wait_for_webanswer(comm, message, names, names, false))
-               false
+                ; todo
+                ; name = lower-case(wait_for_webanswer(comm, message, names, names, false))
+                false
+            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+                match(gui-input(message gameBoard(game) game names false false "country")) :
+                    (country : String) : name = country
+                    (f) : false
             else:
                 name = lower-case(input("Choose one country: " gameBoard(game) game))
             cprintln("%_ is received" % [name])

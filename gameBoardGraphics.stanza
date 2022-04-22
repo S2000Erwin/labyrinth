@@ -7,6 +7,7 @@ defpackage GameBoardGraphics :
 
 ; some enum
 val scale-step = 0.25f
+val button-slots = 45
 
 val upperleft = [
     "us" => [12 118] "uk" => [92 102] "canada" => [58 38]
@@ -141,17 +142,19 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val cards-canvas = sdl-create-surface([cards-width cards-height])
     val cards-adjustment = 1.0f
 
-    val buttons-width = 480
-    val buttons-height = 768
-    val buttons-display-width = buttons-width / 2
-    val buttons-display-height = buttons-height / 2
+    val button-height = 76
+    val button-width = 480
+    val buttons-canvas-width = button-width
+    val buttons-canvas-height = button-height * button-slots
+    val buttons-display-width = button-width / 2
+    val buttons-display-height = button-height * 10 / 2
     val [buttons-window buttons-surface] = sdl-create-window("Buttons" buttons-display-width buttons-display-height)
-    val buttons-canvas = sdl-create-surface([buttons-width buttons-height])
+    val buttons-canvas = sdl-create-surface([buttons-canvas-width buttons-canvas-height])
     val buttons-adjustment = 1.0f
 
     val board-win = Window( [width, height] window win-surface default-scale [1.0f adjustment] [0.5f 0.5f] canvas )
     val cards-win = Window( [cards-width cards-height] cards-window cards-surface 1.0f [1.0f cards-adjustment] [0.5f 0.5f] cards-canvas) 
-    val buttons-win = Window( [buttons-display-width buttons-display-height] buttons-window buttons-surface 1.0f [1.0f buttons-adjustment] [0.5f 0.5f] buttons-canvas)
+    val buttons-win = Window( [buttons-display-width buttons-display-height] buttons-window buttons-surface 1.0f [1.0f buttons-adjustment] [0.5f 0.1f] buttons-canvas)
 
     val gbg = GameBoardGraphics( 
         false   ; lab
@@ -317,6 +320,7 @@ public defn build-cards (gbg : GameBoardGraphics, lab : Labyrinth) :
         ushand(lab) when currentplayer(lab) == "us" else jihadisthand(lab)
         0 to false
     )
+    show(win)
 
 defn rebuild (gbg : GameBoardGraphics window-id : Int) :
     match(lab(gbg)) :
@@ -395,7 +399,7 @@ defn change-scale (gbg : GameBoardGraphics w-id : Int change : Float) :
 public defstruct GameBoardGraphicsException <: Exception :
     reason : String
 
-public defn handle-events (gbg : GameBoardGraphics validAnswers : Tuple<String|Int>) -> Tuple<Char>|String|Int|True|False :
+public defn handle-events (gbg : GameBoardGraphics validAnswers : Seqable<String|Int>) -> Tuple<Char>|String|Int|True|False :
     val char-buffer = Vector<Char>()
     label<Tuple<Char>|String|Int|True|False> return :
         do( fn (e) :
@@ -942,12 +946,13 @@ defn reverse-color ( c : SDL-color ) -> SDL-color :
 
 public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth 
                             msg : String
-                            validAnswers : Tuple<String|Int> displays : Tuple<String>|False color-hint : String|False) :
-    val win = window $ buttons-window $ gbg
-    sdl-set-window-title(win msg)
+                            validAnswers : Seqable<String|Int> displays : Seqable<String>|False color-hint : String|False) :
+    sdl-set-window-title(window $ buttons-window $ gbg msg)
+    sdl-clear-surface $ canvas $ buttons-window $ gbg
+    set-center(buttons-window $ gbg [0.5f 0.1f])
     val [width height] = sdl-surface-size(canvas(buttons-window(gbg)))
-    val grid-size = [width to-int(to-float(height) / 10.0f)]
-    val button-size = [to-int(0.8f * to-float(width)) to-int(0.8f * to-float(height) / 10.0f)]
+    val grid-size = [width to-int(to-float(height) / to-float(button-slots))]
+    val button-size = [to-int(0.8f * to-float(width)) to-int(0.8f * to-float(height) / to-float(button-slots))]
     val buttons = Vector<Panel>()
     ; println("width=%_ height=%_ grid-size=%_ button-size=%_" % [width height grid-size button-size])
     do(
@@ -996,6 +1001,7 @@ defn draw-buttons (gbg) :
     do( fn (panel) : draw(button(panel) canvas rect(panel))
         panels
     )
+    show(window)
 
 defn screen-to-canvas (gbg : GameBoardGraphics window-id : Int [x y] : [Int Int]) -> [Int Int] :
     match(find( {get-window-id(_) == window-id } windows(gbg) )) :
