@@ -42,6 +42,7 @@ public defstruct GameBoardGraphics :
     left : Int with : (setter => set-left)
     right : Int with : (setter => set-right)
     buttons : Tuple<Panel> with : (setter => set-buttons)
+    debounce : [Int Int] with : (setter => set-debounce)
     ; stock images
     syria : Long
     iranMuslim : Long
@@ -166,6 +167,7 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
         0   ; left
         0   ; right
         []  ; buttons : Tuple<Panel> with : (setter => set-buttons)
+        [(- 1) (- 1)] ; debounce
         ; stock images
         sdl-load-image("vassalimages/MapTiles_Syria.jpg" canvas)
         sdl-load-image("vassalimages/MapTiles_Iran(Muslim).jpg" canvas)
@@ -323,6 +325,8 @@ defn rebuild (gbg : GameBoardGraphics window-id : Int) :
                 build-board(gbg lab)
             else if get-window-id(cards-window(gbg)) == window-id :
                 build-cards(gbg lab)
+            else if get-window-id(buttons-window(gbg)) == window-id :
+                draw-buttons(gbg)
         (f) : false
 
 public defn show (gbg : GameBoardGraphics lab : Labyrinth) :
@@ -335,19 +339,21 @@ defn show (gbg : GameBoardGraphics  w-id : Int) :
     do( fn (win) : show(win) when get-window-id(win) == w-id windows(gbg) )
 
 defn show (win : Window) :
+    val src-rect = cal-canvas-rect(win)
+    sdl-clear-surface(win-surface(win))
+    sdl-overlay(canvas(win), src-rect, win-surface(win), false)
+    sdl-update(window(win))
+
+defn cal-canvas-rect (win : Window) -> SDL-rect :
     val size = sdl-surface-size(canvas(win))
     val scaled-size = map({to-float(_) / _ / scalar(win) } to-list(size) scale(win))
     val cs = map({to-int(_ * to-float(_))} to-list $ center(win) size)
-    
-    val src-rect = SDL-rect( 
+    SDL-rect( 
         to-int(to-float(cs[0]) - scaled-size[0] * 0.5f)
         to-int(to-float(cs[1]) - scaled-size[1] * 0.5f)
         to-int(scaled-size[0])
         to-int(scaled-size[1])
     )
-    sdl-clear-surface(win-surface(win))
-    sdl-overlay(canvas(win), src-rect, win-surface(win), false)
-    sdl-update(window(win))
 
 defn move-center (win : Window x : Int y : Int) :
     val size = sdl-surface-size(win-surface(win))
@@ -391,7 +397,7 @@ public defstruct GameBoardGraphicsException <: Exception :
 
 public defn handle-events (gbg : GameBoardGraphics validAnswers : Tuple<String|Int>) -> Tuple<Char>|String|Int|True|False :
     val char-buffer = Vector<Char>()
-    label<Tuple<Char>|True|False> return :
+    label<Tuple<Char>|String|Int|True|False> return :
         do( fn (e) :
                 ; println(e)
                 match(e) :
@@ -424,6 +430,24 @@ public defn handle-events (gbg : GameBoardGraphics validAnswers : Tuple<String|I
                             ; println("drag: %_" % [e])
                             move-center(gbg window-id(e) xrel(e) yrel(e))
                             show(gbg window-id(e))
+                    (e : SDL-mouse-button-event) :
+                        if button(e) == 1Y and state(e) == 1Y and clicks(e) == 1Y :
+                            set-debounce(gbg [x(e) y(e)])
+                        else if button(e) == 1Y and state(e) == 0Y and clicks(e) == 1Y :
+                            if (debounce(gbg))[0] == x(e) and (debounce(gbg))[1] == y(e) :
+                                set-debounce(gbg [(- 1) (- 1)])
+                                ; not dragging. translate co-ordinates
+                                if get-window-id(buttons-window(gbg)) == window-id(e) :
+                                    val [canvas-x canvas-y] = screen-to-canvas(gbg window-id(e) [x(e) y(e)])
+                                    match(find(
+                                        fn (panel) :
+                                            (canvas-x >= x(rect(panel))) and canvas-x < (x(rect(panel)) + w(rect(panel))) and
+                                                (canvas-y >= y(rect(panel))) and canvas-y < (y(rect(panel)) + h(rect(panel)))
+                                        buttons(gbg)
+                                    )) :
+                                        (panel : Panel) : return(trigger(button(panel)))
+                                        (f) : false
+
                     (e : SDL-keyboard-event) :
                         if state(e) == 0Y and mod(e) == 0 :
                             val c = to-char(sym(e))
@@ -879,7 +903,8 @@ defn pasteMarkers (gbg : GameBoardGraphics lab : Labyrinth name : String) -> Fal
 
 deftype GraphicElement
 deftype Button <: GraphicElement
-defmulti draw (ge : GraphicElement dst-surface : Long dst-rect : SDL-rect)
+defmulti draw (g : GraphicElement dst-surface : Long dst-rect : SDL-rect) -> False
+defmulti trigger (g : GraphicElement) -> String|Int
 
 defn make-button (
     [width height] : [Int Int] 
@@ -900,8 +925,13 @@ defn make-button (
     val y = (height - h) / 2
     sdl-draw-text(button-surface [x y] text font text-color)
     new Button :
-        defmethod draw (this dst-surface : Long dst-rect : SDL-rect ) :
+        defmethod draw (this dst-surface : Long dst-rect : SDL-rect ) -> False :
             sdl-overlay(button-surface false dst-surface dst-rect)
+            false
+
+        defmethod trigger (this) -> String|Int:
+            callback(user-info)
+            user-info
         
 val us-color = SDL-color(180Y 155Y 95Y 255Y)
 val jihadist-color = SDL-color(80Y 112Y 87Y 255Y)
@@ -916,10 +946,9 @@ public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth
     val grid-size = [width to-int(to-float(height) / 10.0f)]
     val button-size = [to-int(0.8f * to-float(width)) to-int(0.8f * to-float(height) / 10.0f)]
     val buttons = Vector<Panel>()
-    println("width=%_ height=%_ grid-size=%_ button-size=%_" % [width height grid-size button-size])
+    ; println("width=%_ height=%_ grid-size=%_ button-size=%_" % [width height grid-size button-size])
     do(
         fn (ans display y) :
-            println("%_ %_ %_" % [ans display y])
             val idle-color : SDL-color = 
                 ( match(ans) :
                     (card-id : Int) :
@@ -964,3 +993,21 @@ defn draw-buttons (gbg) :
     do( fn (panel) : draw(button(panel) canvas rect(panel))
         panels
     )
+
+defn screen-to-canvas (gbg : GameBoardGraphics window-id : Int [x y] : [Int Int]) -> [Int Int] :
+    match(find( {get-window-id(_) == window-id } windows(gbg) )) :
+        (win : Window) : screen-to-canvas(win [x y])
+        (f) : [(- 1) (- 1)]
+
+defn screen-to-canvas (win : Window [s-x s-y] : [Int Int]) -> [Int Int] :
+    val win-size = size(win)
+    val screen-coord = [ to-float(s-x) / to-float(win-size[0]) to-float(s-y) / to-float(win-size[1]) ]
+    ; println("screen-coord:%_" % [screen-coord])
+    val canvas-rect = cal-canvas-rect(win)
+    val canvas-coord = [ 
+        to-int(to-float(w(canvas-rect)) * screen-coord[0]) + x(canvas-rect)
+        to-int(to-float(h(canvas-rect)) * screen-coord[1]) + y(canvas-rect)
+    ]
+    ; println("canvas-coord:%_" % [canvas-coord])
+    canvas-coord
+
