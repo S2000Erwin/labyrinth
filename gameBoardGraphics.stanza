@@ -124,13 +124,15 @@ defstruct Window :
 
 public defn make-GameBoardGraphics () -> GameBoardGraphics :    
     sdl-init()
+    val gap = 15
     val width = 1024
     val height = 768
-    val default-scale = 4.0f
-    val [window win-surface] = sdl-create-window("Labyrinth", width, height)
+    val default-scale = 2.0f
+    val [window win-surface] = sdl-create-window("Labyrinth" 100 100 width height)
+    val lab-pos = sdl-get-window-position(window)
     val cards-width = 252 * 8
     val cards-height = 353
-    val [cards-window cards-surface] = sdl-create-window("Cards" cards-width cards-height)
+    val [cards-window cards-surface] = sdl-create-window("Cards" x(lab-pos) y(lab-pos) + height + gap cards-width cards-height)
 
     val screen-aspect = to-float(width) / to-float(height)
     val game-board = sdl-load-image( "vassalimages/Labyrinth Map 2016.jpg", win-surface)    ; baseBoard
@@ -146,9 +148,9 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val button-width = 480
     val buttons-canvas-width = button-width
     val buttons-canvas-height = button-height * button-slots
-    val buttons-display-width = button-width / 2
-    val buttons-display-height = button-height * 10 / 2
-    val [buttons-window buttons-surface] = sdl-create-window("Buttons" buttons-display-width buttons-display-height)
+    val buttons-display-width = button-width
+    val buttons-display-height = button-height * 10
+    val [buttons-window buttons-surface] = sdl-create-window("Buttons" x(lab-pos) + width + gap y(lab-pos) buttons-display-width buttons-display-height)
     val buttons-canvas = sdl-create-surface([buttons-canvas-width buttons-canvas-height])
     val buttons-adjustment = 1.0f
 
@@ -315,6 +317,7 @@ public defn build-board (gbg : GameBoardGraphics, lab : Labyrinth) :
 public defn build-cards (gbg : GameBoardGraphics, lab : Labyrinth) :
     val win = cards-window(gbg)
     sdl-clear-surface(win-surface(win))
+    sdl-clear-surface(canvas(win))
     do(
         {drawCard(gbg _ cards-window(gbg) [_ * 252 0])}
         ushand(lab) when currentplayer(lab) == "us" else jihadisthand(lab)
@@ -910,7 +913,7 @@ deftype Button <: GraphicElement
 defmulti draw (g : GraphicElement dst-surface : Long dst-rect : SDL-rect) -> False
 defmulti trigger (g : GraphicElement) -> String|Int
 
-defn make-button (
+defn Button (
     [width height] : [Int Int] 
     button-colors : Tuple<SDL-color> 
     text : String 
@@ -940,6 +943,13 @@ defn make-button (
 val us-color = SDL-color(180Y 155Y 95Y 255Y)
 val jihadist-color = SDL-color(80Y 112Y 87Y 255Y)
 val unassociated-color = SDL-color(200Y 200Y 200Y 255Y)
+val good-color = SDL-color(0Y 144Y 214Y 255Y)
+val fair-color = SDL-color(255Y 231Y 0Y 255Y)
+val poor-color = SDL-color(238Y 28Y 37Y 255Y)
+val islamrule-color = SDL-color(24Y 107Y 55Y 255Y)
+val hard-color = SDL-color(90Y 87Y 165Y 255Y)
+val soft-color = SDL-color(250Y 183Y 160Y 255Y)
+val muslim-color = SDL-color(201Y 225Y 165Y 255Y)
 
 defn reverse-color ( c : SDL-color ) -> SDL-color :
     SDL-color(255Y - r(c) 255Y - g(c) 255Y - b(c) a(c))
@@ -949,7 +959,7 @@ public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth
                             validAnswers : Seqable<String|Int> displays : Seqable<String>|False color-hint : String|False) :
     sdl-set-window-title(window $ buttons-window $ gbg msg)
     sdl-clear-surface $ canvas $ buttons-window $ gbg
-    set-center(buttons-window $ gbg [0.5f 0.1f])
+    set-center(buttons-window(gbg) [0.5f 0.1f])
     val [width height] = sdl-surface-size(canvas(buttons-window(gbg)))
     val grid-size = [width to-int(to-float(height) / to-float(button-slots))]
     val button-size = [to-int(0.8f * to-float(width)) to-int(0.8f * to-float(height) / to-float(button-slots))]
@@ -957,7 +967,7 @@ public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth
     ; println("width=%_ height=%_ grid-size=%_ button-size=%_" % [width height grid-size button-size])
     do(
         fn (ans display y) :
-            val idle-color : SDL-color = 
+            val color-1 : SDL-color = 
                 ( match(ans) :
                     (card-id : Int) :
                         val [ops assoc title] = getCardInfo(card-id)
@@ -965,12 +975,36 @@ public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth
                         jihadist-color when assoc == "Jihadist" else
                         unassociated-color
                     (f) : unassociated-color
-                )
-                when color-hint == "card"
+                ) when color-hint == "card"
+                else match(ans) :
+                    (name : String) :
+                        match(getGovern(lab name)) :
+                            (govern : String) :
+                                switch {govern == _} :
+                                    "good" : good-color
+                                    "fair" : fair-color
+                                    "poor" : poor-color
+                                    "islamrule" : islamrule-color
+                                    else : unassociated-color
+                            (f) : unassociated-color
+                    (f) : unassociated-color
+                when color-hint == "country"
                 else unassociated-color
-            val button = make-button( 
+            val color-2 : SDL-color =
+                color-1 when color-hint == "card"
+                else match(ans) :
+                    (name : String) :
+                        muslim-color when isMuslim(lab name)
+                        else switch {getPosture(lab name) == _} :
+                            "hard" : hard-color
+                            "soft" : soft-color
+                            else : unassociated-color
+                    (f) : unassociated-color
+                when color-hint == "country"
+                else unassociated-color
+            val button = Button( 
                 button-size
-                [idle-color idle-color]
+                [color-1 color-2]
                 match(display) :
                     (display : String) : display
                     (f) :
@@ -979,7 +1013,7 @@ public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth
                             (ans : Int) : to-string(ans)
                             (f) : " "
                 font(gbg)
-                SDL-color(0Y 0Y 0Y 255Y) ; reverse-color(idle-color)
+                SDL-color(0Y 0Y 0Y 255Y) 
                 ans
                 fn (ans) : println("Button %_ is pressed" % [ans])
             )
@@ -988,7 +1022,7 @@ public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth
         validAnswers
         match(displays) :
             (f : False) : repeat(false)
-            (displays) : displays as Tuple<String>
+            (displays) : displays as Seqable<String>
         0 to height by grid-size[1]
     )
     set-buttons(gbg to-tuple(buttons))

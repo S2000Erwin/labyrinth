@@ -61,6 +61,16 @@ lostanza deftype SDL_Rect :
 lostanza defn SDL_Rect (x:ref<Int>, y:ref<Int>, w:ref<Int>, h:ref<Int>) -> ref<SDL_Rect> :
    return new SDL_Rect{x.value, y.value, w.value, h.value}
 
+lostanza defn x (sr : ref<SDL_Rect>) -> ref<Int> :
+   return new Int{sr.x}
+lostanza defn y (sr : ref<SDL_Rect>) -> ref<Int> :
+   return new Int{sr.y}
+lostanza defn w (sr : ref<SDL_Rect>) -> ref<Int> :
+   return new Int{sr.w}
+lostanza defn h (sr : ref<SDL_Rect>) -> ref<Int> :
+   return new Int{sr.h}
+
+
 lostanza defn SDL_RGBA (r:ref<Byte>, g:ref<Byte>, b:ref<Byte>, a:ref<Byte>) -> ref<Int> :
    return new Int{a.value << 24 + r.value << 16 + g.value << 8 + b.value}
 
@@ -68,6 +78,7 @@ extern SDL_GetVersion: (ptr<SDL_version>) -> int
 extern SDL_Init: int -> int
 extern SDL_Quit: () -> int
 extern SDL_CreateWindow: (ptr<byte>, int, int, int, int, int) -> long
+extern SDL_GetWindowPosition: (long, ptr<int>, ptr<int>) -> int
 extern SDL_SetWindowTitle: (long, ptr<byte>) -> int
 extern SDL_GetWindowID: (long) -> int
 extern SDL_DestroyWindow: (long) -> int
@@ -103,12 +114,22 @@ lostanza defn call-SDL_Quit () -> ref<False> :
    return false
 
 lostanza defn call-SDL_CreateWindow (name : ref<String>, width : ref<Int>, height : ref<Int>) -> ref<Long> :
+   return call-SDL_CreateWindow( name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height)
+   
+
+lostanza defn call-SDL_CreateWindow (name : ref<String>, x : ref<Int>, y : ref<Int>, width : ref<Int>, height : ref<Int>) -> ref<Long> :
    val p = call-c SDL_CreateWindow(
                            addr!(name.chars), 
-                           SDL_WINDOWPOS_CENTERED.value, SDL_WINDOWPOS_CENTERED.value, 
+                           x.value, y.value, 
                            width.value, height.value, 
                            SDL_WINDOW_RESIZABLE.value)
    return new Long{p}
+
+lostanza defn call-SDL_GetWindowPosition (window : ref<Long>) -> ref<SDL_Rect> :
+   val v = new SDL_Rect{0 0 0 0}
+   call-c SDL_GetWindowPosition(window.value, addr!(v.x), addr!(v.y))
+   return v
+   
 
 lostanza defn call-SDL_SetWindowTitle (win : ref<Long>, name : ref<String>) -> ref<False> :
    call-c SDL_SetWindowTitle( win.value addr!(name.chars) )
@@ -308,9 +329,17 @@ public defn sdl-init () -> Int :
    result
 
 public defn sdl-create-window (name : String, width : Int, height : Int) -> [Long Long] :
-   val window = call-SDL_CreateWindow(name, width, height)
+   sdl-create-window(name SDL_WINDOWPOS_CENTERED SDL_WINDOWPOS_CENTERED width height)
+
+public defn sdl-create-window (name : String, x : Int y : Int width : Int, height : Int) -> [Long Long] :
+   val window = call-SDL_CreateWindow(name, x, y, width, height)
    val win-surface = call-SDL_GetWindowSurface(window)
    [window, win-surface]
+
+
+public defn sdl-get-window-position (window : Long) -> SDL-rect :
+   val sr = call-SDL_GetWindowPosition(window)
+   SDL-rect(x(sr) y(sr) 0 0)
 
 public defn sdl-set-window-title (win : Long name : String ) -> False :
    call-SDL_SetWindowTitle(win name)
@@ -341,7 +370,7 @@ public defn sdl-load-image (name : String, win-surface : Long ) -> Long :
       0L
 
 public defn sdl-clear-surface (surface : Long) :
-   call-SDL_FillRect(surface, false, SDL_RGBA(0Y, 0Y, 0Y, 0Y))
+   call-SDL_FillRect(surface, false, SDL_RGBA(0Y, 0Y, 0Y, 255Y))
 
 public defstruct SDL-color :
    r : Byte

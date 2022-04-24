@@ -46,6 +46,7 @@ defn gui-input ( msg : String, gbg : GameBoardGraphics game : Labyrinth
     build-board(gbg game)
     build-cards(gbg game)
     build-buttons(gbg game msg validAnswers displays color-hint)
+    show(gbg)
     cprintln(append(msg, "> "))
     val input-buffer = Vector<Char>()
     label<String|Int> return :
@@ -175,7 +176,11 @@ public defn queryBoostOps (comm : Communicator, msg : String, validAnswers : Seq
     queryGeneric(comm, currentplayer(game(comm)), msg, validAnswers, "boostop", ["Yes, boost it up", "No, use card Ops"], false, false)
 
 public defn queryAlert (comm : Communicator, msg : String, plots : Vector<[String, Int|String]>) -> Int :
-    val ans = queryNumber(comm, "us", msg, to-tuple(0 to length(plots)), "alert", to-tuple(plots), false)
+    val plot-displays = map(
+        fn ([name plot]) : append-all([name " " to-string $ plot])
+        to-list(plots)
+    )
+    val ans = queryNumber(comm, "us", msg, to-tuple(0 to length(plots)), "alert", plot-displays, false)
     match(ans):
         (ans : Int) : ans
         (ans) : 0
@@ -229,6 +234,11 @@ defn queryNumberBounds (comm : Communicator, who : String, msg : String, lower :
                 ; val ans-str = wait_for_webbounds(comm, msg, lower, upper)
                 ; ans = (to-int(ans-str) as Int when to-int(ans-str) is-not False else (lower - 1))
                 false
+            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+                val validAnswers = lower through upper
+                match(gui-input(msg gameBoard(game) game validAnswers false false reason)) :
+                    (i : Int) : ans = i
+                    (f) : false
             else:
                 val ans-str = input(message gameBoard(game) game)
                 if to-int(ans-str) is-not False:
@@ -427,7 +437,7 @@ public defn queryPlayOrder (comm : Communicator, msg : String, validAnswers : Tu
                             ["I play Ops first", "Opponent plays Event first"], false)
 
 defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers : Seqable<Int>&Lengthable, 
-                    reason : String, displays : Seqable<?>, canNull : True|False) -> Int|False :
+                    reason : String, displays : Seqable<String>, canNull : True|False) -> Int|False :
     val game = game(comm)
     var ans : Int|False = 0
     label<Int|False> return :
@@ -453,6 +463,10 @@ defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers 
                 cprintln(to-string("Received %_" % [ans-str]))
                 if to-int(ans-str) is-not False:
                     ans = to-int(ans-str)
+            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+                match(gui-input(msg gameBoard(game) game validAnswers displays false reason)) :
+                    (i : Int) : ans = i
+                    (f) : false
             else:
                 val ans-str = input(message gameBoard(game) game)
                 if to-int(ans-str) is-not False:
@@ -486,6 +500,11 @@ public defn queryPlot (comm : Communicator, msg : String, validAnswers : Seqable
                 ;if to-int(plot) is-not False:
                 ;    plot = to-int(plot)
                 false
+            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+                match(gui-input(msg gameBoard(game) game validAnswers false false "plot")) :
+                    (i : Int) : plot = i
+                    (p : String) : plot = p
+                    (f) : false
             else:
                 val plot-str = lower-case(input(msg gameBoard(game) game))
                 match(to-int(plot-str)):

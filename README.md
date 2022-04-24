@@ -243,3 +243,14 @@ I wish there was a version to support arbitrary number of seqables. Like this...
     )
 
 Let me know if there is a way to do this in a single shot.
+
+Use Class name as Constructor function name
+-------------------------------------------
+Instead of creating a function named 'make-button' to create a Button type, use 'defn Button ( .... ) -> Button :' directly.
+
+Use Seqable<?>&Lengthable in function argument instead of Tuple or List
+-----------------------------------------------------------------------
+A general principle is to treat types (such as Seqable) as Interfaces in OOP.
+Use types in function argument list. 
+To supply as parameter, use a concrete type like Tuple or List
+
