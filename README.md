@@ -254,3 +254,20 @@ A general principle is to treat types (such as Seqable) as Interfaces in OOP.
 Use types in function argument list. 
 To supply as parameter, use a concrete type like Tuple or List
 
+Function Type
+-------------
+I find tedious to spell out the whole function prototype everytime. Can we do something like typedef in C to make shorthand?
+e.g.
+    deftype EventFunc <: (Labyrinth Int String True|False True|False) -> True|False
+    deftype EventTable <: Tuple<KeyValue<Int, ((Labyrinth Int String True|False True|False) -> True|False)>>
+
+Can we do deftype EventTable <: Tuple<KeyValue<Int EventFunc>> (or something that has the same effect) 
+and be done?
+
+To-do:
+* complete Jihadist events
+* US events
+* jihadist and US bots
+* display game progress with a GUI console or some text animations
+* Q-Learning
+* Language consturcts yet to learn: Maybe generator coroutine 
