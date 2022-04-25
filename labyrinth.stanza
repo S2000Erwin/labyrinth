@@ -67,6 +67,9 @@ defmethod print (o : OutputStream, countries : Countries ) :
    for country in country-hash do :
       print(o, value(country) )
 
+public defn choice<?T> (xs : Tuple<?T>) -> T :
+   xs[rand(length(xs))]
+
 val baseRoutes = [
    ["syria", "iraq"], ["iraq", "saudiarabia"], ["saudiarabia", "yemen"],
    ["saudiarabia", "gulfstates"], ["gulfstates", "iran"], ["afghanistan", "pakistan"],
@@ -1048,8 +1051,71 @@ defn placePlot (lab : Labyrinth, name : String, plot : String|Int):
       gprintln("Plots: %_" % [plots(lab)])
       gprintln("Available Plots: %_" % [plotAvailables(lab)])
       testCountry(lab, name)
-         
-      
+
+defn add-front<?T> (v : Vector<?T> item : T) -> False :
+   val original = to-vector<T>([item])
+   add-all(original v)
+   clear(v)
+   add-all(v original)
+
+defn insert<?T> (v : Vector<?T> pos : Int item : ?T) :
+   val positive-pos = pos when pos >= 0 else length(v) + pos
+   val real-pos = positive-pos when positive-pos >= 0 and positive-pos < length(v) else 0 
+   val v-list = to-list(v)
+   val first-list = headn(v-list pos)
+   val second-list = tailn(v-list pos)
+   val final-list = append(first-list cons(item second-list))
+   clear(v)
+   add-all(v final-list)
+
+
+defn drawOneCardFromDiscard (lab : Labyrinth who : String card-id : Int) :
+   val hand = ushand(lab) when who == "us" else jihadisthand(lab)
+   add-front(hand card-id)
+   remove-item(discard(lab) card-id)
+
+defn drawOneSpecificCard (lab : Labyrinth who : String card-id : Int) :
+   val hand = ushand(lab) when who == "us" else jihadisthand(lab)
+   if contains?(deck(lab) card-id) :
+      add-front(hand card-id)
+      remove-item(deck(lab) card-id)
+
+defn drawFromHand (lab : Labyrinth who : String pos : Int) -> Int :
+   val hand = ushand(lab) when who == "us" else jihadisthand(lab)
+   label<Int> return :
+      if length(hand) == 0:
+         gprintln("No card in %_ hand to draw" % [who])
+         return(0)
+      var real-pos = pos
+      if pos == -2:
+         if who == "us" and usplayer(lab) == "bot":
+            real-pos = 0
+         else if who == "jihadist" and jihadistplayer(lab) == "bot" :
+            real-pos = 0
+         else :
+            real-pos = -1
+      val card-id = choice(to-tuple $ hand) when real-pos == -1 else hand[real-pos]
+      remove-item(hand card-id)
+      card-id
+
+public defn discardOneCard (lab : Labyrinth who : String pos : Int) -> Int :
+   val card-id = drawFromHand(lab who pos)
+   label<Int> return :
+      if card-id == 0:
+         return(0)
+      gprintln("Card %_ is going to discard..." % [card-id])
+      if card-id == 242 :
+         ; Avenger
+         if playUSEvent(lab card-id true) :
+            if playUSEvent(lab card-id) :
+               add(removed(lab) card-id)
+            else :
+               doDiscard(lab card-id)
+      else :
+         doDiscard(lab card-id)
+      card-id
+
+     
 defn minorjihad (lab : Labyrinth, input-selections : Tuple<String>, ignoreUnit : True|False) -> Tuple<[String, String]>:
    val results = Vector<[String, String]>()
    val selections = calNeed(lab, input-selections)
@@ -1739,7 +1805,7 @@ defn setAlign (lab : Labyrinth, name: String, align : String) :
    if align == "adversary":
       removeAllAdvisors(lab, name)
 
-defn addOneCell (lab: Labyrinth, name : String, reason : String, event: True|False ) -> String:
+public defn addOneCell (lab: Labyrinth, name : String, reason : String, event: True|False ) -> String:
    ; check Cell Track
    var result = ""
    label<False> break :
@@ -1791,7 +1857,11 @@ defn setRegimeChange (lab : Labyrinth, name : String, color : String) :
    if setAttr(lab, name, "regimechange", color) :
       if color == "green" :
          connectCaliphate(lab, name)
-      
+
+public defn setAndBlockMarker (lab : Labyrinth name : String marker : String blocked_markers : Seqable<String>&Lengthable):
+   setMarker(lab name marker true)
+   do({removeMarker(lab name _ true)} blocked_markers)
+
 defn setMarker (lab : Labyrinth, name : String, marker : String, value : String|True|Int) :
    if name == "markers" :
       add(markers(lab), marker)
@@ -1843,7 +1913,7 @@ defn removeAllAdvisors (lab : Labyrinth, name : String) :
    if setAttr(lab, name, "advisors", false) :
       gprintln("Remove All Advisors in %_" % [name])
 
-defn cellAvailable (lab : Labyrinth, event: True|False) :
+public defn cellAvailable (lab : Labyrinth, event: True|False) :
    var result = 0
    label<False> break:
       if event:
@@ -1866,6 +1936,20 @@ public defn isCaliphate (lab : Labyrinth, name : String) -> True|False:
    match(ic):
       (ic:True) : ic
       (ic) : false
+
+public defn spreadCaliphate (game : Labyrinth):
+   var region = extract(game isCaliphateCapital{game _} false)
+   
+   label<False> break :
+      while true :
+         val old = length(region)
+         region = extract(game
+               fn (x) : isCivilWar(game x) or isRegimeChange(game x) or getGovern(game x) == "islamrule"
+               adjacentRegion(game region)
+         )
+         if old == length(region) :
+            break(false)
+   do(fn (name) : if not isCaliphateCapital(game name) : setCaliphateCountry(game name) region)
 
 defn removeCaliphate (lab : Labyrinth, name : String) :
    setAttr(lab, name, "caliphate", false)
@@ -1891,9 +1975,12 @@ public defn getSleeperCell (lab : Labyrinth, name : String, withMarkers : True|F
       (sc:Int) : sc
       (f) : 0
 
-defn getCell (lab : Labyrinth, name : String, includeMarkers : True|False) :
+public defn getCell (lab : Labyrinth, name : String, includeMarkers : True|False) -> Int :
    getSleeperCell(lab, name, includeMarkers) + getActiveCell(lab, name, includeMarkers)
       
+public defn getCell (lab : Labyrinth name : String) -> Int :
+   getCell(lab name false)
+
 defn setSleeperCell (lab : Labyrinth, name : String, cell : Int) :
    setAttr(lab, name, "sleepercell", cell)
 
@@ -1907,7 +1994,7 @@ public defn isCadre (lab : Labyrinth, name : String) -> True|False :
       (c : True) : true
       (c) : false
 
-defn testCountry (lab : Labyrinth, name : String) -> False :
+public defn testCountry (lab : Labyrinth, name : String) -> False :
    label<False> break:
       if not isUntested(lab, name):
          break(false)
@@ -1980,7 +2067,7 @@ defn rollPosture (lab : Labyrinth, name : String, drm:Int) :
       gprintln("hard")
       setPosture(lab, name, "hard")
 
-defn rollOnce (lab : Labyrinth) :
+public defn rollOnce (lab : Labyrinth) :
    val dice = rand(6) + 1
    gprintln("Rolled: %_" % [dice])
    dice
@@ -2078,7 +2165,7 @@ defn setCaliphateCountry (lab : Labyrinth, name : String) :
    setAttr(lab, name, "caliphate", "country")
    gprint("%_ becomes Caliphate Country" % [name])
 
-defn setCaliphateCapital (lab : Labyrinth, name : String) :
+public defn setCaliphateCapital (lab : Labyrinth, name : String) :
    setAttr(lab, name, "caliphate", "capital")
    gprint("%_ becomes Caliphate Capital" % [name])
 
@@ -2088,11 +2175,14 @@ public defn isCaliphateCapital (lab : Labyrinth, name : String) :
       (value : String) : if value == "capital" : true
       (value) : false
       
-defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False) :
+public defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False) -> Tuple<String> :
    to-tuple{_} $ filter( 
       { val name = _ ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) ) }
       seq( { key(_) } c(countries(lab)) ) when candidates is False else to-seq(candidates as Tuple<String>)
    )
+
+public defn extract (lab : Labyrinth func : String -> True|False ) -> Tuple<String> :
+   extract(lab func false)
 
 defn mayEndTruce (lab : Labyrinth, name : String) -> True|False :
    label<True|False> return:
@@ -2152,7 +2242,7 @@ defn isOil (lab : Labyrinth, name : String) -> True|False :
       (oil:False) : false
       (oil) : true
 
-defn changeFunding (lab : Labyrinth, inc : Int) :
+public defn changeFunding (lab : Labyrinth, inc : Int) :
    val oFunding = funding(lab)
    set-funding(lab, funding(lab) + inc)
    if funding(lab) > 9 :
@@ -2161,7 +2251,7 @@ defn changeFunding (lab : Labyrinth, inc : Int) :
       set-funding(lab, 1)
    gprint("Change Funding from %_ by %_ to %_" % [oFunding, inc, funding(lab)])
 
-defn changePrestige (lab : Labyrinth, inc : Int) :
+public defn changePrestige (lab : Labyrinth, inc : Int) :
    val oPrestige = prestige(lab)
    set-prestige(lab, prestige(lab) + inc)
    if prestige(lab) > 12 :
@@ -2398,7 +2488,7 @@ defn flipRegimeChange (lab : Labyrinth):
       if isRegimeChange(lab, name):
             setRegimeChange(lab, name, "tan")
 
-defn isRegimeChange (lab : Labyrinth, name : String) -> True|False:
+public defn isRegimeChange (lab : Labyrinth, name : String) -> True|False:
    val color = getAttr(lab, name, "regimechange")
    match(color):
       (color:String) : true
@@ -2533,7 +2623,7 @@ defn disengagement (lab : Labyrinth, name : String, who : String) :
    gprintln("disengagement not implemented")
    false
 
-defn doDiscard (lab : Labyrinth, card-id : Int) :
+public defn doDiscard (lab : Labyrinth, card-id : Int) :
    if card-id == 200:
       ; special handling
       val pos : Int = length(deck(lab)) / 2
@@ -2545,7 +2635,9 @@ defn doDiscard (lab : Labyrinth, card-id : Int) :
    else :
       add(discard(lab), card-id)
 
-defn getTroopStrength (lab : Labyrinth, name : String, forPrestige : True|False) -> Int :
+public defn getTroopStrength (lab : Labyrinth name : String ) -> Int : getTroopStrength(lab name false)
+
+public defn getTroopStrength (lab : Labyrinth, name : String, forPrestige : True|False) -> Int :
    var troop = getTroop(lab, name)
    if name != "track" :
       val nato = getAttr(lab, name, "nato")
@@ -2619,7 +2711,7 @@ defn calNeed (lab : Labyrinth, sels : Seqable<String>) -> Tuple<[String, Int]> :
       add(selections, [name, need] )
    to-tuple(selections)
 
-defn getRecruitNum (lab : Labyrinth, name : String) -> Int :
+public defn getRecruitNum (lab : Labyrinth, name : String) -> Int :
    label<Int> return :
       if isCivilWar(lab, name) or isRegimeChange(lab, name) or isMarker(lab, name, "trainingcamps"):
          return(6)

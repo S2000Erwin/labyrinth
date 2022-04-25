@@ -166,6 +166,15 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                     break(false)
         ans
 
+public defn queryDeclareCaliphate (comm : Communicator who : String msg : String validAnswers : Seqable<String>&Lengthable
+                                    reason : String displays : Seqable<String>) -> String :
+    match(queryGeneric(comm who msg validAnswers reason displays false false)) :
+        (s : String) : s
+        (f) : "n"
+
+
+
+
 public defn queryOpType (comm : Communicator, msg : String, validAnswers : Seqable<String>&Lengthable, displays : Seqable<String> ) -> String :
     val ans = queryGeneric(comm, currentplayer(game(comm)), msg, validAnswers, "optype", displays, false, false)
     match(ans):
@@ -247,14 +256,12 @@ defn queryNumberBounds (comm : Communicator, who : String, msg : String, lower :
         ans
 
 public defn queryCountry-noNull (comm : Communicator, who : String, msg : String, names : Tuple<String>, reason : String) -> String :
-    val ans = queryCountry(comm, who, msg, names, reason, true)
-    match(ans) :
-        (ans : False) :
-            val n = to-seq(names)
-            next(n)
+    match(queryCountry(comm who msg names reason true)) :
         (s : String) : s
-
-
+        (f) : ""
+        
+public defn queryCountry (comm : Communicator, who : String, msg : String, names : Tuple<String>, reason : String) -> String|False :
+    queryCountry(comm who msg names reason false)
 
 public defn queryCountry (comm : Communicator, who : String, msg : String, names : Tuple<String>, reason : String, nonNull : True|False) -> String|False:
     label<String|False> return:

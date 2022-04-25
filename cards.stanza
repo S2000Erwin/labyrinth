@@ -15,7 +15,7 @@ defmethod print (o: OutputStream, card : Card ) :
 
 ; to-do : complete the card list
 ; [ card-id ops association title [conditions(J first, US second. if one condition String, both use the same; if false, no condition)]
-;   [descriptions (J fir, US second) (if one description, both use the same))]]
+;   [descriptions (J first, US second) (if one description, both use the same))]]
 val cards_tuple = [
    [1 1 "US" "Backlash" 
       ["Play if you can select a Plot in a Muslim country."] 

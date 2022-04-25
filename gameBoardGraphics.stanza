@@ -922,11 +922,12 @@ defn Button (
     user-info : String|Int
     callback : (String|Int -> False) ) -> Button :
     val button-surface = sdl-create-surface([width height])
-    val upper-rect = SDL-rect(0 0 width height / 2)
-    val lower-rect = SDL-rect(0 height / 2 width height / 2)
+    val outer-rect = SDL-rect(0 0 width height)
+    val inner-rect = SDL-rect(to-int(0.1f * to-float(width)) to-int(0.1f * to-float(height))
+                        to-int(0.8f * to-float(width)) to-int(0.8f * to-float(height)))
     sdl-fill-rect(button-surface false SDL-color(0Y 0Y 0Y 0Y))
-    sdl-fill-rect(button-surface upper-rect button-colors[0])
-    sdl-fill-rect(button-surface lower-rect button-colors[1])
+    sdl-fill-rect(button-surface outer-rect button-colors[0])
+    sdl-fill-rect(button-surface inner-rect button-colors[1])
     val [w h] = sdl-text-size(text font text-color)
     val x = (width - w) / 2
     val y = (height - h) / 2
@@ -935,7 +936,6 @@ defn Button (
         defmethod draw (this dst-surface : Long dst-rect : SDL-rect ) -> False :
             sdl-overlay(button-surface false dst-surface dst-rect)
             false
-
         defmethod trigger (this) -> String|Int:
             callback(user-info)
             user-info

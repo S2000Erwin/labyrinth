@@ -30,59 +30,268 @@ defn evprintln<?T> (msg : ?T) :
     evprint(msg)
     evprint("\n")
 
+defn declareCaliphate (game : Labyrinth name : String original_cell : Int) -> False :
+    label<False> return :
+        if not awakening(game) and not foreverwar(game) :
+            return(false)
+        if scenario(game) == "Surge":
+            evprintln("No Caliphate in %_ in %_" % [name scenario(game)])
+            return(false)
+        if getCell(game name) - original_cell < 3:
+            return(false)
+        val v = extract(game isCaliphateCapital{game _} false)
+        if length(v) > 0:
+            return(false)
+        if not isCivilWar(game name) and not isRegimeChange(game name) and getGovern(game name) != "islamrule" :
+            return(false)
+        val ans = queryDeclareCaliphate(
+                comm(game) as Communicator
+                "jihadist" 
+                append-all(["Declare Caliphate Capital in " name "?"]) 
+                ["y", "n"]
+                append-all(["caliphatecapital=" name])
+                [ append-all(["Yes, declare Caliphate in " name]) "No"] )
+        if ans == "y" :
+            setCaliphateCapital(game name)
+            spreadCaliphate(game)
 
-defstruct EventTable :
-    t : HashTable<Int, ((Labyrinth, Int, String, True|False, True|False) -> True|False)>
+defn alIttihadAlIslami (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return:
+        if isFulfill:
+            return(true)
+        if cellAvailable(game true) == 0:
+            return(false)
+        if isPlayable:
+            return(true)
+        addOneCell(game "somalia" "recruit" true)
+        true
 
-defn get (e : EventTable, card-id : Int) -> False|((Labyrinth, Int, String, True|False, True|False) -> True|False) :
-    get?(t(e), card-id)
-
-val usEventTable = EventTable(HashTable<Int, ((Labyrinth, Int, String, True|False, True|False) -> True|False)>())
-val jihadistEventTable = EventTable(HashTable<Int, ((Labyrinth, Int, String, True|False, True|False) -> True|False)>())
-
-
-defn playEvent (game : Labyrinth, player : String, card-id : Int, eventTable : EventTable, isPlayable : True|False) :
+defn ansarAlIslam (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
     label<True|False> return :
-        if eventTable[card-id] is-not False:
-            if not isPlayable:
-                ; assert card != 32
-                add(eventUsed(game), card-id)
-            val eventString = getEventString(player, card-id)
-            var condition = false
-            var description = false
-            match(eventString) :
-                (e : Tuple<String|False>) :
-                    condition = e[0]
-                    description = e[1]
-                (e) : false
-            val func? = eventTable[card-id]
-            match(func?):
-                (func : ((Labyrinth, Int, String, True|False, True|False) -> True|False)) :
-                    if isPlayable:
-                        ; come from Bot flowchart
-                        ; evprint(f'isPlayable?')
-                        return(func(game, card-id, player, isPlayable, false))
-                    else:
-                        ; come from oppoEvent
-                        val cardInfo = getCardInfo(card-id)
-                        if cardInfo is [Int, String, String] :
-                            val [ops, assoc, title]  = cardInfo as [Int, String, String]
-                            evprintln(to-string("[%_] [%_] '%_':" % [ops, assoc, title]))
-                            evprintln(to-string("Prerequisite:%_" % [condition]))
-                            evprintln(to-string("Game Effect:%_" % [description]))
-                            if func(game, card-id, player, false, true):
-                                if queryEventPlayable(comm(game) as Communicator, player, card-id):
-                                    evprintln("Playing Event...")
-                                    return(func(game, card-id, player, false, false))
-                            else:
-                                evprintln("Condition not fulfilled")
-                (func) : false
-        else:
-            evprintln("Event not found")
+        if isUntested(game "iraq") or getGovern(game "iraq") == "good" :
+            return(false)
+        if isFulfill :
+            return(true)
+        if cellAvailable(game true) == 0 :
+            return(false)
+        if isPlayable:
+            return(true)
+        val name = queryCountry-noNull(comm(game) as Communicator player "Where to place a cell?" ["iraq" "iran"], "recruit")
+        addOneCell(game name "recruit" true)
+        true
+
+defn FREs (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if getTroopStrength(game "iraq") == 0 :
+            return(false)
+        if isFulfill:
+            return(true)
+        if cellAvailable(game true) == 0:
+            return(false)
+        if isPlayable:
+            return(true)
+        val original_cell = getCell(game "iraq")
+        val num = 4 when contains?(removed(game) 27) else 2
+        do( {addOneCell(game "iraq" "recruit" true)} 0 to num )
+        declareCaliphate(game "iraq" original_cell)
         false
 
-public defn playJihadistEvent (game : Labyrinth, card-id : Int, isPlayable : True|False) :
-    playEvent(game, "jihadist", card-id, jihadistEventTable, isPlayable)
+defn IEDs (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        val validCountries = extract(game fn (x) : isRegimeChange(game x) and getCell(game x) > 0 false)
+        when card-id == 52
+        else extract(game fn (x) : getCell(game x) > 0 and getTroop(game x) > 0 and isRegimeChange(game x) or isCivilWar(game x) false)
+        if length(validCountries) == 0:
+            return(false)
+        if isFulfill or isPlayable:
+            return(true)
+        if length(ushand $ game) > 0:
+            evprintln("US player discards one card")
+            discardOneCard(game "us" -2)
+        false
 
-public defn playUSEvent (game : Labyrinth, card-id : Int, isPlayable : True|False) :
-    playEvent(game, "us", card-id, usEventTable, isPlayable)
+defn madrassas (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if currentphase(game) != 0 or currentplayer(game) != "jihadist":
+            return(false)
+        if isFulfill :
+            return(true)
+        if cellAvailable(game true) == 0 or length(jihadisthand(game)) == 0 :
+            return(false)
+        if isPlayable :
+            return(true)
+        val validCountries = extract(
+            game 
+            fn (x) : getGovern(game x) == "poor" or getGovern(game x) == "islamrule" or getCell(game x true) > 0 or isCadre(game x)
+        )
+        if (length $ jihadisthand $ game) > 0:
+            val secondCard = queryCardPlay(comm(game) as Communicator "Choose Second Card" (to-tuple $ jihadisthand $ game))
+            remove-item(jihadisthand(game) secondCard)
+            val [ops assoc title] = getCardInfo(secondCard)
+            val selections = Vector<String>()
+            label<False> break : do( 
+                {match(queryCountry(comm(game) as Communicator player "Where to recruit?" validCountries "recruit")) :
+                    (name : String) : add(selections name)
+                    (f) : break(false)}
+                0 to (ops + 1)
+            )
+            do( fn (selection) :
+                    val need = getRecruitNum(game selection)
+                    evprintln("Recruit in %_. Need <= %_" % [selection need])
+                    if need == 6 or rollOnce(game) <= need:
+                        addOneCell(game selection "recruit" true)
+                selections
+            )
+            if assoc == "US" :
+                if playUSEvent(game secondCard true) :
+                    if playUSEvent(game secondCard) :
+                        add(removed(game) secondCard)
+                    else:
+                        doDiscard(game secondCard)
+            false
+
+defn uyghurJihad (game : Labyrinth card-id : Int, player : String isPlayable : True|False isFulfill : True|False) -> True|False:
+    val name = "china"
+    label<True|False> return :
+        if isFulfill: return(true)
+        if not isUntested(game name) and getCell(game name true) == 0 : return(false)
+        if isPlayable : return(true) 
+        testCountry(game name)
+        if getPosture(game name) == "hard" :
+            addOneCell(game "centralasia" "recruit", true)
+        else :
+            addOneCell(game name "recruit" true)
+        true
+
+defn bhuttoShot (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if getCell(game "pakistan") == 0 :
+        false
+    else if isFulfill or isPlayable:
+        true
+    else :
+        setAndBlockMarker(game "pakistan" "bhuttoshot" ["benazirbhutto"])
+        true
+
+defn gazaWar (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if isFulfill :
+        true
+    else if length(ushand $ game) == 0 and funding(game) == 9 and prestige(game) == 1 :
+        false
+    else if isPlayable:
+        true
+    else :
+        discardOneCard(game "us" (- 2))
+        changeFunding(game (- 1))
+        changePrestige(game (- 1))
+        false
+
+defn jemaahIslamiya (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if isFulfill: true
+    else if cellAvailable(game true) == 0 : false
+    else if isPlayable : true
+    else :
+        do({addOneCell(game "indonesia" "recruit" true)} 0 to 2)
+        false
+
+defn lashkarETayyiba (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if isMarker(game "india" "indopakistanitalks") :
+        evprintln("Blocked by Indo-Pakistani Talks")
+        false
+    else if isFulfill : true
+    else if cellAvailable(game true) == 0 : false
+    else if isPlayable : true
+    else :
+        addOneCell(game "pakistan" "recruit" true)
+        addOneCell(game "india" "recruit" true)
+        false
+
+defn opium (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    val name = "afghanistan"
+    if getCell(game name) == 0 : false
+    else if isFulfill: true
+    else if cellAvailable(game true) == 0 : false
+    else if isPlayable : true
+    else :
+        val original_cell = getCell(game name)
+        do({addOneCell(game name "recruit" true)} 0 to 3)
+        if getGovern(game name) == "islamrule" :
+            while cellAvailable(game true) > 0:
+                addOneCell(game name "recruit" true)
+        declareCaliphate(game name original_cell)
+        false
+
+;deftype EventFunc <: (Labyrinth Int String True|False True|False) -> True|False
+;deftype EventTable <: Tuple<KeyValue<Int, ((Labyrinth Int String True|False True|False) -> True|False)>>
+
+val jihadistEventTable = [
+    49 => alIttihadAlIslami
+    50 => ansarAlIslam
+    51 => FREs
+    52 => IEDs 
+    53 => madrassas 
+    55 => uyghurJihad
+    60 => bhuttoShot
+    63 => gazaWar
+    68 => jemaahIslamiya
+    70 => lashkarETayyiba
+    72 => opium 
+]
+
+val usEventTable = [
+
+]
+
+;defstruct EventTable :
+;    t : HashTable<Int, ((Labyrinth, Int, String, True|False, True|False) -> True|False)>
+;
+;defn get (e : EventTable, card-id : Int) -> False|((Labyrinth, Int, String, True|False, True|False) -> True|False) :
+;    get?(t(e), card-id);
+;
+;val usEventTable = EventTable(HashTable<Int, ((Labyrinth, Int, String, True|False, True|False) -> True|False)>())
+
+defn playEvent (game : Labyrinth, player : String, card-id : Int
+                eventTable : Tuple<KeyValue<Int, ((Labyrinth Int String True|False True|False) -> True|False)>>
+                isPlayable : True|False) -> True|False :
+    label<True|False> return :
+        match(lookup?(eventTable card-id)) :
+            (func : ((Labyrinth Int String True|False True|False) -> True|False)) :
+                if not isPlayable:
+                    ; assert card != 32
+                    add(eventUsed(game) card-id)
+                val eventString = getEventString(player card-id)
+                val condition = false when eventString[0] is False else eventString[0] as String
+                var description = false when eventString[1] is False else eventString[1] as String
+                if isPlayable:
+                    ; come from Bot flowchart
+                    evprintln("isPlayable?")
+                    return(func(game, card-id, player, isPlayable, false))
+                else:
+                    ; come from oppoEvent
+                    val cardInfo = getCardInfo(card-id)
+                    if cardInfo is [Int, String, String] :
+                        val [ops assoc title]  = cardInfo as [Int String String]
+                        evprintln(to-string("[%_] [%_] '%_':" % [ops assoc title]))
+                        evprintln(to-string("Prerequisite:%_" % [condition]))
+                        evprintln(to-string("Game Effect:%_" % [description]))
+                        if func(game card-id player false true) :
+                            if queryEventPlayable(comm(game) as Communicator player card-id):
+                                evprintln("Playing Event...")
+                                return(func(game card-id player false false))
+                        else:
+                            evprintln("Condition not fulfilled")
+                    
+            (f) : evprintln("Event not found")
+        false
+
+public defn playJihadistEvent (game : Labyrinth card-id : Int isPlayable : True|False) -> True|False :
+    playEvent(game "jihadist" card-id jihadistEventTable isPlayable)
+
+public defn playJihadistEvent (game : Labyrinth card-id : Int) -> True|False :
+    playJihadistEvent(game card-id false)
+
+
+public defn playUSEvent (game : Labyrinth, card-id : Int, isPlayable : True|False) -> True|False :
+    playEvent(game "us" card-id usEventTable isPlayable)
+
+public defn playUSEvent (game : Labyrinth card-id : Int) -> True|False :
+    playUSEvent(game card-id false)
