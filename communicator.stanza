@@ -441,7 +441,7 @@ public defn queryEventPlayable (comm : Communicator, who : String, card-id : Int
 
 public defn queryPlayOrder (comm : Communicator, msg : String, validAnswers : Tuple<Int>) :
     queryNumber(comm, currentplayer(game(comm)), msg, validAnswers, "playorder",
-                            ["I play Ops first", "Opponent plays Event first"], false)
+                            ["I play Ops first", "Opponent Event first"], false)
 
 defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers : Seqable<Int>&Lengthable, 
                     reason : String, displays : Seqable<String>, canNull : True|False) -> Int|False :

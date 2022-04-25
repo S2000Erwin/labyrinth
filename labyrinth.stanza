@@ -91,7 +91,7 @@ val baseRoutes = [
    ["uk", "schengen"], ["uk", "us"], ["canada", "schengen"], ["canada", "us"],
    ["us", "schengen"], ["us", "philippines"], ["philippines", "thailand"], ["philippines", "indonesia"],
    ["indonesia", "thailand"], ["indonesia", "india"], ["indonesia", "pakistan"],
-   ["indea", "pakistan"], ["thailand", "china"]
+   ["india", "pakistan"], ["thailand", "china"]
 ]
 
 ; Don't reorder this table. It is according to Random Schengen Table
@@ -1034,7 +1034,7 @@ defn plot (lab : Labyrinth, ops : Int, selections : Tuple<String>) :
                remove-item(availables, 2)
          gprintln("Success. Plots Available=%_" % [availables])
          if length(availables) > 0:
-            val ans = queryPlot( comm(lab) as Communicator "Choose Plot" plotAvailables(lab) false) 
+            val ans = queryPlot( comm(lab) as Communicator append-all(["Choose Plot in " name]) plotAvailables(lab) false) 
             match(ans):
                (ans : Int|String) : placePlot(lab name ans)
                (ans) : false 
@@ -1206,20 +1206,18 @@ defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) -> Fal
             extract( 
                lab
                fn (x) : 
-                  isMuslim(lab, x) and
-                  (getAlign(lab, x) == "ally" or getAlign(lab, x) == "neutral") and
-                  not (getAlign(lab, x) == "ally" and getGovern(lab, x) == "good") and
-                  (  not isRegimeChange(lab, x) or isRegimeChange(lab, x) and 
-                     ((getTroopStrength(lab, x, false) + getMilitia(lab, x) - getCell(lab, x, true)) >= 5) 
+                  isMuslim(lab x) and
+                  (getAlign(lab x) == "ally" or getAlign(lab x) == "neutral") and
+                  (not (getAlign(lab x) == "ally" and getGovern(lab x) == "good")) and
+                  (  not isRegimeChange(lab x) or 
+                     (isRegimeChange(lab x) and ((getTroopStrength(lab, x, false) + getMilitia(lab, x) - getCell(lab, x, true)) >= 5)) 
                   ) and
-                  ops >= getGovernNum(lab, x)
-               false
+                  ops >= getGovernNum(lab x)
             )
             extract(
                lab
                fn (x) : 
-                  not isMuslim(lab, x) and not isPermPosture(lab, x) and x != "iran" and ops >= getGovernNum(lab, x)
-               false
+                  not isMuslim(lab, x) and not isPermPosture(lab, x) and x != "iran" and ops >= getGovernNum(lab x)
             )
          )
          ; validCountries established
@@ -2721,8 +2719,7 @@ public defn getRecruitNum (lab : Labyrinth, name : String) -> Int :
          (r): getGovernNum(lab, name)
 
 defn getGovernNum (lab : Labyrinth, name : String) -> Int :
-   val govern = getGovern(lab, name)
-   match(govern):
+   match(getGovern(lab, name)) :
       (g: String) :
          switch {g == _} :
             "islamrule": 6
@@ -2730,7 +2727,7 @@ defn getGovernNum (lab : Labyrinth, name : String) -> Int :
             "fair" : 2
             "good" : 1
             else :   0
-      (g) : 0
+      (f) : 0
 
 public defn isCivilWar (lab : Labyrinth, name : String) -> True|False :
    val civilwar = getAttr(lab, name, "civilwar")

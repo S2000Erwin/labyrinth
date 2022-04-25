@@ -144,8 +144,8 @@ public defn make-GameBoardGraphics () -> GameBoardGraphics :
     val cards-canvas = sdl-create-surface([cards-width cards-height])
     val cards-adjustment = 1.0f
 
-    val button-height = 76
-    val button-width = 480
+    val button-height = 64
+    val button-width = 400
     val buttons-canvas-width = button-width
     val buttons-canvas-height = button-height * button-slots
     val buttons-display-width = button-width
@@ -856,7 +856,7 @@ defn pastePlot (gbg : GameBoardGraphics lab : Labyrinth name : String) :
                             "w"  : plotW(gbg)
                             else : false
                         match(image) :
-                            (image : Long) : overlay(board-window(gbg) image [x y + 67 * inc-y])
+                            (image : Long) : overlay(board-window(gbg) image [x (y + 67 * inc-y)])
                             (f) : false
                         set-middle(gbg middle(gbg) + 1)
                 plots(lab)
@@ -875,15 +875,15 @@ defn getCoord (gbg : GameBoardGraphics lab : Labyrinth name : String pos : Strin
         (f) : [0 0]
 
 defn pasteMarkers (gbg : GameBoardGraphics lab : Labyrinth name : String) -> False :
-    do( {overlay(board-window(gbg) nato(gbg) getCoord(gbg lab name "left")) set-left(gbg left(gbg) + 1)}
+    do( {overlay(board-window(gbg) nato(gbg) getCoord(gbg lab name "left")) set-left(gbg (left(gbg) + 1))}
         0 to getNATO(lab name)
     )
-    do( {overlay(board-window(gbg) advisors(gbg) getCoord(gbg lab name "middle")) set-middle(gbg middle(gbg) + 1)}
+    do( {overlay(board-window(gbg) advisors(gbg) getCoord(gbg lab name "middle")) set-middle(gbg (middle(gbg) + 1))}
         0 to getAdvisors(lab name)
     )
     if isUNSCR1973(lab name) :
         overlay(board-window(gbg) UNSCR1973(gbg) getCoord(gbg lab name "middle"))
-        set-middle(gbg middle(gbg) + 1)
+        set-middle(gbg (middle(gbg) + 1))
 
     val markerTable = [ 
         "scsc" => scsc(gbg)
@@ -901,10 +901,10 @@ defn pasteMarkers (gbg : GameBoardGraphics lab : Labyrinth name : String) -> Fal
             if isMarker(lab name marker) :
                 if marker == "sadr":
                     overlay(board-window(gbg) image getCoord(gbg lab name "right"))
-                    set-right(gbg right(gbg) + 1)
+                    set-right(gbg (right(gbg) + 1))
                 else :
                     overlay(board-window(gbg) image getCoord(gbg lab name "middle"))
-                    set-middle(gbg middle(gbg) + 1)
+                    set-middle(gbg (middle(gbg) + 1))
         markerTable
     )
 
@@ -926,8 +926,8 @@ defn Button (
     val inner-rect = SDL-rect(to-int(0.1f * to-float(width)) to-int(0.1f * to-float(height))
                         to-int(0.8f * to-float(width)) to-int(0.8f * to-float(height)))
     sdl-fill-rect(button-surface false SDL-color(0Y 0Y 0Y 0Y))
-    sdl-fill-rect(button-surface outer-rect button-colors[0])
-    sdl-fill-rect(button-surface inner-rect button-colors[1])
+    sdl-fill-rect(button-surface outer-rect button-colors[1])
+    sdl-fill-rect(button-surface inner-rect button-colors[0])
     val [w h] = sdl-text-size(text font text-color)
     val x = (width - w) / 2
     val y = (height - h) / 2
@@ -957,6 +957,27 @@ defn reverse-color ( c : SDL-color ) -> SDL-color :
 public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth 
                             msg : String
                             validAnswers : Seqable<String|Int> displays : Seqable<String>|False color-hint : String|False) :
+    ; re-arrange validAnswers and displays if color-hint is "country"
+    var sorted-validAnswers : Tuple<String|Int> = to-tuple(validAnswers)
+    var sorted-displays : Tuple<String|False>|False = match(displays) :
+        (s : Seqable<String>) : to-tuple(s)
+        (f) : false
+    if color-hint == "country" :
+        val zipped-validAnswers : Tuple<[String String|False]> = to-tuple(zip(validAnswers as Seqable<String> displays as Seqable<String>) when displays is-not False else zip(validAnswers as Seqable<String> repeat(false)))
+        val sorted-zipped-validAnswers = to-list $ lazy-qsort(zipped-validAnswers 
+                fn (a b) : 
+                    val a-str = a[0] as String
+                    val b-str = b[0] as String
+                    val m-a = isMuslim(lab a-str)
+                    val m-b = isMuslim(lab b-str)
+                    if m-a and not m-b: true
+                    else if m-a and m-a and a-str < b-str : true
+                    else if not m-a and not m-b and a-str < b-str : true
+                    else : false
+        )
+        sorted-validAnswers = to-tuple(map({_[0] as String} sorted-zipped-validAnswers))
+        sorted-displays = to-tuple(map({_[1]} sorted-zipped-validAnswers))
+
     sdl-set-window-title(window $ buttons-window $ gbg msg)
     sdl-clear-surface $ canvas $ buttons-window $ gbg
     set-center(buttons-window(gbg) [0.5f 0.1f])
@@ -1017,10 +1038,9 @@ public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth
                 ans
                 fn (ans) : println("Button %_ is pressed" % [ans])
             )
-
             add(buttons Panel(SDL-rect(0 + to-int(0.1f * to-float $ button-size[0]) y + to-int(0.1f * to-float $ button-size[1]) button-size[0] button-size[1]) button))
-        validAnswers
-        match(displays) :
+        sorted-validAnswers
+        match(sorted-displays) :
             (f : False) : repeat(false)
             (displays) : displays as Seqable<String>
         0 to height by grid-size[1]
