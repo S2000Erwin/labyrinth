@@ -922,9 +922,12 @@ defn Button (
     user-info : String|Int
     callback : (String|Int -> False) ) -> Button :
     val button-surface = sdl-create-surface([width height])
+    val border-ratio = 0.1f
+    val border-thickness = to-int(border-ratio * to-float(height))
     val outer-rect = SDL-rect(0 0 width height)
-    val inner-rect = SDL-rect(to-int(0.1f * to-float(width)) to-int(0.1f * to-float(height))
-                        to-int(0.8f * to-float(width)) to-int(0.8f * to-float(height)))
+    val inner-rect = SDL-rect(border-thickness border-thickness
+                        (width - 2 * border-thickness) (height - 2 * border-thickness)
+                        )
     sdl-fill-rect(button-surface false SDL-color(0Y 0Y 0Y 0Y))
     sdl-fill-rect(button-surface outer-rect button-colors[1])
     sdl-fill-rect(button-surface inner-rect button-colors[0])

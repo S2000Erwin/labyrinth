@@ -220,6 +220,226 @@ defn opium (game : Labyrinth card-id : Int player : String isPlayable : True|Fal
         declareCaliphate(game name original_cell)
         false
 
+defn pirates (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if not (getGovern(game "somalia") == "islamrule" or getGovern(game "yemen") == "islamrule") :
+        false
+    else if isFulfill or isPlayable :
+        true
+    else :
+        setMarker(game "markers" "pirates" true)
+        true
+
+defn schengenVisas (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if isFulfill : true
+    else if getCellOnMap(game) == 0 : false
+    else if isPlayable : true
+    else :
+        val tonames = Vector<String>()
+        val fromnames = Vector<String>()
+        do({
+            val validCountries = extract(game fn (x) : (isSchengen(game x) and not contains?(tonames x)))
+            label<False> break :
+                match(queryCountry(comm(game) as Communicator player "Cell To?" validCountries append-all(["event=" to-string(card-id)]))) :
+                    (name : String) :    
+                        add(tonames name)
+                        val validCountries = extract(game {getCell(game _ false) > 0})
+                        val v = Vector<String>()
+                        do( fn (name) :
+                                var cell = getCell(game name false)
+                                do({if _ == name : cell = cell - 1} fromnames)
+                                if cell > 0 : add(v name)
+                            validCountries
+                        )
+                        match(queryCountry(comm(game) as Communicator player "Cell from?" to-tuple(v) "travelfrom")) :
+                            (fromname : String) :
+                                add(fromnames fromname)
+                            (f) : break(false)
+                    (f) : break(false)
+            }
+            0 to 2
+        )
+        val len = min(length(tonames), length(fromnames))
+        do( fn (fromname toname) :
+                removeOneCell(game fromname)
+                addOneCell(game toname "travelto" false)
+            fromnames
+            tonames
+        )
+        false
+
+defn alJazeera (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    val validCountries = extract(
+        game 
+        fn (x) : (getTroopStrength(game x) > 0) and isMuslim(game x) and (not isUntested(game x)) and (getAlign(game x) != "adversary")
+        adjacentRegion(game ["saudiarabia"])
+    )
+    if length(validCountries) == 0 : false
+    else if isFulfill or isPlayable : true
+    else :
+        val name = queryCountry-noNull(comm(game) as Communicator player "Shift to Adversary" validCountries "align")
+        shiftAlign(game name "adversary")
+        false
+
+defn axisOfEvil (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if isFulfill or isPlayable : true
+    else if usplayer(game) != "bot" :
+        val cards = [103 104 105 106]
+        var discarded : True|False = true
+        while discarded:
+            discarded = false
+            label<False> break :
+                do( fn (uscard i) :
+                        if contains?(cards uscard) :
+                            discardOneCard(game "us" i)
+                            discarded = true
+                            break(false)
+                    ushand(game)
+                    0 to false
+                )
+    else :
+        setPosture(game "us" "hard")
+        rollPrestige(game)
+        false
+
+defn cleanOperatives (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if isFulfill : true
+    else if getCellOnMap(game) == 0 : false
+    else if isPlayable : true
+    else :
+        val tonames = Vector<String>()
+        val fromnames = Vector<String>()
+        label<False> break : do({
+            val validCountries = extract(game {true})
+            match(queryCountry(comm(game) as Communicator player "Cell to?" validCountries append-all(["event=" to-string(card-id)]))) :
+                (toname : String) :
+                    add(tonames toname)
+                    val validCountries = extract(game {getCell(game _) > 0})
+                    val v = Vector<String>()
+                    do( fn (fromname) :
+                            val cell = getCell(game fromname false) - count({_ == fromname} fromnames)
+                            if cell > 0 : add(v fromname)
+                        validCountries
+                    )
+                    match(queryCountry(comm(game) as Communicator player "Cell from?" to-tuple(v) "travelfrom")) :
+                        (fromname : String) : add(fromnames fromname)
+                        (f) : break(false)
+                (f) : break(false)
+            }
+            0 to 2
+        )
+        val len = min(length(tonames), length(fromnames))
+        do( fn (fromname toname) :
+                removeOneCell(game fromname)
+                addOneCell(game toname "travelto" false)
+            fromnames
+            tonames
+        )
+        false
+
+defn foreignFighters (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        val validCountries = extract(game {isRegimeChange(game _)}) when card-id == 81 else
+            extract(game fn (x) : (isCivilWar(game x) or isRegimeChange(game x))) when card-id == 187 else return(false)
+        if length(validCountries) == 0 : return(false)
+        if isFulfill : return(true)
+        if cellAvailable(game true) == 0 : return(false)
+        if isPlayable : return(true)
+        val name = queryCountry-noNull(comm(game) as Communicator player "Place 5 Cells" validCountries "recruit")
+        val original_cell = getCell(game name)
+        do( {addOneCell(game name "recruit" true)} (0 to 5) )
+        if getAid(game name) > 0:
+            removeOneAid(game name)
+        else:
+            setBesiegedRegime(game name)
+        declareCaliphate(game name original_cell)
+        false
+
+defn jihadistVideos (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill : return(true)
+        val validCountries = to-vector<String>(extract(game {getCell(game _) == 0}))
+        if length(validCountries) == 0 : return(false)
+        if isPlayable : return(true)
+        label<False> break : do(
+            {match(queryCountry(comm(game) as Communicator player "Place Cell or Cadre" to-tuple(validCountries) append-all(["event=" to-string(card-id)]))) :
+                (name : String) :
+                    testCountry(game name)
+                    val need = getRecruitNum(game name)
+                    if need == 6 or rollOnce(game) <= need:
+                        ; success
+                        if "" == addOneCell(game name "recruit" true) :
+                            setCadre(game name)
+                    else :
+                        setCadre(game name)
+                    remove-item(validCountries name)
+                (f) : break(false)
+            }
+            0 to 3
+        )
+        false
+
+defn kashmir (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if isMarker(game "india" "indopakistanitalks") : false
+    else if isFulfill : true
+    else if getAlign(game "pakistan") == "adversary" and cellAvailable(game true) == 0 : false
+    else if isPlayable : true
+    else :
+        shiftAlign(game "pakistan" "adversary")
+        addOneCell(game "pakistan" "recruit" true)
+        false
+
+defn martyrdomOperation (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    val validCountries = extract(game fn (x) : (getGovern(game x) != "islamrule" and getCell(game x) > 0))
+    if length(validCountries) == 0:
+        evprintln("No valid country")
+        false
+    else if isFulfill:
+        true
+    else if length(plotAvailables(game)) == 0:
+        evprintln("No Plot")
+        false
+    else if isPlayable:
+        true
+    else :
+        val name = queryCountry-noNull(comm(game) as Communicator player "Choose country to Plot" validCountries "eventplot")
+        removeOneCellToTrack(game name false true)
+        label<False> break : do({
+            if length(plotAvailables(game)) == 0 : break(false)
+            match(queryPlot(comm(game) as Communicator "Place Plot" plotAvailables(game) false)) :
+                (plot : String|Int) :
+                    placePlot(game name plot)
+                (f) : false
+            }
+            0 to 2
+        )
+        false
+
+defn quagmire (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    val validCountries = extract(game fn (x) : (isRegimeChange(game x) and getCell(game x) > 0))
+    if length(validCountries) == 0 : false
+    else if prestige(game) >= 7 : false
+    else if isFulfill or isPlayable : true
+    else :
+        label<False> break : do( { 
+            if length(ushand(game)) == 0 : 
+                break(false)
+            val discard-id = discardOneCard(game "us" (- 2))
+            if discard-id != 200:
+                remove-item(discard(game) discard-id)  ; retrieve it back temporarily
+            val [ops assoc title] = getCardInfo(discard-id)
+            if assoc == "Jihadist" :
+                if playJihadistEvent(game discard-id true) :
+                    if playJihadistEvent(game discard-id):
+                        add(removed(game) discard-id)
+                    else:
+                        doDiscard(game discard-id)
+            }
+            0 to 2
+        )
+        setPosture(game "us" "soft")
+        false
+
+
 ;deftype EventFunc <: (Labyrinth Int String True|False True|False) -> True|False
 ;deftype EventTable <: Tuple<KeyValue<Int, ((Labyrinth Int String True|False True|False) -> True|False)>>
 
@@ -234,7 +454,17 @@ val jihadistEventTable = [
     63 => gazaWar
     68 => jemaahIslamiya
     70 => lashkarETayyiba
-    72 => opium 
+    72 => opium
+    73 => pirates
+    74 => schengenVisas
+    77 => alJazeera
+    78 => axisOfEvil
+    79 => cleanOperatives
+    81 => foreignFighters
+    82 => jihadistVideos
+    83 => kashmir
+    89 => martyrdomOperation
+    90 => quagmire
 ]
 
 val usEventTable = [

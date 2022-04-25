@@ -1042,7 +1042,7 @@ defn plot (lab : Labyrinth, ops : Int, selections : Tuple<String>) :
             ; failed
             gprintln("Plot Failed")
 
-defn placePlot (lab : Labyrinth, name : String, plot : String|Int):
+public defn placePlot (lab : Labyrinth, name : String, plot : String|Int):
    label<False> return :
       if not contains?(plotAvailables(lab), plot):
          return(false)
@@ -1781,7 +1781,7 @@ defn getAttr (lab: Labyrinth, name : String, attr: String) -> String|Int|True|Fa
             (value) : value
       (f) : false
 
-defn setPosture (lab : Labyrinth, name: String, posture : String) :
+public defn setPosture (lab : Labyrinth, name: String, posture : String) :
    if setAttr(lab, name, "posture", posture) :
       gprintln("%_ is %_. World=%_" % [name, getPosture(lab, name), getGWOTHard(lab)])
          
@@ -1860,7 +1860,7 @@ public defn setAndBlockMarker (lab : Labyrinth name : String marker : String blo
    setMarker(lab name marker true)
    do({removeMarker(lab name _ true)} blocked_markers)
 
-defn setMarker (lab : Labyrinth, name : String, marker : String, value : String|True|Int) :
+public defn setMarker (lab : Labyrinth, name : String, marker : String, value : String|True|Int) :
    if name == "markers" :
       add(markers(lab), marker)
    else :
@@ -1875,7 +1875,7 @@ defn addOneAid (lab : Labyrinth, name : String, event: True|False) :
       setAttr(lab, name, "aid", aid)
       gprint("Aid=%_ in %_" % [aid name])
 
-defn setBesiegedRegime (lab : Labyrinth, name : String) :
+public defn setBesiegedRegime (lab : Labyrinth, name : String) :
    setAttr(lab, name, "besiegedregime", true)
 
 defn addCountryToCurrentPhase (lab : Labyrinth, name : String) :
@@ -2076,7 +2076,7 @@ defn connectCaliphate (lab : Labyrinth, name : String) :
    if length(region) > 0:
       setCaliphateCountry(lab, name)
 
-defn adjacentRegion (lab : Labyrinth, origins : Tuple<String>) -> Tuple<String> :
+public defn adjacentRegion (lab : Labyrinth, origins : Tuple<String>) -> Tuple<String> :
    val adjs = to-vector<String>(origins)
    for country in c(countries(lab)) do :
       val name = key(country)
@@ -2290,7 +2290,7 @@ public defn getFGC (lab : Labyrinth) -> Int:
       
    count
 
-defn isSchengen (lab : Labyrinth, name : String) -> True|False :
+public defn isSchengen (lab : Labyrinth, name : String) -> True|False :
    contains?(schengens, name)
 
 public defn getPIC (lab : Labyrinth) -> Int :
@@ -2313,7 +2313,7 @@ public defn getTroopLevel (lab : Labyrinth) -> String :
       else:
          return("overstretch")
 
-defn getCellOnMap (lab : Labyrinth) -> Int:
+public defn getCellOnMap (lab : Labyrinth) -> Int:
    var cell = 0
    for country in c(countries(lab)) do :
       val name = key(country)
@@ -2668,7 +2668,7 @@ public defn getTroop (lab : Labyrinth, name : String) -> Int :
          (troop) : 0
 
 ; this is for travel from. No cadre
-defn removeOneCell (lab : Labyrinth, fromname : String) :
+public defn removeOneCell (lab : Labyrinth, fromname : String) :
    var result : String = ""
    val activeCell = getActiveCell(lab, fromname, false)
    if activeCell > 0:
@@ -2701,6 +2701,54 @@ defn removeOneActiveCellToTrack (lab : Labyrinth, name : String) :
          if isMarker(lab, name, "sadr") :
             removeMarker(lab, name, "sadr", true)
             gprintln("Sadr is removed in %_" % [name])
+
+public defn removeOneCellToTrack (lab : Labyrinth name : String sleeperFirst : True|False noCadre : True|False) -> String :
+   gprintln("Remove One Cell To Track from %_" % [name])
+   label<String> return : 
+      if getCell(lab name true) == 0:
+         gprintln("No more cell to remove")
+         return("")
+      addCountryToCurrentPhase(lab name)
+      if sleeperFirst:
+         if isMarker(lab name "sadr") :
+               gprintln("Sadr is removed in " % [name])
+               removeMarker(lab name "sadr" true)
+               if not noCadre and getCell(lab name true) == 0:
+                  setCadre(lab name)
+               return("activecell")
+         val cell = getSleeperCell(lab name false)
+         if cell > 0:
+               setSleeperCell(lab name (cell - 1))
+               if not noCadre and getCell(lab name true) == 0:
+                  setCadre(lab name)
+               if lesscell(lab) > 0:
+                  set-lesscell(lab (lesscell(lab) - 1))
+               else if cellcamps(lab) < maxcamps(lab) :
+                  set-cellcamps(lab (cellcamps(lab) + 1))
+               else :
+                  set-celltrack(lab (celltrack(lab) + 1))
+               return("sleepercell")
+      var result : String = "sleepercell"
+      if getActiveCell(lab name false) > 0 :
+         removeOneActiveCellToTrack(lab name)
+         result = "activecell"
+      else:
+         val cell = getSleeperCell(lab name false)
+         if cell > 0:
+               setSleeperCell(lab name (cell - 1))
+               if lesscell(lab) > 0:
+                  set-lesscell(lab (lesscell(lab) - 1))
+               else if cellcamps(lab) < maxcamps(lab) :
+                  set-cellcamps(lab (cellcamps(lab) + 1))
+               else:
+                  set-celltrack(lab (celltrack(lab) + 1))
+      if not noCadre:
+         if getCell(lab name true) == 0 :
+               setCadre(lab name)
+               gprintln("Place Cadre")
+      result
+
+
 
 defn calNeed (lab : Labyrinth, sels : Seqable<String>) -> Tuple<[String, Int]> :
    val selections = Vector<[String, Int]>()
@@ -2735,7 +2783,7 @@ public defn isCivilWar (lab : Labyrinth, name : String) -> True|False :
       (c:False) : false
       (c) : true
 
-defn shiftAlign (lab : Labyrinth, name : String, align : String) :
+public defn shiftAlign (lab : Labyrinth, name : String, align : String) :
    gprintln("Shift Alignment towards %_ in %_" % [ align name])
    var cur = getAlign(lab, name)
    if align == "ally":
@@ -2768,7 +2816,7 @@ defn worsenGovern (lab : Labyrinth, name : String, canIR : True|False) :
                if canIR: toIslamrule(lab, name)
       (g) : false
 
-defn removeOneAid (lab : Labyrinth, name : String) :
+public defn removeOneAid (lab : Labyrinth, name : String) :
    val aid = getAttr(lab, name, "aid")
    match(aid) :
       (aid : Int) :
@@ -2999,7 +3047,7 @@ defn isPermPosture (lab : Labyrinth, name : String) -> True|False :
       (perm : False) : false
       (perm) : true
 
-defn rollPrestige (lab : Labyrinth) :
+public defn rollPrestige (lab : Labyrinth) :
    gprint("Roll for Prestige. Currently Prestige=%_" % [prestige(lab)])
    val die = rollOnce(lab) + (max{_, -1} $ getGWOTPenalty(lab))
    var shift : Int = min(rollOnce(lab), rollOnce(lab))
@@ -3042,7 +3090,7 @@ defn getPrestigeDRM (lab : Labyrinth) -> Int :
       9 : 1
       else : 2
 
-defn setCadre (lab : Labyrinth, name : String) :
+public defn setCadre (lab : Labyrinth, name : String) :
    setAttr(lab, name, "cadre", true)
    gprintln("Cadre is placed in %_" % [name])
 
