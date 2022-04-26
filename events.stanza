@@ -30,6 +30,17 @@ defn evprintln<?T> (msg : ?T) :
     evprint(msg)
     evprint("\n")
 
+defn getDisplays (game : Labyrinth validAnswers : Seqable<Int>&Lengthable) -> Tuple<String> :
+    val displays = Vector<String>()
+    do( {
+        val [ops assoc title] = getCardInfo(_)
+        add(displays string-join([to-string(ops) "(" assoc ")" title] " "))
+        }
+        validAnswers
+    )
+    to-tuple(displays)
+
+
 defn declareCaliphate (game : Labyrinth name : String original_cell : Int) -> False :
     label<False> return :
         if not awakening(game) and not foreverwar(game) :
@@ -439,6 +450,363 @@ defn quagmire (game : Labyrinth card-id : Int player : String isPlayable : True|
         setPosture(game "us" "soft")
         false
 
+defn regionalAlQaeda (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    val validCountries = to-vector<String>(extract(game fn (x) : isMuslim(game x) and x != "iran" and isUntested(game x)))
+    val len = length(validCountries)
+    label<True|False> return :
+        if len < 2:
+            evprintln("Only %_ Muslim countries untested" % [len])
+            return(false)
+        if isFulfill : return(true)
+        if cellAvailable(game true) == 0:
+            evprintln("No cell")
+            return(false)
+        if isPlayable: return(true)
+        val c = comm(game) as Communicator
+        val name1 = queryCountry-noNull(c player "1st country to Place Cell" to-tuple(validCountries) "recruit")
+        remove-item(validCountries name1)
+        val name2 = queryCountry-noNull(c player "2nd country to Place Cell" to-tuple(validCountries) "recruit")
+        val validCountries2 = extract(game {getGovern(game _) == "islamrule"})
+        val unit = 2 when length(validCountries2) > 0 else 1
+        do( { addOneCell(game name1 "recruit" true) addOneCell(game name2 "recruit" true) }
+            0 to unit
+        )
+        false
+
+defn taliban (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill : return(true)
+        if isBesiegedRegime(game "afghanistan") and cellAvailable(game true) == 0 and prestige(game) == 1:
+            return(false)
+        if isPlayable:
+            return(true)
+        setBesiegedRegime(game "afghanistan")
+        addOneCell(game "afghanistan" "recruit" true)
+        addOneCell(game "pakistan" "recruit" true)
+        if getGovern(game "afghanistan") == "islamrule" or getGovern(game "pakistan") == "islamrule":
+            changePrestige(game (- 3))
+        else:
+            changePrestige(game (- 1))
+        false
+
+defn wahhabism (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isUntested(game "saudiarabia") : return(false)
+        if funding(game) == 9 : return(false)
+        if isFulfill or isPlayable : return(true)
+        val f = 999 when getGovern(game "saudiarabia") == "islamrule" else getGovernNum(game "saudiarabia")
+        changeFunding(game f)
+        false
+
+defn fatwa (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    if not (length(ushand(game)) > 0 and length(jihadisthand(game)) > 0) : false
+    else if isFulfill or isPlayable: true
+    else :
+        val uscard = drawFromHand(game "us" (- 2))
+        val jihadistcard = drawFromHand(game "jihadist" (- 2))
+        insert(ushand(game) 0 jihadistcard)
+        insert(jihadisthand(game) 0 uscard)
+        if player == "us" :
+            playUSOps(game 1 true)
+        else:
+            playJihadistOps(game 1 true)
+        false
+
+defn hizbUtTahrir (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if player == "us" :
+            if getTroopLevel(game) != "low" :
+                return(false)
+        else:
+            if getTroopLevel(game) != "overstretch" :
+                return(false)
+        if isFulfill:
+            return(true)
+        if player == "us" :
+            if funding(game) == 1 :
+                return(false)
+        else:
+            if funding(game) == 9:
+                return(false)
+        if isPlayable:
+            return(true)
+        if player == "us" :
+            changeFunding(game (- 2))
+        else:
+            changeFunding(game (- 2))
+        false
+
+defn kosovo (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill : return(true)
+        val usposture = getPosture(game "us")
+        if prestige(game) == 12 and getPosture(game "serbia") == oppositePosture(usposture) :
+            return(false)
+        if isPlayable: return(true)
+        changePrestige(game 1)
+        setPosture(game "serbia" oppositePosture(usposture))
+        false
+
+defn hizballah (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill : return(true)
+        val region = adjacentRegion{game _} $ adjacentRegion{game _} $ adjacentRegion(game ["lebanon"])
+        val validCountries = extract(game (fn (x) : (getCell(game x) > 0 and isShia(game x))) region)
+        if player == "us" :
+            if length(validCountries) == 0:
+                return(false)
+        else:
+            if getGovern(game "lebanon") == "poor" and getAlign(game "lebanon") == "neutral" :
+                return(false)
+        if isPlayable:
+            return(true)
+        if player == "us" :
+            val name = queryCountry-noNull(comm(game) as Communicator player "Remove a Cell" validCountries, "eventdisrupt")
+            removeOneCellToTrack(game name true false)
+        else:
+            setGovern(game "lebanon" "poor")
+            setAlign(game "lebanon" "neutral")
+        false
+
+defn iran (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill : return(true)
+        val shiaCountries = extract(game {isShia(game _)})
+        if player == "us" :
+            val cellCountries = extract(game {getCell(game _ true) > 0} shiaCountries)
+            val untestedCountries = extract(game {isUntested(game _)} shiaCountries)
+            if length(cellCountries) == 0 and getCell(game "iran" true) == 0 and length(untestedCountries) == 0:
+                return(false)
+        else:
+            val validCountries = extract(
+                game 
+                fn (x) : (isUntested(game x) or getGovern(game x) == "good" or getGovern(game x) == "fair") 
+                shiaCountries
+            )
+            if length(validCountries) == 0 : return(false)
+        if isPlayable : return(true)
+        val name = queryCountry-noNull(comm(game) as Communicator player "Test" shiaCountries append-all(["event=" to-string(card-id)]))
+        testCountry(game name)
+        if player == "us":
+            val validCountries = Vector<String>()
+            if getCell(game name true) > 0 :
+                add(validCountries name)
+            if getCell(game "iran" true) > 0:
+                add(validCountries "iran")
+            if length(validCountries) > 0:
+                match(queryCountry(comm(game) as Communicator player "Remove a Cell" to-tuple(validCountries) "eventdisrupt")) :
+                    (disrupt-name : String) : removeOneCellToTrack(game disrupt-name true false)
+                    (f) : false
+        else:
+            minorjihad(game [name name] true)
+        false
+
+defn jayshAlMahdi (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        val validCountries = extract(game fn (x) : (isShia(game x) and getTroopStrength(game x) > 0 and getCell(game x) > 0))
+        if length(validCountries) == 0:
+            return(false)
+        if isFulfill:
+            return(true)
+        if player == "jihadist":
+            val validCountries2 = extract(game fn (x) : (getGovern(game x) == "good" and getGovern(game x) == "fair") validCountries)
+            if length(validCountries) == 0:
+                return(false)
+        if isPlayable:
+            return(true)
+        val [reason msg] = ["eventdisrupt" "Remove Cells"] when player == "us" else ["govern" "Worsen Governance"]
+        match(queryCountry(comm(game) as Communicator player msg validCountries reason)) :
+            (name : String) :
+                if player == "us" :
+                    do( {removeOneCellToTrack(game name true false)}
+                        0 to 2 )
+                else:
+                    worsenGovern(game name)
+            (f) : false
+        false
+
+defn kurdistan (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill : return(true)
+        if player == "jihadist" : 
+            if getGovern(game "turkey") == "poor" and getGovern(game "iraq") == "poor" :
+                return(false)
+        if isPlayable : return(true)
+        if player == "us" :
+            addOneAid(game "iraq" true)
+        else:
+            testCountry(game "turkey")
+            val validCountries = Vector<String>()
+            if getGovern(game "turkey") != "poor":
+                add(validCountries "turkey")
+            if getGovern(game "iraq") != "poor":
+                add(validCountries "iraq")
+            if length(validCountries) > 0:
+                match(queryCountry(comm(game) as Communicator player "Worsen Governance" to-tuple(validCountries) "govern")) :
+                    (name : String) : worsenGovern(game name)
+                    (f) : false
+        false
+
+defn musharraf (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isMarker(game "pakistan" "benazirbhutto") :
+            return(false)
+        if getCell(game "pakistan") == 0:
+            return(false)
+        if isFulfill or isPlayable:
+            return(true)
+        if player == "us" :
+            removeOneCellToTrack(game "pakistan" true false)
+        else:
+            removeOneCellToTrack(game "pakistan" false false)
+        setGovern(game "pakistan" "poor")
+        setAlign(game "pakistan" "ally")
+        false
+
+defn zarqawi (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        val countries = extract(game {getTroopStrength(game _) > 0} ["iraq" "syria" "lebanon" "jordan"])
+        if length(countries) == 0:
+            return(false)
+        if isFulfill:
+            return(true)
+        if cellAvailable(game true) == 0 and not contains?(plotAvailables(game) 2):
+            return(false)
+        if isPlayable:
+            return(true)
+        val name = queryCountry-noNull(comm(game) as Communicator player "Choose Country to Place cells and Plot 2." countries "eventplot")
+        val original_cell = getCell(game name)
+        do({addOneCell(game name "recruit" true)} 0 to 3)
+        if contains?(plotAvailables(game) 2) :
+            placePlot(game name 2)
+        declareCaliphate(game name original_cell)
+        false
+
+; starting to use ? function for governance and posture
+defn zawahiri (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        val validCountries = extract(game {islamrule?(game _)})
+        if player == "us":
+            if length(validCountries) > 0:
+                return(false)
+            if isMarker(game "pakistan" "fata") :
+                return(false)
+            if isMarker(game "iraq" "alanbar") :
+                return(false)
+        if isFulfill:
+            return(true)
+        if player == "us":
+            if funding(game) == 1:
+                return(false)
+        else:
+            if prestige(game) == 1:
+                return(false)
+        if isPlayable:
+            return(true)
+        if player == "us":
+            changeFunding(game (- 2))
+            return(true)
+        val change = (- 3) when length(validCountries) > 0 else (- 1)
+        changePrestige(game change)
+        false
+
+defn binLaden (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        val validCountries = extract(game {islamrule?(game _)})
+        if player == "us":
+            if length(validCountries) > 0:
+                return(false)
+            if isMarker(game "pakistan" "fata") :
+                return(false)
+            if isMarker(game "iraq" "alanbar") :
+                return(false)
+        if isFulfill : return(true)
+        if player == "us" :
+            if funding(game) == 1 and prestige(game) == 12:
+                return(false)
+        else :
+            if prestige(game) == 1:
+                return(false)
+        if isPlayable : return(true)
+        if player == "us" :
+            changeFunding(game (- 4))
+            changePrestige(game 1)
+            return(true)
+        val change = (- 4) when length(validCountries) > 0 else (- 2)
+        changePrestige(game change)
+        false
+
+defn darfur (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill or isPlayable : return(true)
+        val name = "sudan"
+        testCountry(game name)
+        if prestige(game) >= 7:
+            addOneAid(game name true)
+            shiftAlign(game name "ally")
+        else:
+            setBesiegedRegime(game name)
+            shiftAlign(game name "adversary")
+        false
+
+defn oilPriceSpike (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill or isPlayable : return(true)
+        val validAnswers = to-vector<Int>(discard(game))
+        remove-item(validAnswers 117)
+        remove-item(validAnswers 118)
+        remove-item(validAnswers 236)
+        if length(validAnswers) == 0:
+            evprintln("No card to retrieve")
+        else:
+            val ans = queryNumber(
+                        comm(game) as Communicator 
+                        player "Which card to retrieve?" 
+                        validAnswers append-all(["event=" to-string(card-id)])
+                        getDisplays(game, validAnswers)
+                        false
+            )
+            match(ans) :
+                (ans : Int) :
+                    if player == "us":
+                        insert(ushand(game) 0 ans)
+                    else:
+                        insert(jihadisthand(game) 0 ans)
+                    remove-item(discard(game) ans)
+                    remove-item(lapsing(game) ans)
+                (f) : false
+        add(lapsing(game) card-id)
+        ; cancel Fracking. How?
+        false
+
+defn saleh (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill : return(true)
+        if player == "us":
+            if islamrule?(game "yemen") : return(false)
+        else:
+            if adversary?(game "yemen") and isBesiegedRegime(game "yemen") : return(false)
+        if isPlayable : return(true)
+        testCountry(game "yemen")
+        if player == "us" :
+            if islamrule?(game "yemen") :
+                shiftAlign(game "yemen" "ally")
+                addOneAid(game "yemen" true)
+        else :
+            shiftAlign(game "yemen" "adversary")
+            setBesiegedRegime(game "yemen")
+        false
+
+defn USElection (game : Labyrinth card-id : Int player : String isPlayable : True|False isFulfill : True|False) -> True|False :
+    label<True|False> return :
+        if isFulfill or isPlayable : return(true)
+        rollPosture(game "us" 0)
+        if getGWOTPenalty(game) == 0:
+            changePrestige(game 1)
+        else:
+            changePrestige(game (- 1))
+        false
+
 
 ;deftype EventFunc <: (Labyrinth Int String True|False True|False) -> True|False
 ;deftype EventTable <: Tuple<KeyValue<Int, ((Labyrinth Int String True|False True|False) -> True|False)>>
@@ -465,6 +833,15 @@ val jihadistEventTable = [
     83 => kashmir
     89 => martyrdomOperation
     90 => quagmire
+    91 => regionalAlQaeda
+    93 => taliban
+    95 => wahhabism
+    97 => fatwa
+    100 => hizbUtTahrir 101 => kosovo 103 => hizballah
+    104 => iran 105 => iran 106 => jayshAlMahdi
+    107 => kurdistan 108 => musharraf 110 => zarqawi
+    111 => zawahiri 112 => binLaden 113 => darfur
+    117 => oilPriceSpike 118 => oilPriceSpike 119 => saleh 120 => USElection
 ]
 
 val usEventTable = [

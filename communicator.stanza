@@ -443,7 +443,7 @@ public defn queryPlayOrder (comm : Communicator, msg : String, validAnswers : Tu
     queryNumber(comm, currentplayer(game(comm)), msg, validAnswers, "playorder",
                             ["I play Ops first", "Opponent Event first"], false)
 
-defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers : Seqable<Int>&Lengthable, 
+public defn queryNumber (comm : Communicator, who : String, msg : String, validAnswers : Seqable<Int>&Lengthable, 
                     reason : String, displays : Seqable<String>, canNull : True|False) -> Int|False :
     val game = game(comm)
     var ans : Int|False = 0

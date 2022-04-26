@@ -749,7 +749,7 @@ defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
             set-currentplayer(lab, "jihadist")
          set-currentphase(lab, 0)
 
-defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
+public defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
    gprintln("Play Jihadist Ops")
    val cardOps = ops
    var usedOps = 0
@@ -768,7 +768,7 @@ defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False) :
       if length(validCountries) > 0:
             add(validOps, "r")
             message = append(message, ", (r)ecruit")
-            add(tooltips, "Recruit")
+            add(tooltips "Recruit")
    if length(plotAvailables(lab)) > 0 and getCellOnMap(lab) > 0:
       add(validOps, "p")
       message = append(message, ", (p)lot")
@@ -1058,7 +1058,7 @@ defn add-front<?T> (v : Vector<?T> item : T) -> False :
    clear(v)
    add-all(v original)
 
-defn insert<?T> (v : Vector<?T> pos : Int item : ?T) :
+public defn insert<?T> (v : Vector<?T> pos : Int item : ?T) :
    val positive-pos = pos when pos >= 0 else length(v) + pos
    val real-pos = positive-pos when positive-pos >= 0 and positive-pos < length(v) else 0 
    val v-list = to-list(v)
@@ -1080,7 +1080,7 @@ defn drawOneSpecificCard (lab : Labyrinth who : String card-id : Int) :
       add-front(hand card-id)
       remove-item(deck(lab) card-id)
 
-defn drawFromHand (lab : Labyrinth who : String pos : Int) -> Int :
+public defn drawFromHand (lab : Labyrinth who : String pos : Int) -> Int :
    val hand = ushand(lab) when who == "us" else jihadisthand(lab)
    label<Int> return :
       if length(hand) == 0:
@@ -1116,7 +1116,7 @@ public defn discardOneCard (lab : Labyrinth who : String pos : Int) -> Int :
       card-id
 
      
-defn minorjihad (lab : Labyrinth, input-selections : Tuple<String>, ignoreUnit : True|False) -> Tuple<[String, String]>:
+public defn minorjihad (lab : Labyrinth, input-selections : Tuple<String>, ignoreUnit : True|False) -> Tuple<[String, String]>:
    val results = Vector<[String, String]>()
    val selections = calNeed(lab, input-selections)
    for [name, need] in selections do:
@@ -1158,7 +1158,7 @@ defn queryBoostOps (lab : Labyrinth, ops : Int, potentialOps : Int) -> Int:
       val ans = queryBoostOps(comm(lab) as Communicator, msg, ["y", "n"])
       potentialOps when ans == "y" else ops
 
-defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) -> False :
+public defn playUSOps (lab : Labyrinth, input-ops : Int, fromEvent : True|False) -> False :
    label<False> return :
       gprintln("Play US Ops")
       val cardOps = input-ops
@@ -1784,8 +1784,11 @@ defn getAttr (lab: Labyrinth, name : String, attr: String) -> String|Int|True|Fa
 public defn setPosture (lab : Labyrinth, name: String, posture : String) :
    if setAttr(lab, name, "posture", posture) :
       gprintln("%_ is %_. World=%_" % [name, getPosture(lab, name), getGWOTHard(lab)])
+
+public defn oppositePosture ( p : String ) -> String :
+   "hard" when p == "soft" else "soft" when p == "hard" else "untested"
          
-defn setGovern (lab : Labyrinth, name: String, govern : String) :
+public defn setGovern (lab : Labyrinth, name: String, govern : String) :
    setAttr(lab, name, "govern", govern)
 
 defn improveGovern (lab : Labyrinth, name : String):
@@ -1798,7 +1801,7 @@ defn improveGovern (lab : Labyrinth, name : String):
          toGood(lab, name)
       else : false
 
-defn setAlign (lab : Labyrinth, name: String, align : String) :
+public defn setAlign (lab : Labyrinth, name: String, align : String) :
    setAttr(lab, name, "align", align)
    if align == "adversary":
       removeAllAdvisors(lab, name)
@@ -1866,7 +1869,7 @@ public defn setMarker (lab : Labyrinth, name : String, marker : String, value : 
    else :
       setAttr(lab, name, marker, value)
 
-defn addOneAid (lab : Labyrinth, name : String, event: True|False) :
+public defn addOneAid (lab : Labyrinth, name : String, event: True|False) :
    label<False> break :
       var aid = getAid(lab, name)
       if aid >= 1 and event == false:
@@ -2011,11 +2014,56 @@ public defn getAlign (lab : Labyrinth, name : String) -> String :
       (a : String) : a
       (a) : "untested"
 
+public defn ally? (lab : Labyrinth name : String) -> True|False :
+   getAlign(lab name) == "ally"
+
+public defn neutral? (lab : Labyrinth name : String) -> True|False :
+   getAlign(lab name) == "neutral"
+
+public defn adversary? (lab : Labyrinth name : String) -> True|False :
+   getAlign(lab name) == "adversary"
+
+public defn untested? (lab : Labyrinth name : String) -> True|False :
+   if isMuslim(lab name ) :
+      getAlign(lab name) == "untested"
+   else if name == "iran" :
+      true
+   else :
+      getPosture(lab name) == "untested"
+
+public defn hard? (lab : Labyrinth name : String) -> True|False :
+   getPosture(lab name) == "hard"
+
+public defn soft? (lab : Labyrinth name : String) -> True|False :
+   getPosture(lab name) == "soft"
+
+
+
 public defn getGovern (lab : Labyrinth, name : String) -> String|False :
    val g = getAttr(lab, name, "govern")
    match(g):
       (g: String) : g
       (g) : false
+
+public defn good? (lab : Labyrinth name : String) -> True|False :
+   match(getGovern(lab name)) :
+      (govern : String) : govern == "good"
+      (f) : false
+
+public defn fair? (lab : Labyrinth name : String) -> True|False :
+   match(getGovern(lab name)) :
+      (govern : String) : govern == "fair"
+      (f) : false
+
+public defn poor? (lab : Labyrinth name : String) -> True|False :
+   match(getGovern(lab name)) :
+      (govern : String) : govern == "poor"
+      (f) : false
+public defn islamrule? (lab : Labyrinth name : String) -> True|False :
+   match(getGovern(lab name)) :
+      (govern : String) : govern == "islamrule"
+      (f) : false
+
 
 public defn isMuslim (lab : Labyrinth, name : String) -> True|False :
    val im = getAttr(lab, name, "muslim")
@@ -2053,7 +2101,7 @@ defn rollGovern (lab : Labyrinth, name : String) :
       setGovern(lab, name, "fair")
    gprintln("Country %_ is %_" % [name getGovern(lab,name)])
 
-defn rollPosture (lab : Labyrinth, name : String, drm:Int) :
+public defn rollPosture (lab : Labyrinth, name : String, drm : Int) :
    gprint("Roll Posture for %_ " % [name])
    var die = rollOnce(lab) + drm
    if name == "us":
@@ -2766,7 +2814,7 @@ public defn getRecruitNum (lab : Labyrinth, name : String) -> Int :
          (r : Int): return(r)
          (r): getGovernNum(lab, name)
 
-defn getGovernNum (lab : Labyrinth, name : String) -> Int :
+public defn getGovernNum (lab : Labyrinth, name : String) -> Int :
    match(getGovern(lab, name)) :
       (g: String) :
          switch {g == _} :
@@ -2801,7 +2849,10 @@ public defn shiftAlign (lab : Labyrinth, name : String, align : String) :
       setAlign(lab, name, cur)
    gprintln("Alignment of %_ is %_" % [name getAlign(lab, name)] )
 
-defn worsenGovern (lab : Labyrinth, name : String, canIR : True|False) :
+public defn worsenGovern (lab : Labyrinth, name : String) :
+   worsenGovern(lab name false)
+   
+public defn worsenGovern (lab : Labyrinth, name : String, canIR : True|False) :
    val govern = getAttr(lab, name, "govern")
    match(govern):
       (g: String) :
@@ -3054,7 +3105,7 @@ public defn rollPrestige (lab : Labyrinth) :
    shift = ((- shift) when die <= 4 else shift)
    changePrestige(lab, shift)
 
-defn getGWOTPenalty (lab : Labyrinth) -> Int :
+public defn getGWOTPenalty (lab : Labyrinth) -> Int :
    val gwot = getGWOTHard(lab)
    max{-3, _} $ min{0, _} $ (gwot when getPosture(lab, "us") == "hard" else (- gwot))
 
