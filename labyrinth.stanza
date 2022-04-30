@@ -1791,7 +1791,7 @@ public defn oppositePosture ( p : String ) -> String :
 public defn setGovern (lab : Labyrinth, name: String, govern : String) :
    setAttr(lab, name, "govern", govern)
 
-defn improveGovern (lab : Labyrinth, name : String):
+public defn improveGovern (lab : Labyrinth, name : String):
    val govern = getAttr(lab, name, "govern")
    switch {govern == _} :
       "poor" :
@@ -2183,7 +2183,7 @@ public defn isMarker (lab : Labyrinth, name : String, marker : String) :
          (result:False) : false
          (result) : true
 
-defn removeMarker (lab : Labyrinth, name : String, marker : String, value : True|Int):
+public defn removeMarker (lab : Labyrinth, name : String, marker : String, value : True|Int):
    match(value):
       (value:True) :
          if name == "markers":
@@ -2259,7 +2259,7 @@ defn mayEndTruce (lab : Labyrinth, name : String) -> True|False :
       else:
          return(false)
 
-defn getResource (lab : Labyrinth, name : String) -> Int :
+public defn getResource (lab : Labyrinth, name : String) -> Int :
    val country = c(countries(lab))[name]
    match(country):
       (country: Country) :
