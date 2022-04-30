@@ -482,13 +482,18 @@ public defn queryNumber (comm : Communicator, who : String, msg : String, validA
                 return(false)
         ans
 
-public defn queryOpsOrEvent (comm : Communicator, msg : String, validAnswers : Tuple<String>) -> String:
+public defn queryOpsOrEvent (comm : Communicator, msg : String, validAnswers : Tuple<String>) -> String :
     val ans = queryGeneric(comm , currentplayer(game(comm)), msg, validAnswers, "oporevent", ["Operation", "Event"], false, false)
     match(ans):
         (a : String) : a
         (a) : "o"
 
-
+public defn queryPosture (comm : Communicator who : String) -> String :
+    match(queryGeneric(comm who "(s)oft or (h)ard" ["s" "h"] "posture" ["Soft" "Hard"] false false)) :
+        (ans : String) :
+            "soft" when ans == "s" else "hard"
+        (f) : "soft"
+        
 public defn queryPlot (comm : Communicator, msg : String, validAnswers : Seqable<String|Int>&Lengthable, reason : String|False) -> String|Int|False :
     val game = game(comm)
     val who = "jihadist"

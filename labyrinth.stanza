@@ -95,7 +95,7 @@ val baseRoutes = [
 ]
 
 ; Don't reorder this table. It is according to Random Schengen Table
-val schengens = ["scandinavia", "benelux", "germany", "france", "spain", "italy", "easterneurope"]
+public val schengens = ["scandinavia", "benelux", "germany", "france", "spain", "italy", "easterneurope"]
 
 ; Shia-mix Country table (9.5)
 val shiamixTable_tuple = [ 
@@ -622,7 +622,7 @@ defn playOneTurn (lab : Labyrinth) :
                return(true)
       endTurn(lab)
 
-defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
+public defn playOneCard (lab : Labyrinth, fromEvent : True|False) -> False:
    if not fromEvent:
       set-oppoEventDone(lab, false)
       set-heldCard(lab, false)
@@ -1530,7 +1530,7 @@ defn disrupt (lab : Labyrinth, name : String) :
       if getCell(lab, name, true) == 0:
          setCadre(lab, name)
 
-defn alert (lab : Labyrinth, index : Int):
+public defn alert (lab : Labyrinth, index : Int):
    val plot = (plots(lab))[index]
    remove(plots(lab), index)
    val [name, value] = plot
@@ -1869,6 +1869,9 @@ public defn setMarker (lab : Labyrinth, name : String, marker : String, value : 
    else :
       setAttr(lab, name, marker, value)
 
+public defn addOneAid (lab : Labyrinth name : String ) :
+   addOneAid(lab name false)
+
 public defn addOneAid (lab : Labyrinth, name : String, event: True|False) :
    label<False> break :
       var aid = getAid(lab, name)
@@ -1876,7 +1879,7 @@ public defn addOneAid (lab : Labyrinth, name : String, event: True|False) :
          break(false)
       aid = aid + 1
       setAttr(lab, name, "aid", aid)
-      gprint("Aid=%_ in %_" % [aid name])
+      gprintln("Aid=%_ in %_" % [aid name])
 
 public defn setBesiegedRegime (lab : Labyrinth, name : String) :
    setAttr(lab, name, "besiegedregime", true)
@@ -1985,7 +1988,7 @@ public defn getCell (lab : Labyrinth name : String) -> Int :
 defn setSleeperCell (lab : Labyrinth, name : String, cell : Int) :
    setAttr(lab, name, "sleepercell", cell)
 
-defn removeCadre (lab : Labyrinth, name : String) :
+public defn removeCadre (lab : Labyrinth, name : String) :
    if setAttr(lab, name, "cadre", false) :
       gprintln("Cadre removed in %_" % [name])
 
@@ -2100,6 +2103,9 @@ defn rollGovern (lab : Labyrinth, name : String) :
    else:
       setGovern(lab, name, "fair")
    gprintln("Country %_ is %_" % [name getGovern(lab,name)])
+
+public defn rollPosture (lab : Labyrinth name : String) :
+   rollPosture(lab name 0)
 
 public defn rollPosture (lab : Labyrinth, name : String, drm : Int) :
    gprint("Roll Posture for %_ " % [name])
@@ -2295,7 +2301,7 @@ public defn changeFunding (lab : Labyrinth, inc : Int) :
       set-funding(lab, 9)
    if funding(lab) < 1 :
       set-funding(lab, 1)
-   gprint("Change Funding from %_ by %_ to %_" % [oFunding, inc, funding(lab)])
+   gprintln("Change Funding from %_ by %_ to %_" % [oFunding, inc, funding(lab)])
 
 public defn changePrestige (lab : Labyrinth, inc : Int) :
    val oPrestige = prestige(lab)
@@ -2392,6 +2398,14 @@ defn countReact (lab : Labyrinth) -> Int:
       react = react + getReact(lab, name)
    react
 
+public defn addOneAwaken (lab : Labyrinth name : String) :
+   setAwaken(lab name getAwaken(lab name) + 1)
+
+public defn removeOneAwaken (lab : Labyrinth name : String) :
+   if getAwaken(lab name) > 0:
+      setAwaken(lab name getAwaken(lab name) - 1)
+
+
 public defn getAwaken (lab : Labyrinth, name : String) -> Int:
    val awaken = getAttr(lab, name, "awaken")
    match(awaken) :
@@ -2452,7 +2466,7 @@ defn getCardDraw (lab : Labyrinth) :
       toUS = toUS + 2
    [toJihadist, toUS]
 
-defn drawOneCard (lab : Labyrinth, player : String) :
+public defn drawOneCard (lab : Labyrinth, player : String) :
    label<True|False> return:
       var reshuffled = false
       if length(deck(lab)) == 0:
@@ -2759,7 +2773,7 @@ public defn removeOneCellToTrack (lab : Labyrinth name : String sleeperFirst : T
       addCountryToCurrentPhase(lab name)
       if sleeperFirst:
          if isMarker(lab name "sadr") :
-               gprintln("Sadr is removed in " % [name])
+               gprintln("Sadr is removed in %_" % [name])
                removeMarker(lab name "sadr" true)
                if not noCadre and getCell(lab name true) == 0:
                   setCadre(lab name)
@@ -3020,7 +3034,7 @@ public defn isBesiegedRegime (lab : Labyrinth, name : String) -> True|False :
       (br : False) : false
       (br) : true
 
-defn removeMarkers (lab : Labyrinth, name : String, markers : Tuple<String> ):
+public defn removeMarkers (lab : Labyrinth, name : String, markers : Tuple<String> ):
    for marker in markers do :
       setAttr(lab, name, marker, false)
 
@@ -3092,7 +3106,7 @@ defn switchPosture (lab : Labyrinth, name : String) :
             else : false
       (pos) : false
 
-defn isPermPosture (lab : Labyrinth, name : String) -> True|False :
+public defn isPermPosture (lab : Labyrinth, name : String) -> True|False :
    val perm = getAttr(lab, name, "permposture")
    match(perm):
       (perm : False) : false
@@ -3165,3 +3179,19 @@ public defn isUNSCR1973 (lab : Labyrinth name : String) -> True|False :
    match(getAttr(lab name "unscr1973")) :
       (f : False) : false
       (t) : true
+
+public defn woiMuslim (lab : Labyrinth name : String ) :
+   woiMuslim(lab name false)
+
+public defn woiMuslim (lab : Labyrinth name : String ignoreGWOT : True|False) :
+   val drm = getWoiDRM(lab name ignoreGWOT)
+   gprintln("DRM=%_ " % [drm])
+   val die = rollOnce(lab) + drm
+   if die >= 5:
+      if ally?(lab name) :
+         improveGovern(lab name)
+      else :
+         shiftAlign(lab name "ally")
+   else if die == 4:
+      if getAid(lab name) < 1 :
+         addOneAid(lab name)
