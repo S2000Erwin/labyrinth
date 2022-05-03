@@ -1,0 +1,1223 @@
+defpackage jihadistbot :
+    import core
+    import collections
+    import labyrinth
+    import events
+    import cards
+
+var term : True|False = true
+var global-verbose : Int = 3
+
+val CRED = "[91m"
+val CEND = "[0m"
+
+defn botprint<?T> ( msg : ?T ) :
+    if not term:
+        print("<span style='color:red'>")
+        print(msg)
+        print("</span>")
+        ;todo
+        ;mprint(newargs)
+    else:
+        print(to-string(to-char(27)))
+        print(CRED)
+        print(msg)
+        print(to-string(to-char(27)))
+        print(CEND)
+        
+defn botprintln<?T> (msg : ?T ) :
+    botprint(msg)
+    botprint("\n")
+
+defn botprintinfo<?T> (msg : ?T) :
+    if global-verbose >= 3 :
+        botprintln(msg)
+
+defn getMovableCandidates (game : Labyrinth roster : Seqable<[String [Int Int]]>) -> Tuple<String> :
+    val candidates = Vector<String>()
+    do({
+        val [name units] = _
+        val [active-units sleeper-units] = units
+        val all-units = [getActiveCell(game name true) getSleeperCell(game name true)]
+        val move-units = [getActiveCell(game name false) getSleeperCell(game name false)]
+        val new-units = [active-units - all-units[0] + move-units[0] sleeper-units - all-units[1] + move-units[1]]
+        if new-units[0] > 0 or new-units[1] > 0:
+            add(candidates name)
+        }
+        roster
+    )
+    to-tuple(candidates)
+
+public deftype JihadistBot
+public defmulti queryCardPlay (jbot : JihadistBot msg : String validAnswers : Seq<Int> ) -> Int 
+public defmulti queryGeneric (jbot : JihadistBot msg : String validAnswers : Seqable<String> reason : String ) -> String
+public defmulti queryNumberBounds (jbot : JihadistBot msg : String lower : Int upper : Int reason : String) -> Int 
+public defmulti queryCountry (jbot : JihadistBot msg : String pre-validAnswers : Seqable<String> pre-reason : String) -> String
+public defmulti queryEventPlayable (jbot : JihadistBot msg : String validAnswer : Seqable<String> card : Int) -> String
+public defmulti queryNumber (jbot : JihadistBot msg : String validAnswers : Seqable<Int> reason : String) -> Int
+public defmulti queryPlot (jbot : JihadistBot msg : String validAnswers : Seqable<String|Int> reason : String|False) -> String|Int
+public defmulti queryRadicalization (jbot : JihadistBot msg : String minOps : Int maxOps : Int spentUnits : Seqable<[String String]>) -> False
+public defmulti finishEvent (jbot : JihadistBot card-id : Int) -> False
+                                        
+
+defmulti chooseOp (jbot : JihadistBot validAnswers : Seqable<String>) -> String
+defmulti event353 (jbot : JihadistBot) -> [ Tuple<[String String]> Tuple<Int> ]
+defmulti isEventPlayable (jbot : JihadistBot card-id : Int) -> True|False
+defmulti getPoor1to4JSP (jbot : JihadistBot validAnswers : Seqable<String>|False) -> Tuple<String>
+defmulti adjMoveableCell (jbot : JihadistBot name : String) -> True|False
+defmulti testAutoRecruitCell (jbot : JihadistBot name : String) -> True|False
+defmulti priorityTable (jbot : JihadistBot candidates : Seqable<String>&Lengthable reason : String) -> String
+defmulti prioMostActiveCell (jbot : JihadistBot cs : Seqable<String>) -> Tuple<String>
+defmulti prioHighestResource (jbot : JihadistBot cs : Seqable<String>) -> Tuple<String>
+defmulti prioPoorFairGood (jbot : JihadistBot cs : Seqable<String>) -> Tuple<String>
+defmulti opPriority (jbot : JihadistBot validAnswers : Seqable<String> reason : String) -> String
+defmulti opPriorityTravelFrom (jbot : JihadistBot travelto : String pre-validAnswers : Seqable<String>) -> String
+                                        
+
+public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -> JihadistBot :
+    global-verbose = verbose
+    term = terminal
+
+    var card-id : Int = 0
+    var ops : Int = 1
+    var assoc : String = "US"
+    var travelto : String = ""
+
+    new JihadistBot :
+        defmethod queryCardPlay (this msg : String validAnswers : Seq<Int> ) -> Int :
+            botprintinfo("Jihadist Bot always plays the first card")
+            ; this is the first point of a card play. Better formulate all thoughts here.
+            ; lab is the game state
+            ; self.game.countries to access all country-specific info
+            card-id = next(validAnswers)
+            val card-info = getCardInfo(card-id)
+            ops = card-info[0] as Int
+            assoc = card-info[1] as String
+            botprintln("JBot plays card %_" % [card-id])
+            card-id
+
+        defmethod queryNumber (this msg : String validAnswers : Seqable<Int> reason : String) -> Int :
+            botprintln("JBot queryNumber")
+            label<Int> return :
+                if reason == "event=186" :
+                    if contains?(validAnswers 0) : return(0)
+                else if reason == "event=197" :
+                    val t-v = to-tuple $ validAnswers
+                    return(t-v[0])
+                else if contains?(["event=117" "event=118" "event=236"] reason) :
+                    val max-ops = maximum({val [ops assoc title] = getCardInfo(_) ops} validAnswers)
+                    val vs = filter({val [ops assoc title] = getCardInfo(_) ops == max-ops} validAnswers)
+                    val vss = filter({val [ops assoc title] = getCardInfo(_) assoc == "Jihadist"} vs)
+                    if not empty?(vss) :
+                        return(choice $ to-tuple $ vss)
+                    val v2s = filter({val [ops assoc title] = getCardInfo(_) assoc == "Unassociated"} vs)
+                    if not empty?(v2s) :
+                        return(choice $ to-tuple $ vss)
+                    return(choice $ to-tuple $ vs)
+                else if reason == "event=353":
+                    return(choice $ to-tuple $ validAnswers)
+
+                if reason == "playorder":
+                    return(1)
+                val ans = choice $ to-tuple $ validAnswers
+                botprintln("JBot randomly chooses %_" % [ans])
+                ans
+
+        defmethod queryPlot (this msg : String validAnswers : Seqable<String|Int> reason : String|False) -> String|Int :
+            label<String|Int> return :
+                botprintln("JBot Plot Available=%_" % [validAnswers])
+                match(reason) :
+                    (reason : String) :
+                        if reason == "event=186" or reason == "event=195" :
+                            if contains?(validAnswers 3) :
+                                return(3)
+                            if contains?(validAnswers 2) :
+                                return(2)
+                            if contains?(validAnswers 1) :
+                                return(1)
+                        ; fall thru
+                    (f) : false
+                val ans = choice(to-tuple $ validAnswers)
+                botprintln("Random Choice")
+                ans
+
+
+            
+        defmethod queryGeneric (this msg : String validAnswers : Seqable<String> reason : String ) -> String :
+            label<String> return :
+                if reason == "event=169" :
+                    if funding(game) < 8 and contains?(validAnswers "f") :
+                        return("f")
+                    if cellAvailable(game true) > 0 and contains?(validAnswers "c") :
+                        return("c")
+                    return("")
+                else if reason == "event=172" :
+                    do(
+                        { (if contains?(validAnswers result) : return(result)) where : val result = _}
+                        ["b" "c" "r" "p" "d"]
+                    )
+                else if reason == "event=186" :
+                    if isMuslim(game "nigeria") :
+                        if contains?(validAnswers "c") :
+                            return("c")
+                        if contains?(validAnswers "p") :
+                            return("p")
+                        return(choice(to-tuple $ validAnswers))
+                else if reason == "event=200" :
+                    if contains?(validAnswers "s") :
+                        return("s")
+                    if contains?(validAnswers "p") :
+                        return("p")
+                    return(choice(to-tuple $ validAnswers))
+                else if reason == "event=207" :
+                    if contains?(plotAvailables(game) "w") and contains?(validAnswers "c") :
+                        return("c")
+                    if funding(game) < 8 and contains?(validAnswers "p") :
+                        return("p")
+                    if contains?(validAnswers "c"):
+                        return("c")
+                    else :
+                        return("")
+                else if reason == "event=221 type" :
+                    if contains?(validAnswers "c") :
+                        return("c")
+                    return("")
+                else if reason == "event=202" :
+                    val usposture = getPosture(game "us")
+                    val v = extract(game
+                        fn (x) : 
+                            getPosture(game x) == usposture or untested?(game x)
+                        ["russia" "china" "india"]
+                    )
+                    if length(v) > 0 :
+                        if contains?(validAnswers "p") :
+                            return("p")
+                    if usreserve(game) > 0 :
+                        if contains?(validAnswers "r") :
+                            return("r")
+                    val va = to-vector<String>(validAnswers)
+                    remove-item(va "p")
+                    remove-item(va "r")
+                    choice(to-tuple $ va)
+                else if reason == "event=205" :
+                    if contains?(validAnswers "c") : return("c")
+                    else if contains?(validAnswers "r") : return("r")
+                    else : return(choice(to-tuple $ validAnswers))
+                else if reason == "event=230" :
+                    return("s") when contains?(validAnswers "s") else return("g") when contains?(validAnswers "g") else return(choice(to-tuple $ validAnswers))
+                else if reason == "event=287" :
+                    return("r") when contains?(validAnswers "r") 
+                    return("b") when contains?(validAnswers "b")
+                    return(choice(to-tuple $ validAnswers))
+                else if reason == "event=298":
+                    return("p") when contains?(validAnswers "p")
+                    return("c") when contains?(validAnswers "c")
+                    return(choice(to-tuple $ validAnswers))
+                else if reason == "event=314" :
+                    if funding(game) < 9:
+                        return("p") when contains?(validAnswers "p") else return("c") when contains?(validAnswers "c") else return(choice(to-tuple $ validAnswers))
+                    else:
+                        return("c") when contains?(validAnswers "c") else return("p") when contains?(validAnswers "p") else return(choice(to-tuple $ validAnswers))
+                else if reason == "event=317" :
+                    return("g") when contains?(validAnswers "g")
+                    return("a") when contains?(validAnswers "a")
+                    return $ choice $ to-tuple $ validAnswers
+                else if reason == "event=328" :
+                    return("p") when contains?(plotAvailables(game) 1) and contains?(validAnswers "p")
+                    return("c") when contains?(validAnswers "c")
+                    return("")
+                else if reason == "event=353" :
+                    val [markers lapsings] = event353(this)
+                    val total = length(markers) + length(lapsings)
+                    val die = rand(total)
+                    return("m") when die < length(markers) else return("l")
+                if reason == "oporevent" :
+                    if isEventPlayable(this card-id) :
+                        if card-id == 100:
+                            return("e") when getTroopLevel(game) == "overstretch" and funding(game) < 9 else return("o")
+                        else if card-id == 101 :
+                            return("o") when getPosture(game "serbia") == oppositePosture(getPosture(game "us")) else return("e")
+                        else if card-id == 103 :
+                            val name = "lebanon"
+                            return("o") when islamrule?(game name) or adversary?(game name) else return("e")
+                        else if card-id == 108 :
+                            val name = "pakistan"
+                            return("o") when poor?(game name) or islamrule?(game name) or adversary?(game name) or neutral?(game name) else return("e")
+                        else if card-id == 113 :
+                            return("o") when prestige(game) > 6 else return("e")
+                        else if card-id == 169 :
+                            return("o") when funding(game) > 7 and cellAvailable(game true) == 0 else return("o")
+                        else if card-id == 176 :
+                            val validCountries = extract(game
+                                fn (x) :
+                                    not isUntested(game x) and isMuslim(game x) and
+                                    (not isSunni(game x) or x == "jordan" or x == "morocco") and
+                                    not good?(game x) and not islamrule?(game x) and
+                                    not isCivilWar(game x) and not isRegimeChange(game x)
+                            )
+                            botprintln("countries=%_" % [validCountries])
+                            val v = extract(game 
+                                fn (x) : (fair?(game x) and ally?(game x))
+                                validCountries
+                            )
+                            botprintln("Filtered=%_" % [v])
+                            return("o") when empty?(v) else return("e")
+                        else if card-id == 177 :
+                            return("o") when funding(game) == 9 or not contains?(plotAvailables(game) 1) else return("e")
+                        else if card-id == 185 :
+                            val v = extract(game fn (x) : getTroop(game x) > 0 and not adversary?(game x))
+                            return("o") when empty?(v) else return("e")
+                        else if card-id == 195 :
+                            val validCountries = extract(game 
+                                fn (x) :
+                                    isCivilWar(game x) or isRegimeChange(game x) and getCell(game x true) >= 3
+                            )
+                            return("o") when empty?(validCountries)
+                            val v = extract(game {fair?(game _)} validCountries)
+                            if empty?(v) :
+                                return("o") when prestige(game) == 1
+                                val v = extract(game 
+                                    fn (x) : (poor?(game x) and getTroopStrength(game x) > 0)
+                                    validCountries
+                                )
+                                return("o") when empty?(v)
+                            return("e")
+                        else if card-id == 196 :
+                            val v = extract(game {getRecruitNum(game _) < 6})
+                            return("o") when empty?(v) else return("e")
+                        else if card-id == 202 :
+                            val usposture = getPosture(game "us")
+                            val v = extract(game
+                                fn (x) : getPosture(game x) == usposture or untested?(game x)
+                                ["russia" "china" "india"]
+                            )
+                            return("e") when not empty?(v) or usreserve(game) > 0
+                            return("o")
+                        else if card-id == 205 :
+                            return("e") when cellAvailable(game false) > 0
+                            val countries = adjacentRegion(game ["turkey"])
+                            val validCountries = extract(game
+                                fn (x) : isMuslim(game x) and not isCivilWar(game x) and not islamrule?(game x) and not good?(game x)
+                                countries
+                            )
+                            return("e") when not empty?(validCountries)
+                            return("o")
+                        else if card-id == 208 :
+                            return("e") when trooptrack(game) < 4
+                            return("o")
+                        else if card-id == 209 :
+                            val v = extract(game {getMilitia(game _) > 0})
+                            return("o") when empty?(v)
+                            return("e")
+                        else if card-id == 218 :
+                            val validCountries = extract(game fn (x) :
+                                (isCivilWar(game x) or isRegimeChange(game x)) and 
+                                getCell(game x true) > 0 and getMilitia(game x) > 0
+                            )
+                            return("o") when empty?(validCountries)
+                            val validCountries2 = extract(game fn (x) : getMilitia(game x) > getCell(game x true) validCountries)
+                            return("o") when empty?(validCountries2)
+                            return("e")
+                        else if card-id == 229 :
+                            return("o")
+                        else if card-id == 117 or card-id == 118 or card-id == 236 :
+                            ; if US Instant Win, treat it as unplayable
+                            add(lapsing(game) card-id)
+                            val newGR = getGoodResource(game)
+                            remove-item(lapsing(game) card-id)
+                            return("o") when newGR >= 12
+                            return("o") when empty?(discard(game))
+                            return("e")
+                        else if card-id == 239 :
+                            return("o")
+                        else if card-id == 353 :
+                            val [ms ls] = event353(this)
+                            if empty?(ls) and empty?(ms) :
+                                botprintln("No Event to remove")
+                                return("o")
+                            return("e")
+                        else if card-id == 306 or card-id == 356 or card-id == 357 :
+                            return("o")
+                        else if card-id == 289 :
+                            val oldIR = getIslamResource(game)
+                            val oldGR = getGoodResource(game)
+                            add(lapsing(game) 289)
+                            val newIR = getIslamResource(game)
+                            val newGR = getGoodResource(game)
+                            remove-item(lapsing(game) 289)
+                            botprintln("Islamic Resource %_ -> %_   Good Resource %_ -> %_" % [oldIR newIR oldGR newGR])
+                            return("e") when newIR > oldIR and newGR <= oldGR else return("o")
+                        else if card-id == 301 :
+                            return("o") when getGWOTPenalty(game) < 0
+                            return("e")
+                        return("e")
+                    else:
+                        return("o")
+                if reason == "optype" :
+                    return(chooseOp(this validAnswers))
+                else if reason == "boostop" :
+                    return("y")
+                else if reason == "endtruce" :
+                    return("n")
+                else if reason == "posture" :
+                    val usposture = getPosture(game "us")
+                    return("s") when hard?(game "us") else return("h")
+                else if reason[0 to 17] == "caliphatecapital=" :
+                    if getIslamResource(game) == 5 :
+                        return("y") when contains?(validAnswers "y")
+                    val name = reason[17 to false]
+                    botprintln("Potential Capital=" % [name])
+                    val v = extract(game
+                        fn (x) : isCivilWar(game x) or isRegimeChange(game x) or islamrule?(game x)
+                        adjacentRegion(game [name])
+                    )
+                    if length(v) >= 2 :
+                        return("y") when contains?(validAnswers "y")
+                    return("n") when contains?(validAnswers "n") else choice(to-tuple $ validAnswers)
+                val ans = choice(to-tuple $ validAnswers)
+                botprintln("JBot randomly chooses %_" % [ans])
+                ans
+
+        defmethod queryRadicalization (this msg : String minOps : Int maxOps : Int spentUnits : Seqable<[String String]>) -> False :
+            false
+            ; self.game.checkAutoWin()
+            ; racOps = 0
+            ; # if use more than maxOps1, set reserve to 0
+            ; botprint(f'Radicalization minOps={minOps} maxOps={maxOps} spentUnits={spentUnits}')
+            ; roster = self.game.getRoster()
+            ; # reduce by spentUnits
+            ; for name, unit in spentUnits:
+            ;     roster = self.reduceRoster(roster, name)
+            ; botprint(f'Unit Roster={roster}')
+            ; while racOps < maxOps and 'us' in roster and 'w' in self.game.plotAvailables:
+            ;     # plot in US with WMD
+            ;     botprint('Place WMD in US')
+            ;     if self.game.rollOnce() <= self.game.getGovernNum('us'):
+            ;         self.game.placePlot('us', 'w')
+            ;     roster = self.reduceRoster(roster, 'us')
+            ;     botprint(f'Roster={roster}')
+            ;     racOps += 1
+            ; botprint(f'US Posture={self.game.getPosture("us")} GWOTPenalty={self.game.getGWOTPenalty()}')
+            ; while racOps < maxOps and self.game.getPosture('us') == 'hard' and self.game.getGWOTPenalty() == 0 and len(
+            ;         roster) > 0:
+            ;     # travel to untested non-Muslim
+            ;     untestednonMuslim = []
+            ;     for name, _ in self.game.countries.items():
+            ;         if not self.game.isMuslim(name) and self.game.isUntested(name):
+            ;             untestednonMuslim.append(name)
+            ;     if 'iran' in untestednonMuslim:
+            ;         untestednonMuslim.remove('iran')
+            ;     if len(untestednonMuslim) == 0:
+            ;         break
+            ;     candidates = []
+            ;     dstCandidates = []
+            ;     # make a roster for movable units
+            ;     movableCandidates = getMovableCandidates(self.game, roster)
+            ;     botprint(f'MovableCandidates={movableCandidates}')
+            ;     for source in movableCandidates:
+            ;         for name in untestednonMuslim:
+            ;             if self.game.isAdjacent(source, name, travel=True):
+            ;                 candidates.append(source)
+            ;                 if not (name in dstCandidates):
+            ;                     dstCandidates.append(name)
+            ;     if len(candidates) > 0:
+            ;         dst = self.priorityTable(dstCandidates, 'travelto')
+            ;         src = self.opPriorityTravelFrom(dst, candidates)
+            ;     else:
+            ;         for name in movableCandidates:
+            ;             candidates.append(name)
+            ;         dst = self.priorityTable(untestednonMuslim, 'travelto')
+            ;         src = self.opPriorityTravelFrom(dst, candidates)
+            ;     botprint(f'From {src} to {dst}')
+            ;     if src == '' or dst == '':
+            ;         break
+            ;     result = self.game.removeOneCell(src)
+            ;     roster = self.reduceRoster(roster, src, result)
+            ;     self.game.travel([(src, dst)])
+            ;     botprint(f'Roster={roster}')
+            ;     racOps += 1
+            ; while racOps < maxOps and self.game.getPosture('us') == 'soft':
+            ;     candidates = []
+            ;     for name, _ in roster.items():
+            ;         if not self.game.isMuslim(name) and self.game.getPosture(name) == 'soft':
+            ;             candidates.append(name)
+            ;     if len(candidates) == 0:
+            ;         break
+            ;     # Plot in soft non-Muslim
+            ;     name = self.priorityTable(candidates, 'plot')
+            ;     self.game.plot(3, [name])
+            ;     roster = self.reduceRoster(roster, name)
+            ;     botprint(f'Roster={roster}')
+            ;     racOps += 1
+            ; # recruit in one Muslim country with Cadre and best Jihad DRM. Use Priority Table
+            ; if racOps < maxOps and self.game.celltrack > 0:
+            ;     candidates = self.game.extract(lambda x: self.game.isMuslim(x) and self.game.isCadre(x))
+            ;     if len(candidates) > 0:
+            ;         mindrm = 10
+            ;         bestDRMs = []
+            ;         for name in candidates:
+            ;             drm = self.game.getAwaken(name) - self.game.getReact(name)
+            ;             mindrm = min(drm, mindrm)
+            ;         for name in candidates:
+            ;             drm = self.game.getAwaken(name) - self.game.getReact(name)
+            ;             if drm == mindrm:
+            ;                 bestDRMs.append(name)
+            ;         name = self.priorityTable(bestDRMs, 'recruit')
+            ;         self.game.addOneCell(name, 'recruit')
+            ;         botprint(f'Recruit in {name}:{self.game.countries[name]}')
+            ;         racOps += 1
+            ; if racOps < minOps and self.game.jihadistreserve < 2:
+            ;     canUse = (minOps - racOps)
+            ;     canAdd = 2 - self.game.jihadistreserve
+            ;     if canUse >= canAdd:
+            ;         use = min(canUse, canAdd)
+            ;         self.game.jihadistreserve += use
+            ;         racOps += use
+            ;         botprint(f'Jihadist Reserve to {self.game.jihadistreserve}')
+            ; while racOps < minOps and len(roster) > 0:
+            ;     botprint('Travel to US')
+            ;     candidates = getMovableCandidates(self.game, roster)
+            ;     name = self.opPriorityTravelFrom('us', candidates)
+            ;     if name == '':
+            ;         break
+            ;     botprint(f'From {name} to US')
+            ;     botprint(f'{self.game.countries[name]}')
+            ;     botprint(f'{self.game.countries["us"]}')
+            ;     result = self.game.removeOneCell(name)
+            ;     roster = self.reduceRoster(roster, name, result)
+            ;     self.game.travel([(name, 'us')])
+            ;     botprint(f'Roster={roster}')
+            ;     racOps += 1
+            ; if racOps > minOps:
+            ;     self.game.jihadistreserve = 0
+            ;     botprint('Set Jihadist Reserve to 0')
+
+        defmethod finishEvent (this card-id : Int) -> False :
+            val [ops assoc title] = getCardInfo(card-id)
+            if assoc == "Unassociated" and card-id != 354 and card-id != 120 :
+                changeJihadistReserve(game ops)
+
+        defmethod event353 (this) -> [ Tuple<[String String]> Tuple<Int> ] :
+            botprintln("Bowling Green Massacre")
+            val eventMarkers = getEventMarkers(game "us")
+            botprintln("From eventMarkers=%_" % [eventMarkers])
+            val validPairs = Vector<[String String]>()
+            botprintln("[%_]" % [eventMarkers])
+            do( fn (kv) :
+                    val name = key(kv)
+                    val markers = value(kv)
+                    if not isCaliphate(game name) :
+                        do( fn (marker) :
+                                if contains?(usmarkers marker) :
+                                    add(validPairs [marker name])
+                            markers
+                        ) 
+                eventMarkers
+            )
+            botprintln("List of markers=%_" % [validPairs])
+            val ls = Vector<Int>()
+            do( fn (card) :
+                    val [ops assoc title] = getCardInfo(card)
+                    add(ls card) when assoc == "US"
+                lapsing(game)
+            )
+            botprintln("List of Lapsing=" % [ls])
+            if empty?(ls) and empty?(eventMarkers) :
+                botprintln("No Event to remove")
+            [to-tuple(validPairs) to-tuple(ls)]
+
+        defmethod isEventPlayable (this card-id) -> True|False :
+            playJihadistEvent(game card-id true)
+
+        defmethod chooseOp (this validAnswers : Seqable<String>) -> String :
+            ; implement EvO flowchart
+            label<String> return :
+                botprint("Major Jihad Possible? ")
+                if contains?(validAnswers "m") :
+                    do( {
+                        val name = key(_)
+                        if isMuslim(game name) and 
+                            ((getCell(game name true) - getTroopStrength(game name) - getMilitia(game name)) >= 5) and 
+                            poor?(game name) :
+                            if isBesiegedRegime(game name) or ops >= 2:
+                                botprintln("Yes")
+                                botprintln("Major Jihad")
+                                return("m")
+                        }
+                        c(countries(game))
+                    )
+                botprintln("No")
+                botprint("Budget Tight? ")
+                if funding(game) <= 3 :
+                    botprintln("Yes")
+                    botprintln("Cell Available? ")
+                    if celltrack(game) > 10 :
+                        botprintln("Yes")
+                        if contains?(validAnswers "r") :
+                            botprintln("Recruit")
+                            return("r")
+                    else:
+                        botprintln("No")
+                    if contains?(validAnswers "p") :
+                        botprintln("Plot")
+                        return("p")
+                else:
+                    botprintln("No")
+                ; cell in good or fair where JSP possible
+                botprint("Cell in Good or Fair where JSP? ")
+                do( {
+                    val name = key(_)
+                    if isMuslim(game name) :
+                        if getCell(game name true) > 0 :
+                            if good?(game name) or fair?(game name) :
+                                val drm = getAwaken(game name) - getReact(game name)
+                                if drm < getGovernNum(game name) :
+                                    if contains?(validAnswers "j") :
+                                        botprintln("Yes")
+                                        botprintln("Minor Jihad")
+                                        return("j")
+                    }
+                    c(countries(game))
+                )
+                botprintln("No")
+                ; poor muslim with 1-4 more cells than TandM where JSP
+                botprint("Poor Muslim Cell1~4>TanM where JSP? ")
+                val candidates = to-vector<String> $ getPoor1to4JSP(this false)
+                if length(candidates) > 0 :
+                    botprintln("Yes")
+                else:
+                    botprintln("No")
+                if length(candidates) > 0:
+                    botprintln("Among candidates %_, any adjacant movable cells?" % [candidates])
+                    while length(candidates) > 0:
+                        val candidate = priorityTable(this candidates "travelto")
+                        botprint("Using Priority Table, try %_ " % [candidate])
+                        if adjMoveableCell(this candidate) :
+                            botprintln("Success")
+                            if contains?(validAnswers "t") :
+                                botprintln("Travel")
+                                return("t")
+                        else:
+                            remove-item(candidates candidate)
+                            botprintln("No Movable Cells adjacent to %_" % [candidate])
+                ; funding moderate?
+                botprint("Funding Moderate? ")
+                if funding(game) >= 7:
+                    botprintln("No")
+                    ; cell available?
+                    botprint("Cell Available? ")
+                    if celltrack(game) > 0 :
+                        botprintln("Yes")
+                        if contains?(validAnswers "r") :
+                            botprintln("Recruit")
+                            return("r")
+                    else:
+                        botprintln("No")
+                        if contains?(validAnswers "t") :
+                            botprintln("Travel")
+                            return("t")
+                else:
+                    botprintln("Yes")
+                ; prestige>1 and activeCell with Troops?
+                botprint("Prestige>1 and Active Cell with Troops? ")
+                if prestige(game) > 1 :
+                    do( {
+                        val name = key(_)
+                        if getTroopStrength(game name true) > 0 and getActiveCell(game name false) > 0 :
+                            botprintln("Yes")
+                            if contains?(validAnswers "p") :
+                                botprintln("Plot")
+                                return("p")
+                        }
+                        c(countries(game))
+                    )
+                botprintln("No")
+                botprint("Cell Available? ")
+                if celltrack(game) > 5:
+                    botprintln("Yes")
+                    if contains?(validAnswers "r") :
+                        botprintln("Recruit")
+                        return("r")
+                else:
+                    botprintln("No")
+                botprint("Cell in non-Muslim? ")
+                do({
+                    val name = key(_)
+                    if not isMuslim(game name) and getCell(game name true) > 0:
+                        botprintln("Yes")
+                        if contains?(validAnswers "p") :
+                            botprintln("Plot")
+                            return("p")
+                    }
+                    c(countries(game))
+                )
+                botprintln("No")
+                botprintln("Travel")
+                "t"
+
+        defmethod testAutoRecruitCell (this name : String) -> True|False :
+            label<True|False> return :
+                val cell = getCell(game name true)
+                return(true) when cell > 1
+                return(true) when not isAutoRecruit(game name)
+                var others : Int = 0
+                do(
+                    {
+                    val other = key(_)
+                    if other != name :
+                        if isAutoRecruit(game other) and getCell(game other true) > 0 :
+                            others = others + 1
+                    }
+                    c(countries(game))
+                )
+                true when others >= 2 else false
+                
+        defmethod getPoor1to4JSP (this validAnswers : Seqable<String>|False) -> Tuple<String> :
+            val vs = match(validAnswers) :
+                (v : Seqable<String>) : to-seq $ v
+                (f : False) : seq( {key(_)} c(countries(game)) )
+            val candidates = Vector<String>()
+            do(
+                fn (name) :
+                    if isMuslim(game name) and poor?(game name) :    
+                        val cell = getCell(game name true)
+                        val troop = getTroopStrength(game name)
+                        val militia = getMilitia(game name)
+                        val result = cell - (troop + militia)
+                        if result >= 1 and result <= 4:
+                            val drm = getAwaken(game name) - getReact(game name)
+                            if drm < getGovernNum(game name):
+                                add(candidates name)
+                vs
+            )
+            to-tuple $ candidates
+
+        defmethod adjMoveableCell (this name : String) -> True|False :
+            label<True|False> return :
+                do( {
+                    val adj = key(_)
+                    if adj != name :
+                        if isAdjacent(game adj name true) and getCell(game adj false) > 0 :
+                            if testAutoRecruitCell(this adj):
+                                return(true)
+                    }
+                    c $ countries $ game
+                )
+                false
+
+        defmethod priorityTable (this candidates : Seqable<String>&Lengthable reason : String) -> String :
+            label<String> return :
+                if length(candidates) == 1 :
+                    botprintln("priorityTable returns %_" % [peek(to-seq(candidates))] )
+                    return(peek(to-seq $ candidates))
+
+                val priorityNames = to-vector<String> $ [
+                    "Not Used" "If Jihad, best DRM (awakening)" "US" "w/Troops unless P=1" "Not Islam Rule"
+                    "Pakistan unless no Arsenal" "Philippines if can reduce P" "Besieged Regime" "Most Active Cells"
+                    "Syria unless no Arsenal (awakaning)" "Iran unless no Arsenal (forever war)" "w/Aid"
+                    "Regime Change unless no Troops" "Highest Resource" "w/Troops" "Iran unless no Arsenal (awakening)"
+                    "Syria unless no Arsenal (forever war)" "US" "Not destination" "Islamic Rule"
+                    "Poor then Fair then Good" "Highest Resource" "Russia (base game)" "No Disrupt P gain"
+                    "If Recruit, highest REC#" "Best Jihad DRM (awakening and forever war)" "Not US" "Most Active Cells"
+                    "Not Regime Change" "Worst Jihad DRM (awakening and forever war)" "Disrupt P gain"
+                    "Civil War (awakening and forever war)" "Neutral" "Besieged Regime" "Adjacaent Good Ally" "Fair non-Muslim"
+                    "Same Posture as US" "Lowest REC#" "Most Cells" "Adjacent to Islamic Rule" "Oil Exporter"
+                ]
+
+                val checkTable = [
+                    [1, 5, 7, 9, 10, 11, 12, 13, 14, 15, 16, 38, 39, 40],
+                    [2, 3, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 31, 32, 33, 34, 35, 36, 37, 39, 40],
+                    [4, 5, 7, 9, 10, 15, 16, 17, 20, 21, 22, 23, 24, 25, 36, 38, 39, 40],
+                    [18, 19, 20, 26, 27, 28, 29, 30, 37]
+                ]
+                val reasons = [
+                    ["majorjihad" "minorjihad" "kill" "govern" "align" "marker" "eventminorjihad"]
+                    ["plot"]
+                    ["travelto" "recruit"]
+                    ["travelfrom"]
+                ]
+                val x = {match(_) : ((i : Int) : i (f) : 2)} $ index-when( {contains?(_ reason)} reasons )
+                val cs = to-vector<String>(candidates)
+                do( fn (id) :
+                        val cs2 = to-tuple(cs)
+                        val ct = checkTable[x]
+                        val css = Vector<String>()
+                        if contains?(ct id) :
+                            switch { id == _ } :
+                                1 : if contains?(["minorjihad" "majorjihad" "eventminorjihad"] reason) :
+                                        ; best Jihad DRM
+                                        val [max-c max-v min-c min-v] = extractValue(game 
+                                            fn (x : String) : 
+                                                getAwaken(game x) - getReact(game x)
+                                            cs
+                                        )
+                                        add-all(css min-c)
+                                2 : add(css "us") when contains?(cs "us")
+                                3 : if prestige(game) > 1 :
+                                        add-all{css _} $ filter({getTroopStrength(game _ true) > 0} cs)
+                                4 : add-all{css _} $ filter({islamrule?(game _)} cs)
+                                5 : add-all{css _} $ filter(fn (name) : (getArsenal(game name) > 0 and contains?(cs name)) cs)
+                                6 : (add(css name) when contains?(cs name) and getTroopStrength(game name true) > 0) where : val name = "philippines"
+                                7 : add-all{css _} $ filter({isBesiegedRegime(game _)} cs)
+                                8 : add-all(css prioMostActiveCell(this cs))
+                                9 : ; syria unless no arsenal: awakening only
+                                    if awakening(game) and not foreverwar(game) :
+                                        (add(css name) when getArsenal(game name) > 0 and contains?(cs name)) where : val name = "syria"
+                                10 : ; iran unless no arsenal in forever war
+                                    if foreverwar(game) :
+                                        (add(css name) when getArsenal(game name) > 0 and contains?(cs name)) where : val name = "iran"
+                                11 : add-all{css _} $ filter({getAid(game _) > 0} cs)
+                                12 : add-all{css _} $ filter(fn (c) : (isRegimeChange(game c) and getTroopStrength(game c true) > 0) cs)
+                                13 :    
+                                    val [a b c d] = extractValue(game {getResource(game _)} cs)
+                                    add-all(css a)
+                                14 : add-all{css _} $ extract(game {getTroopStrength(game _ true) > 0} cs)
+                                15 : ; iran unless no arsenal in awakening only
+                                    if awakening(game) and not foreverwar(game) :
+                                        (add(css name) when getArsenal(game name) > 0 and contains?(cs name)) where : val name = "iran"
+                                16 : ; syria unless no arsenal in forever war
+                                    if foreverwar(game) :
+                                        (add(css name) when getArsenal(game name) > 0 and contains?(cs name)) where : val name = "syria"
+                                17 : (add(css name) when contains?(cs name)) where : val name = "us"
+                                18 : ; not destination
+                                    add-all{css _} $ filter({_ != travelto} cs)
+                                19 : ; islamist rule
+                                    add-all(css filter({islamrule?(game _)} cs))
+                                20 : ; poor then fair then good
+                                    add-all(css prioPoorFairGood(this cs))
+                                21 : add-all(css prioHighestResource(this cs))
+                                22 : ; russia in base game
+                                    if not awakening(game) and not foreverwar(game) :
+                                        add(css "russia") when contains?(cs "russia")
+                                23 : ; no disrupt prestige gain
+                                    add-all{css _} $ filter({getTroopStrength(game _) < 2} cs)
+                                24 : 
+                                    if reason == "recruit" :
+                                        val [max-countries x y z] = extractValue(game {getRecruitNum(game _)} cs)
+                                        add-all(css max-countries)
+                                25 : ; best jihad drm
+                                    val [a b min-countries min-value] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) cs )
+                                    botprintln("Min DRM=%_" % [min-value])
+                                    botprintln("Countries=%_" % [min-countries])
+                                    add-all(css min-countries)
+                                26 : ; not US
+                                    val v = to-vector<String>(cs)
+                                    remove-item(v "us")
+                                    add-all(css v)
+                                27 : add-all(css prioMostActiveCell(this cs))
+                                28 : ; not regime change
+                                    add-all{css _} $ filter({not isRegimeChange(game _)} cs)
+                                29 : ; worst jihad DRM awakening or forever war
+                                    if awakening(game) or foreverwar(game) :
+                                        val [max-countries x y z] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) cs)
+                                        add-all(css max-countries)
+                                30 : ; disrupt prestige gain
+                                    add-all{css _} $ filter({getTroopStrength(game _) >= 2} cs)
+                                31 : ;civil war
+                                    add-all{css _} $ filter({isCivilWar(game _)} cs)
+                                32 : 
+                                    add-all{css _} $ filter({neutral?(game _)} cs)
+                                33 :
+                                    add-all{css _} $ filter({isBesiegedRegime(game _)} cs)
+                                34 : 
+                                    add-all{css _} $
+                                        filter(fn (x) : (any?({(good?(game adj) and ally?(game adj) and isAdjacent(game x adj false)) where : val adj = key(_)} 
+                                            c(countries(game))))
+                                            cs) 
+                                35 : 
+                                    add-all{css _} $ filter(fn (c) : not isMuslim(game c) and fair?(game c) cs)
+                                36 : ; same posture as US
+                                    val usposture = getPosture(game "us")
+                                    add-all{css _} $ filter({getPosture(game _) == usposture} cs)
+                                37 : ; lowest REC#
+                                    val [a b min-c d] = extractValue(game {getRecruitNum(game _)} cs)
+                                    add-all(css min-c)
+                                38 : ; most cells
+                                    val [max-c b c d] = extractValue(game {getCell(game _ true)} cs)
+                                    add-all(css max-c)
+                                39 : ; adjacent to islam rule
+                                    add-all{css _} $ filter(
+                                        fn (x) : any?(
+                                            fn (adj) : 
+                                                val adj-name = key(adj)
+                                                islamrule?(game adj-name) and isAdjacent(game x adj-name false)
+                                            c(countries(game))
+                                        )
+                                        cs
+                                    )
+                                40 : ; oil exporter
+                                    add-all{css _} $ filter({isOil(game _)} cs)
+                                else : false
+
+                            ; prolog
+                            if empty?(css) :
+                                add-all(css to-vector<String>(cs))
+                            if length(css) != length(cs):
+                                botprintln("Priority %_ [%_] candidates:%_ -> %_" % [id priorityNames[id] cs css])
+                            ; else:
+                            ;    botprint("Priority %_  [%_] " % [id priorityNames[id]])
+                            if length(css) == 1:
+                                return(css[0])
+                            if length(css) != length(cs) :
+                                clear(cs)
+                                add-all(cs css)
+                    1 to 41
+                )
+                botprintln("random choice")
+                choice(to-tuple $ cs)
+
+        defmethod prioMostActiveCell (this cs : Seqable<String>) -> Tuple<String> :
+            ; most active cells
+            val [max-c max-v b c] = extractValue(game {getActiveCell(game _ false)} cs)
+            botprintln("Most Active Cells=%_ in %_" % [max-v max-c])
+            to-tuple $ max-c
+
+        defmethod prioHighestResource (this cs : Seqable<String>) -> Tuple<String> :
+            val [v, maxres, a b] = extractValue(game {getResource(game _)} cs)
+            botprintln("Highest Resource=%_ in %_" % [maxres v])
+            to-tuple $ v
+
+        defmethod prioPoorFairGood (this cs : Seqable<String>) -> Tuple<String> :
+            label<Tuple<String>> return :    
+                val poor = filter({poor?(game _)} cs)
+                if not empty?(poor) :
+                    return $ to-tuple $ poor
+                val fair = filter({fair?(game _)} cs)
+                if not empty?(fair) :
+                    return $ to-tuple $ fair
+                to-tuple $ filter({good?(game _)} cs)
+        
+        defmethod queryNumberBounds (this msg : String lower : Int upper : Int reason : String) -> Int :
+            botprintln("JBot queryNumberBounds:[%_] %_ to %_" % [msg lower upper])
+            if reason == "event=186" :
+                upper
+            else if reason == "event=353 units" :
+                upper
+            else if reason == "event=353" :
+                rand(lower through upper)
+            else :
+                lower
+
+        defmethod queryEventPlayable (this msg : String validAnswer : Seqable<String> card : Int) -> String :
+            card-id = card
+            queryGeneric(this msg validAnswer "oporevent")
+
+
+        defmethod queryCountry (this msg : String pre-validAnswers : Seqable<String> pre-reason : String) -> String :
+            var validAnswers : Tuple<String> = to-tuple(pre-validAnswers)
+            var reason : String = pre-reason
+            label<String> return :
+                botprintinfo("JBot Query Country %_ %_" % [validAnswers reason])
+                if contains?(["event=104" "event=105"] reason) :
+                    val goods = extract(game {good?(game _)} validAnswers)
+                    val fairs = extract(game {fair?(game _)} validAnswers)
+                    val v = goods when not empty?(goods) else fairs when not empty?(fairs) else validAnswers
+                    return $ priorityTable(this v "minorjihad")
+                else if reason == "event=74" :
+                    val usposture = getPosture(game "us")
+                    val same-posture = extract(game {getPosture(game _) == usposture} validAnswers)
+                    val untested = extract(game {untested?(game _)} validAnswers)
+                    val oppo-posture = extract(game {getPosture(game _) == oppositePosture(usposture)} validAnswers)
+                    validAnswers = same-posture when not empty?(same-posture) else untested when not empty?(untested) else oppo-posture
+                    reason = "travelto"
+                else if reason == "event=79" :
+                    return("us")
+                else if reason == "event=165" :
+                    return $ choice $ prioPoorFairGood(this validAnswers)
+                else if reason == "event=169" :
+                    val v = extract(game fn (x) : (isCivilWar(game x) or isCaliphate(game x)) validAnswers)
+                    if not empty?(v) :
+                        validAnswers = v
+                    ; fall thru
+                    reason = "recruit"
+                else if length(reason) >= 9 and reason[0 to 9] == "event=172" :
+                    botprintln("Event 172")
+                    validAnswers = extract(game {not islamrule?(game _)} validAnswers)
+                    return("") when empty?(validAnswers)
+                    return("somalia") when contains?(validAnswers "somalia")
+                    return("sudan") when contains?(validAnswers "sudan")
+                    reason = reason[10 to false]
+                    botprintln("Convert reason to %_" % [reason])
+                    ; fall thru
+                else if reason == "event=176" :
+                    validAnswers = extract(game fn (x) : fair?(game x) and ally?(game x) validAnswers)
+                    if empty?(validAnswers) :
+                        botprintln("No fair ally")
+                        return("")
+                    val [max-c max-v min-c min-v] = extractValue(game {getResource(game _)} validAnswers)
+                    botprintln("Max Resource:%_" % [max-v])
+                    val v1 = extract(game {getTroopStrength(game _) == 0} max-c)
+                    botprintln("No Troops:%_" % [v1])
+                    if not empty?(v1) :
+                        return $ choice $ to-tuple $ v1
+                    return $ choice $ to-tuple $ v1
+                else if reason == "event=185" :
+                    var v = extract(game {ally?(game _)} validAnswers)
+                    if empty?(v) :
+                        v = extract(game {neutral?(game _)} validAnswers)
+                    return $ priorityTable(this v "minorjihad")
+                else if contains?(["event=189" "event=82"] reason) :
+                    validAnswers = extract(game {not islamrule?(game _)} validAnswers)
+                    return("us") when contains?(validAnswers "us")
+                    reason = "recruit"
+                else if reason == "event=195" :
+                    var v = extract(game {fair?(game _)} validAnswers)
+                    if empty?(v) :
+                        v = extract(game {poor?(game _)} validAnswers)
+                    if empty?(v) :
+                        return("")
+                    validAnswers = v
+                    reason = "eventminorjihad"
+                    ; fall thru
+                else if reason == "event=196" :
+                    val v = extract(game {getRecruitNum(game _) < 6} validAnswers)
+                    return("") when empty?(v)
+                    reason = "recruit"
+                    validAnswers = v
+                    ; fall thru
+                else if length(reason) >= 9 and reason[0 to 9] == "event=200" :
+                    if length(reason) >= 22 and reason[10 to 21] == "travelfrom=" :
+                        val dst = reason[21 to false]
+                        return("track") when contains?(validAnswers "track")
+                        return $ opPriorityTravelFrom(this dst validAnswers)
+                    else:
+                        val v = extract(game {not adversary?(game _)} validAnswers)
+                        (validAnswers = v) when not empty?(v)
+                        reason = "recruit" when cellAvailable(game true) > 0 else "travelto"
+                        ; fall thru
+                else if reason == "event=207" :
+                    return("us") when contains?(validAnswers "us")
+                    return("")
+                else if reason == "event=215 travelfrom" or reason == "event=342 travelfrom" :
+                    return("track") when contains?(validAnswers "track")
+                    return("")
+                else if length(reason) >= 16 and reason[0 to 15] == "event=221 from=" :
+                    val dst = reason[15 to false]
+                    botprintln("dst=%_" % [dst])
+                    val v = extract(game {getCell(game _ false) > 0} validAnswers)
+                    return("") when empty?(v)
+                    return $ opPriorityTravelFrom(this dst v)
+                else if reason == "event=230" :
+                    val [v a b c] = extractValue(game {getCell(game _ true)} validAnswers)
+                    return $ choice $ v
+                else if reason == "event=238" :
+                    botprintln("Revolution countries=%_" % [validAnswers])
+                    val [vs a b c] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) validAnswers)
+                    botprintln("Max A-R=%_" % [vs])
+                    val [vss d e f] = extractValue(game {getResource(game _)} vs)
+                    botprintln("Max Resource=%_" % [vss])
+                    return $ choice $ vss
+                else if reason == "event=312" :
+                    val [v a b c] = extractValue(game fn (x) : (getCell(game x true) - (getTroopStrength(game x false) + getMilitia(game x))) validAnswers)
+                    val [v2 d e f] = extractValue(game {getResource(game _)} v)
+                    return $ choice $ v2
+                else if reason == "event=313" :
+                    var v : Tuple<String> = extract(game fn (x) : (getTroop(game x) > 0 and getCell(game x false) > 0) validAnswers)
+                    if length(v) == 1 : return(v[0])
+                    (v = validAnswers) when empty?(v)
+                    botprintln("With Troops=%_" % [v])
+                    val [vp a b c] = extractValue(game fn (x) : (getCell(game x true) - (getTroopStrength(game x false) + getMilitia(game x))) v)
+                    botprintln("Highest Cell-TandM=%_" %[v])
+                    return $ choice $ v
+                else if reason == "event=328" :
+                    reason = "plot" when contains?(plotAvailables(game) 1) else "recruit"
+                else if reason == "event=339" :
+                    botprintln("Erdogan Dance countries=%_" % [validAnswers])
+                    var v = extract(game fn (x) : (ally?(game x) or neutral?(game x)) validAnswers)
+                    if empty?(v) :
+                        v = extract(game {not isMuslim(game _)} validAnswers)
+                        return("") when empty?(v)
+                        reason = "posture"
+                    else:
+                        reason = "align"
+                    validAnswers = v
+                    ; fall thru
+                else if reason == "event=283" :
+                    val v = extract(game {not untested?(game _)} validAnswers) when getGWOTPenalty(game) < 0 else extract(game {untested?(game _)} validAnswers)
+                    (validAnswers = v) when not empty?(v)
+                    ; fall thru
+                    reason = "posture"
+
+                ; put all special event handlings above
+                var ans : String = ""
+                if reason == "eventplot" :
+                    val v = extract(game fn (x) : (not isMuslim(game x) or isMuslim(game x) and not islamrule?(game x)) validAnswers)
+                    ans = priorityTable(this v "plot")
+                else if reason == "schengenposture" or reason == "posture" :
+                    val usposture = getPosture(game "us")
+                    botprintln("USPosture=%_ countries=%_ reason=%_" % [usposture validAnswers reason])
+                    var v = extract(game fn (x) : (getPosture(game x) == usposture and not isPermPosture(game x)) validAnswers)
+                    if empty?(v) :
+                        v = extract(game fn (x) : (untested?(game x) and not isPermPosture(game x)) validAnswers)
+                    if empty?(v) :
+                        v = extract(game {not isPermPosture(game _)} validAnswers)
+                    ans = choice(v)
+                    botprintln("JBot randomly chooses %_" % [ans])
+                else if reason == "caliphatecapital" :
+                    ans = choice(validAnswers)
+                else :
+                    ans = opPriority(this validAnswers reason)
+                if reason == "travelto" :
+                    travelto = ans
+                botprintln("JBot answers %_" % [ans])
+                ans
+
+        defmethod opPriority (this validAnswers : Seqable<String>&Lengthable reason : String) -> String :
+            label<String> return :
+                botprintinfo("opPriority %_ %_" % [validAnswers reason])
+                if reason == "travelto" or reason == "recruit" :
+                    var candidates : Tuple<String> = getPoor1to4JSP(this validAnswers)
+                    botprint("Poor Muslim 1~4>TandM? ")
+                    if not empty?(candidates) :
+                        botprintln("Yes %_" % [candidates])
+                        return $ priorityTable(this candidates reason)
+                    else:
+                        botprintln("No")
+                    if reason == "recruit" :
+                        ; Auto-Recruit with best JihadDRM, IR Last
+                        val [a b candidates c] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) validAnswers)
+                        botprint("If Recruit, Auto-Recruit in best Jihad DRM ")
+                        if not empty?(candidates) :
+                            botprintln("Yes %_" % [candidates])
+                            return $ priorityTable(this candidates reason)
+                        else:
+                            botprintln("No")
+                    ; Good Muslim
+                    candidates = extract(game fn (x) : (isMuslim(game x) and good?(game x)) validAnswers)
+                    botprint("Good Muslim? ")
+                    if not empty?(candidates) :
+                        botprintln("Yes %_" % [candidates])
+                        return $ priorityTable(this candidates reason)
+                    else :
+                        botprintln("No")
+                    ; Fair Muslim with best DRM
+                    val v = extract(game fn (x) : (fair?(game x) and isMuslim(game x)) validAnswers)
+                    val [a b v2 c] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) v)
+                    candidates = v2
+                    botprint("Fair Muslim with best DRM? ")
+                    if not empty?(candidates) :
+                        botprintln("Yes %_" % [candidates])
+                        return $ priorityTable(this candidates reason)
+                    else :
+                        botprintln("No")
+                    ; non-muslim
+                    candidates = extract(game {not isMuslim(game _)} validAnswers)
+                    botprint("Non-Muslim? ")
+                    if not empty?(candidates) :
+                        botprintln("Yes %_" % [candidates])
+                        return $ priorityTable(this candidates reason)
+                    else :
+                        botprintln("No")
+                    ; poor Muslim with best DRM
+                    candidates = extract(game fn (x) : (isMuslim(game x) and poor?(game x)) validAnswers)
+                    let :
+                        val [a b min-drm d] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) candidates)
+                        candidates = min-drm
+                    botprint("Poor Muslim with best DRM? ")
+                    if not empty?(candidates) :
+                        botprintln("Yes %_" % [candidates])
+                        return $ priorityTable(this candidates reason)
+                    else:
+                        botprintln("No")
+                    botprintln("Use Priorities Table")
+                    return $ priorityTable(this validAnswers reason)
+                else if reason == "travelfrom" :
+                    return $ opPriorityTravelFrom(this travelto validAnswers)
+                else if reason == "minorjihad" :
+                    ; filter out poor Muslim
+                    val candidates = extract(game fn (x) : (isMuslim(game x) and not poor?(game x)) validAnswers)
+                    botprintln("candidates=%_" % [candidates])
+                    if not empty?(candidates) :
+                        return $ priorityTable(this candidates reason)
+                    return("")
+                else if contains?(["majorjihad" "kill" "govern" "align" "marker" "eventminorjihad"] reason) :
+                    return $ priorityTable(this validAnswers reason)
+                else if reason == "plot" :
+                    var candidates : Tuple<String>
+                    defn non-muslim (cs) -> Tuple<String> : to-tuple $ extract(game {not isMuslim(game _)} cs)
+                    defn muslim (cs) : to-tuple $ extract(game {isMuslim(game _)} cs)
+                    defn non-muslim-poor (cs) : to-tuple $ extract{game {poor?(game _)} _} $ non-muslim(cs)
+                    defn non-muslim-fair (cs) : to-tuple $ extract{game {fair?(game _)} _} $ non-muslim(cs)
+                    defn non-muslim-good (cs) : to-tuple $ extract{game {good?(game _)} _} $ non-muslim(cs)
+                    defn muslim-poor (cs) : to-tuple $ extract{game {poor?(game _)} _} $ muslim(cs)
+                    defn muslim-fair (cs) : to-tuple $ extract{game {fair?(game _)} _} $ muslim(cs)
+                    defn muslim-good (cs) : to-tuple $ extract{game {good?(game _)} _} $ muslim(cs)    
+                    defn poor-troop-active-cell (cs) : to-tuple $ extract(game fn (x) : (poor?(game x) and getTroopStrength(game x true) > 0 and getActiveCell(game x false) > 0) cs)
+
+                    if funding(game) <= 3 :
+                        candidates = non-muslim-poor(validAnswers)
+                        if empty?(candidates) :
+                            candidates = non-muslim-fair(validAnswers)
+                        if empty?(candidates) :
+                            candidates = non-muslim-good(validAnswers)
+                        if not empty?(candidates) :
+                            return $ priorityTable(this candidates reason)
+                        
+                    candidates = poor-troop-active-cell(validAnswers)
+                    if empty?(candidates) :
+                        candidates = muslim-fair(validAnswers)
+                    if empty?(candidates) :
+                        candidates = muslim-good(validAnswers)
+                    if empty?(candidates) :
+                        candidates = non-muslim(validAnswers)     
+                    if empty?(candidates) :
+                        candidates = muslim-poor(validAnswers)
+                    if empty?(candidates) :
+                        candidates = muslim-poor(validAnswers)
+                    if empty?(candidates) :
+                        choice(to-tuple $ validAnswers)
+                    else :    
+                        priorityTable(this candidates reason)
+                fatal("Reason=%_ not found" % [reason])
+                
+
+        defmethod opPriorityTravelFrom (this travelto : String pre-validAnswers : Seqable<String>) -> String :
+            label<String> return :
+                val validAnswers = to-vector<String>(pre-validAnswers)
+                botprintln("Travel From %_ travelto=%_" % [validAnswers travelto])
+                ; remove same country travel if caliphate
+                if contains?(validAnswers travelto) :
+                    if isCaliphate(game travelto):
+                        botprint("No same country travel in Caliphate. Remove %_ from sources %_ " % [travelto validAnswers])
+                        if contains?(validAnswers travelto) :
+                            remove-item(validAnswers travelto)
+                            botprintln("-> %_" % [validAnswers])
+                ; remove same country travel for sleepers
+                if contains?(validAnswers travelto) :
+                    if getActiveCell(game travelto false) == 0:
+                        botprint("No same country travel for sleepers. Remove %_ from sources %_ " % [travelto validAnswers])
+                        remove-item(validAnswers travelto)
+                        botprintln("-> %_" % [validAnswers])
+                if empty?(validAnswers) :
+                    return("")
+                ; adjacent
+                var candidates : Tuple<String> = extract(game fn (x) : (isAdjacent(game x travelto true) and testAutoRecruitCell(this x)) validAnswers)
+                botprint("Adjacent? ")
+                if not empty?(candidates) :
+                    botprintln("Yes %_" % [candidates])
+                    return $ priorityTable(this candidates "travelfrom")
+                else:
+                    botprintln("No")
+                ; auto-recruit
+                candidates = extract(game fn (x) : (isAutoRecruit(game x) and testAutoRecruitCell(this x)) validAnswers)
+                botprint("Auto-Recruit ")
+                if not empty?(candidates) :
+                    botprintln("Yes %_" % [candidates])
+                    return $ priorityTable(this candidates "travelfrom")
+                else:
+                    botprintln("No")
+                ; fewest cells
+                val [a b min-c d] = extractValue(game {getCell(game _ false)} validAnswers)
+                candidates = min-c
+                botprint("Fewest Cells ")
+                if not empty?(candidates) :
+                    botprintln("Yes %_" % [candidates])
+                    return $ priorityTable(this candidates "travelfrom")
+                else:
+                    botprintln("No")
+                botprintln("Random Choice")
+                if not empty?(validAnswers) :
+                    choice(to-tuple $ validAnswers)
+                else:
+                    ""
+

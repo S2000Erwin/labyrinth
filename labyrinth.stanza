@@ -108,7 +108,7 @@ val shiamixTable = HashTable<Int, String>()
 for s in shiamixTable_tuple do :
    shiamixTable[key(s)] = value(s)
 
-val usmarkers = [ "advisors", "unscr1973", "nato", "maerskalabama" ]
+public val usmarkers = [ "advisors", "unscr1973", "nato", "maerskalabama" ]
 val jihadistmarkers = ["scsc", "qataricrisis", "trainingcamps", "bloodythursday", "3cupsoftea", "censorshop" ]
 
 val board_tuple = [
@@ -2142,7 +2142,7 @@ public defn adjacentRegion (lab : Labyrinth, origins : Tuple<String>) -> Tuple<S
                   break(false)
    to-tuple(adjs)
 
-defn isAdjacent (lab : Labyrinth, fromname : String, toname : String, travel : True|False) :
+public defn isAdjacent (lab : Labyrinth, fromname : String, toname : String, travel : True|False) :
    label<True|False> return:
       if fromname == toname:
          return(true)
@@ -2226,11 +2226,14 @@ public defn isCaliphateCapital (lab : Labyrinth, name : String) :
    match(value) :
       (value : String) : if value == "capital" : true
       (value) : false
-      
-public defn extract (lab : Labyrinth, func : String -> True|False, candidates : Tuple<String>|False) -> Tuple<String> :
-   to-tuple{_} $ filter( 
+
+public defn isAutoRecruit (lab : Labyrinth name : String) -> True|False :
+   true when isCivilWar(lab name) or isRegimeChange(lab name) or getGovernNum(lab name) == 6 else false
+
+public defn extract (lab : Labyrinth, func : String -> True|False, candidates : Seqable<String>|False) -> Tuple<String> :
+   to-tuple $ filter( 
       { val name = _ ( func(name) and not (isMarker(lab, name, "truce") and not mayEndTruce(lab, name)) ) }
-      seq( { key(_) } c(countries(lab)) ) when candidates is False else to-seq(candidates as Tuple<String>)
+      seq( { key(_) } c(countries(lab)) ) when candidates is False else to-seq(candidates as Seqable<String>)
    )
 
 public defn extract (lab : Labyrinth func : String -> True|False ) -> Tuple<String> :
@@ -2288,7 +2291,7 @@ public defn getResource (lab : Labyrinth, name : String) -> Int :
             (resources) : 0
       (f) : 0
 
-defn isOil (lab : Labyrinth, name : String) -> True|False :
+public defn isOil (lab : Labyrinth, name : String) -> True|False :
    val oil = getAttr(lab, name, "oil")
    match(oil):
       (oil:False) : false
@@ -3195,3 +3198,78 @@ public defn woiMuslim (lab : Labyrinth name : String ignoreGWOT : True|False) :
    else if die == 4:
       if getAid(lab name) < 1 :
          addOneAid(lab name)
+
+public defn getEventMarkers (lab : Labyrinth player : String|False) -> HashTable<String Tuple<String>> :
+   val eventMarkers = HashTable<String Tuple<String>>()
+   val p-us = player is False or (player is String and player as String == "us")
+   val p-jihadist = player is False or (player is String and player as String == "jihadist")
+       
+   do({
+      val name = key(_)
+      val markers = Vector<String>()
+      if isMarker(lab name "truce") :
+         add(markers "truce")
+      if p-us :
+         add(markers "nato") when getNATO(lab name) > 0
+         do({add(markers "advisors")}
+            0 to getAdvisors(lab name)
+         )
+         add(markers "uncscr1973") when isUNSCR1973(lab name)
+         add(markers "anbarawakening") when isMarker(lab name "anbarawakening")
+         add(markers "benazirbhutto") when isMarker(lab name "benazirbhutto")
+         add(markers "indopakistanitalks") when isMarker(lab name "indopakistanitalks")
+      if p-jihadist :
+         do(
+            fn (marker) : (add(markers marker) when isMarker(lab name marker))
+            ["scsc" "qataricrisis" "trainingcamps" "bloodythursday" "3cupsoftea" "bhuttoshot" "alanbar" "sadr" "fata"]
+         )
+      eventMarkers[name] = to-tuple(markers)
+      }
+      c(countries(lab))
+   )
+   ; board markers
+   val ms = Vector<String>()
+   do(fn (marker) :
+         add(ms "smartphones") when "smartphones" == marker
+         if p-jihadist :      
+            add(ms "censorship") when "censorship" == marker
+            add(ms "pirates") when "pirates" == marker
+         if p-us :
+            add(ms "maerskalabama") when "maerskalabama" == marker
+      markers(lab)
+   )
+   eventMarkers["markers"] = to-tuple(ms)
+   ; gprintln(eventMarkers)
+   eventMarkers
+
+;public defn extractValue (lab : Labyrinth func : String -> Int) -> [Tuple<String> Int Tuple<String> Int] :
+;   extractValue(lab func false)
+
+public defn extractValue (lab : Labyrinth func : String -> Int candidates : Seqable<String>|False) -> [Tuple<String> Int Tuple<String> Int] :
+   gprintln("extractValue")
+   val countries = to-tuple $ (candidates as Seqable<String> when candidates is-not False else  seq({key(_)} c(countries(lab))))
+   gprintln("countries:%_" % [countries])
+   do(
+      fn (x) : (mayEndTruce(lab x) when isMarker(lab x "truce")) 
+      countries
+   )
+   val valid-countries = to-tuple $ filter({not isMarker(lab _ "truce")} countries)
+   gprintln("valid-countries:%_" % [valid-countries])
+   val mapped-values = map({func(_)} valid-countries)
+   gprintln("mapped-values:%_" % [mapped-values])
+   val max-value = maximum $ mapped-values
+   val min-value = minimum $ mapped-values
+   val max-countries = to-tuple $ filter({func(_) == max-value} valid-countries)
+   val min-countries = to-tuple $ filter({func(_) == min-value} valid-countries)
+   [max-countries max-value min-countries min-value]
+
+public defn changeJihadistReserve (lab : Labyrinth inc : Int) :
+   val res = min((jihadistreserve(lab) + 1) 2)
+   set-jihadistreserve(lab res)
+   gprintln("Jihadist Reserve=%_" % [jihadistreserve(lab)])
+
+public defn chageUSReservce (lab : Labyrinth inc : Int) :
+   val res = min((usreserve(lab) + 1) 2)
+   set-usreserve(lab res)
+   gprintln("US Reserve=%_" % [usreserve(lab)])
+

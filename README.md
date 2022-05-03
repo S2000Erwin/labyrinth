@@ -264,10 +264,14 @@ e.g.
 Can we do deftype EventTable <: Tuple<KeyValue<Int EventFunc>> (or something that has the same effect) 
 and be done?
 
+Logical and or precedency
+-------------------------
+It looks like there is no precedence for 'and' over 'or' in Stanza
+
 To-do:
-* complete Jihadist events
-* US events
-* jihadist and US bots
+* jihadist Bot radicalization
+* US bots
+* expansions events
 * display game progress with a GUI console or some text animations
 * Q-Learning
 * Language consturcts yet to learn: Maybe generator coroutine 

@@ -5,6 +5,7 @@ defpackage communicator :
     import cards
     import events
     import GameBoardGraphics
+    import jihadistbot
 
 var term : True|False = true
 
@@ -34,6 +35,7 @@ public defstruct CommException <: Exception :
     reason : String
 
 defn input ( msg : String, gbg : GameBoardGraphics game : Labyrinth ) -> String :
+    fatal("input invoked")
     match(gui-input(msg gbg game 
                 [" "] false false 
                 false)) :
@@ -91,7 +93,7 @@ defn gui-input ( msg : String, gbg : GameBoardGraphics game : Labyrinth
 
 public defstruct Communicator :
     game : Labyrinth
-    ;jbot :
+    jbot : JihadistBot
     ;usbot :
     answersOrBounds : String with : (setter => set-answersOrBounds)
     validAnswers : Tuple<String> with : (setter => set-validAnswers)
@@ -101,10 +103,11 @@ public defstruct Communicator :
     ;webanswer : String
     ;webanswer_ready :
 
-public defn make-communicator (lab : Labyrinth, usplayer : String, jihadistplayer : String, terminal : True|False, log : Int) :
+public defn make-communicator (lab : Labyrinth, usplayer : String, jihadistplayer : String, terminal : True|False, verbose : Int) :
     term = terminal
     val comm = Communicator(
         lab
+        JihadistBot(lab terminal verbose)
         ""      ; answersOrBounds
         []      ; validAnswers
         []      ; tooltips    def queryCardPlay(self, msg, validAnswers):
@@ -150,12 +153,11 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                     ; ans = queryGeneric(usbot(comm), msg, validAnswers, reason)
                     false
                 else if who == "jihadist" and jihadistplayer(game) == "bot" :
-                    ; ans = queryGeneric(jbot(comm), msg, validAnswers, reason)
-                    false
-                else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web" :
+                    ans = queryGeneric(jbot(comm), msg, validAnswers, reason)
+                else if (who == "us" and usplayer(game) == "web") or (who == "jihadist" and jihadistplayer(game) == "web") :
                     ; ans = to-lower(wait_for_webanswer(comm, msg, validAnswers, displays, tooltips)
                     false
-                else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+                else if (who == "us" and usplayer(game) == "gui") or (who == "jihadist" and jihadistplayer(game) == "gui") :
                     match(gui-input(message gameBoard(game) game validAnswers displays tooltips false)) :
                         (str : String) : ans = str
                         (num : Int) : ans = to-string(num)
@@ -236,14 +238,12 @@ defn queryNumberBounds (comm : Communicator, who : String, msg : String, lower :
                 ; ans = queryNumberBounds(usbot(comm), msg, lower, upper, reason)
                 false
             else if who == "jihadist" and jihadistplayer(game) == "bot" :
-                ; todo
-                ; ans = queryNumberBounds(jbot(comm), msg, lower, upper, reason)
-                false
-            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web" :
+                ans = queryNumberBounds(jbot(comm), msg, lower, upper, reason)
+            else if (who == "us" and usplayer(game) == "web") or (who == "jihadist" and jihadistplayer(game) == "web") :
                 ; val ans-str = wait_for_webbounds(comm, msg, lower, upper)
                 ; ans = (to-int(ans-str) as Int when to-int(ans-str) is-not False else (lower - 1))
                 false
-            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+            else if (who == "us" and usplayer(game) == "gui") or (who == "jihadist" and jihadistplayer(game) == "gui") :
                 val validAnswers = lower through upper
                 match(gui-input(msg gameBoard(game) game validAnswers false false reason)) :
                     (i : Int) : ans = i
@@ -280,14 +280,12 @@ public defn queryCountry (comm : Communicator, who : String, msg : String, names
                 ; name = queryCountry(usbot(comm), message, names, reason)
                 false
             else if who == "jihadist" and jihadistplayer(game) == "bot":
-                ; todo
-                ;name = queryCountry(jbot(comm), message, names, reason)
-                false
-            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web" :
+                name = queryCountry(jbot(comm), message, names, reason)
+            else if (who == "us" and usplayer(game) == "web") or (who == "jihadist" and jihadistplayer(game) == "web") :
                 ; todo
                 ; name = lower-case(wait_for_webanswer(comm, message, names, names, false))
                 false
-            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+            else if (who == "us" and usplayer(game) == "gui") or (who == "jihadist" and jihadistplayer(game) == "gui") :
                 match(gui-input(message gameBoard(game) game names false false "country")) :
                     (country : String) : name = country
                     (f) : false
@@ -319,10 +317,8 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                 ; ans = queryCardPlay(usbot(comm), msg, validAnswers)
                 false
             else if who == "jihadist" and jihadistplayer(game) == "bot" :
-                ; todo
-                ; ans = queryCardPlay(jbot(comm), msg, validAnswers)
-                false
-            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web":
+                ans = queryCardPlay(jbot(comm) msg to-seq $ validAnswers)
+            else if (who == "us" and usplayer(game) == "web") or (who == "jihadist" and jihadistplayer(game) == "web"):
                 val displays = Vector<String>()
                 val tooltips = Vector<String>()
                 for card in validAnswers do :
@@ -342,7 +338,7 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                 if ans is Int:
                     ans = ans as Int
 
-            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+            else if (who == "us" and usplayer(game) == "gui") or (who == "jihadist" and jihadistplayer(game) == "gui") :
                 val displays = map(
                     {
                         val [ops assoc title] = getCardInfo(_)
@@ -433,8 +429,7 @@ public defn queryEventPlayable (comm : Communicator, who : String, card-id : Int
         ;result = queryEventPlayable(usbot(comm), "Opponent US Event", ["e", "o"], card-id)
         false
     else if who == "jihadist" and jihadistplayer(game) == "bot":
-        ;result = queryEventPlayable(jbot(comm), "Opponent Jihadist Event", ["e", "o"], card-id)
-        false
+        result = queryEventPlayable(jbot(comm), "Opponent Jihadist Event", ["e", "o"], card-id)
     else:
         result = "e"
     true when result == "e" else false
@@ -462,15 +457,14 @@ public defn queryNumber (comm : Communicator, who : String, msg : String, validA
                 ;ans = queryNumber(usbot(comm), msg, validAnswers, reason)
                 false
             else if who == "jihadist" and jihadistplayer(game) == "bot" :
-                ;ans = queryNumber(jbot(comm), msg, validAnswers, reason)
-                false
-            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web":
+                ans = queryNumber(jbot(comm), msg, validAnswers, reason)
+            else if (who == "us" and usplayer(game) == "web") or (who == "jihadist" and jihadistplayer(game) == "web"):
                 ;ans = self.wait_for_webanswer(msg, validAnswers, displays)
                 val ans-str = "0"
                 cprintln(to-string("Received %_" % [ans-str]))
                 if to-int(ans-str) is-not False:
                     ans = to-int(ans-str)
-            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+            else if (who == "us" and usplayer(game) == "gui") or (who == "jihadist" and jihadistplayer(game) == "gui") :
                 match(gui-input(msg gameBoard(game) game validAnswers displays false reason)) :
                     (i : Int) : ans = i
                     (f) : false
@@ -503,16 +497,14 @@ public defn queryPlot (comm : Communicator, msg : String, validAnswers : Seqable
             return(false)
         while not contains?(validAnswers, plot):
             if jihadistplayer(game) == "bot" :
-                ; todo
-                ;plot = queryPlot(jbot(comm), msg, validAnswers, reason)
-                false
-            else if who == "us" and usplayer(game) == "web" or who == "jihadist" and jihadistplayer(game) == "web":
+                plot = queryPlot(jbot(comm), msg, validAnswers, reason)
+            else if (who == "us" and usplayer(game) == "web") or (who == "jihadist" and jihadistplayer(game) == "web"):
                 ; todo
                 ;plot = wait_for_webanswer(comm, msg, validAnswers, validAnswers, false)
                 ;if to-int(plot) is-not False:
                 ;    plot = to-int(plot)
                 false
-            else if who == "us" and usplayer(game) == "gui" or who == "jihadist" and jihadistplayer(game) == "gui" :
+            else if (who == "us" and usplayer(game) == "gui") or (who == "jihadist" and jihadistplayer(game) == "gui") :
                 match(gui-input(msg gameBoard(game) game validAnswers false false "plot")) :
                     (i : Int) : plot = i
                     (p : String) : plot = p
@@ -525,12 +517,11 @@ public defn queryPlot (comm : Communicator, msg : String, validAnswers : Seqable
         plot
 
 
-public defn queryRadicalization (comm : Communicator, who : String, msg : String, minOps : Int, maxOps : Int, spentUnits : Vector<[String, String]>):
+public defn queryRadicalization (comm : Communicator, who : String, msg : String, minOps : Int, maxOps : Int, spentUnits : Seqable<[String String]>):
     val game = game(comm)
     if jihadistplayer(game) == "bot" :
-        ; todo
-        ; queryRadicalization(jbot(comm), msg, minOps, maxOps, spentUnits)
-        false
+        queryRadicalization(jbot(comm), msg, minOps, maxOps, spentUnits)
+        
 
 public defn queryHomelandSecurity (comm : Communicator, ops : Int) :
     val game = game(comm)
@@ -540,11 +531,10 @@ public defn queryHomelandSecurity (comm : Communicator, ops : Int) :
         false
         
 public defn finishEvent (comm : Communicator, who : String, card-id : Int) :
-    val game = game(comm)
-    if who == "us" and usplayer(game) == "bot" :
+    if who == "us" and usplayer(game $ comm) == "bot" :
         ; todo
-        ;ans = finishEvent(usbot(comm), card-id)
+        ; finishEvent(usbot(comm), card-id)
         false
-    else if who == "jihadist" and jihadistplayer(game) == "bot" :
-        ;ans = finishEvent(jbot(comm), card-id)
-        false
+    else if who == "jihadist" and jihadistplayer(game $ comm) == "bot" :
+        finishEvent(jbot(comm) card-id)
+        
