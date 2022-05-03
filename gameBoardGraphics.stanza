@@ -961,7 +961,6 @@ public defn build-buttons (gbg : GameBoardGraphics lab : Labyrinth
                             msg : String
                             validAnswers : Seqable<String|Int> displays : Seqable<String>|False color-hint : String|False) :
     ; re-arrange validAnswers and displays if color-hint is "country"
-    println("build-buttons %_ %_" % [validAnswers displays])
     var sorted-validAnswers : Tuple<String|Int> = to-tuple(validAnswers)
     var sorted-displays : Tuple<String|False>|False = match(displays) :
         (s : Seqable<String>) : to-tuple(s)

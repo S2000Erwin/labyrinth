@@ -33,21 +33,18 @@ defn botprintinfo<?T> (msg : ?T) :
     if global-verbose >= 3 :
         botprintln(msg)
 
-defn getMovableCandidates (game : Labyrinth roster : Seqable<[String [Int Int]]>) -> Tuple<String> :
-    val candidates = Vector<String>()
-    do({
-        val [name units] = _
-        val [active-units sleeper-units] = units
-        val all-units = [getActiveCell(game name true) getSleeperCell(game name true)]
-        val move-units = [getActiveCell(game name false) getSleeperCell(game name false)]
-        val new-units = [active-units - all-units[0] + move-units[0] sleeper-units - all-units[1] + move-units[1]]
-        if new-units[0] > 0 or new-units[1] > 0:
-            add(candidates name)
-        }
+defn getMovableCandidates (game : Labyrinth roster : Seqable<KeyValue<String [Int Int]>>) -> Tuple<String> :
+    map{{key(_)} _} $ to-tuple $ filter( 
+        fn (x) :
+            val name = key(x)
+            val [active-units sleeper-units] = value(x)
+            val all-units = [getActiveCell(game name true) getSleeperCell(game name true)]
+            val move-units = [getActiveCell(game name false) getSleeperCell(game name false)]
+            val new-units = [active-units - all-units[0] + move-units[0] sleeper-units - all-units[1] + move-units[1]]
+            new-units[0] > 0 or new-units[1] > 0
         roster
     )
-    to-tuple(candidates)
-
+    
 public deftype JihadistBot
 public defmulti queryCardPlay (jbot : JihadistBot msg : String validAnswers : Seq<Int> ) -> Int 
 public defmulti queryGeneric (jbot : JihadistBot msg : String validAnswers : Seqable<String> reason : String ) -> String
@@ -379,118 +376,104 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                 ans
 
         defmethod queryRadicalization (this msg : String minOps : Int maxOps : Int spentUnits : Seqable<[String String]>) -> False :
-            false
-            ; self.game.checkAutoWin()
-            ; racOps = 0
-            ; # if use more than maxOps1, set reserve to 0
-            ; botprint(f'Radicalization minOps={minOps} maxOps={maxOps} spentUnits={spentUnits}')
-            ; roster = self.game.getRoster()
-            ; # reduce by spentUnits
-            ; for name, unit in spentUnits:
-            ;     roster = self.reduceRoster(roster, name)
-            ; botprint(f'Unit Roster={roster}')
-            ; while racOps < maxOps and 'us' in roster and 'w' in self.game.plotAvailables:
-            ;     # plot in US with WMD
-            ;     botprint('Place WMD in US')
-            ;     if self.game.rollOnce() <= self.game.getGovernNum('us'):
-            ;         self.game.placePlot('us', 'w')
-            ;     roster = self.reduceRoster(roster, 'us')
-            ;     botprint(f'Roster={roster}')
-            ;     racOps += 1
-            ; botprint(f'US Posture={self.game.getPosture("us")} GWOTPenalty={self.game.getGWOTPenalty()}')
-            ; while racOps < maxOps and self.game.getPosture('us') == 'hard' and self.game.getGWOTPenalty() == 0 and len(
-            ;         roster) > 0:
-            ;     # travel to untested non-Muslim
-            ;     untestednonMuslim = []
-            ;     for name, _ in self.game.countries.items():
-            ;         if not self.game.isMuslim(name) and self.game.isUntested(name):
-            ;             untestednonMuslim.append(name)
-            ;     if 'iran' in untestednonMuslim:
-            ;         untestednonMuslim.remove('iran')
-            ;     if len(untestednonMuslim) == 0:
-            ;         break
-            ;     candidates = []
-            ;     dstCandidates = []
-            ;     # make a roster for movable units
-            ;     movableCandidates = getMovableCandidates(self.game, roster)
-            ;     botprint(f'MovableCandidates={movableCandidates}')
-            ;     for source in movableCandidates:
-            ;         for name in untestednonMuslim:
-            ;             if self.game.isAdjacent(source, name, travel=True):
-            ;                 candidates.append(source)
-            ;                 if not (name in dstCandidates):
-            ;                     dstCandidates.append(name)
-            ;     if len(candidates) > 0:
-            ;         dst = self.priorityTable(dstCandidates, 'travelto')
-            ;         src = self.opPriorityTravelFrom(dst, candidates)
-            ;     else:
-            ;         for name in movableCandidates:
-            ;             candidates.append(name)
-            ;         dst = self.priorityTable(untestednonMuslim, 'travelto')
-            ;         src = self.opPriorityTravelFrom(dst, candidates)
-            ;     botprint(f'From {src} to {dst}')
-            ;     if src == '' or dst == '':
-            ;         break
-            ;     result = self.game.removeOneCell(src)
-            ;     roster = self.reduceRoster(roster, src, result)
-            ;     self.game.travel([(src, dst)])
-            ;     botprint(f'Roster={roster}')
-            ;     racOps += 1
-            ; while racOps < maxOps and self.game.getPosture('us') == 'soft':
-            ;     candidates = []
-            ;     for name, _ in roster.items():
-            ;         if not self.game.isMuslim(name) and self.game.getPosture(name) == 'soft':
-            ;             candidates.append(name)
-            ;     if len(candidates) == 0:
-            ;         break
-            ;     # Plot in soft non-Muslim
-            ;     name = self.priorityTable(candidates, 'plot')
-            ;     self.game.plot(3, [name])
-            ;     roster = self.reduceRoster(roster, name)
-            ;     botprint(f'Roster={roster}')
-            ;     racOps += 1
-            ; # recruit in one Muslim country with Cadre and best Jihad DRM. Use Priority Table
-            ; if racOps < maxOps and self.game.celltrack > 0:
-            ;     candidates = self.game.extract(lambda x: self.game.isMuslim(x) and self.game.isCadre(x))
-            ;     if len(candidates) > 0:
-            ;         mindrm = 10
-            ;         bestDRMs = []
-            ;         for name in candidates:
-            ;             drm = self.game.getAwaken(name) - self.game.getReact(name)
-            ;             mindrm = min(drm, mindrm)
-            ;         for name in candidates:
-            ;             drm = self.game.getAwaken(name) - self.game.getReact(name)
-            ;             if drm == mindrm:
-            ;                 bestDRMs.append(name)
-            ;         name = self.priorityTable(bestDRMs, 'recruit')
-            ;         self.game.addOneCell(name, 'recruit')
-            ;         botprint(f'Recruit in {name}:{self.game.countries[name]}')
-            ;         racOps += 1
-            ; if racOps < minOps and self.game.jihadistreserve < 2:
-            ;     canUse = (minOps - racOps)
-            ;     canAdd = 2 - self.game.jihadistreserve
-            ;     if canUse >= canAdd:
-            ;         use = min(canUse, canAdd)
-            ;         self.game.jihadistreserve += use
-            ;         racOps += use
-            ;         botprint(f'Jihadist Reserve to {self.game.jihadistreserve}')
-            ; while racOps < minOps and len(roster) > 0:
-            ;     botprint('Travel to US')
-            ;     candidates = getMovableCandidates(self.game, roster)
-            ;     name = self.opPriorityTravelFrom('us', candidates)
-            ;     if name == '':
-            ;         break
-            ;     botprint(f'From {name} to US')
-            ;     botprint(f'{self.game.countries[name]}')
-            ;     botprint(f'{self.game.countries["us"]}')
-            ;     result = self.game.removeOneCell(name)
-            ;     roster = self.reduceRoster(roster, name, result)
-            ;     self.game.travel([(name, 'us')])
-            ;     botprint(f'Roster={roster}')
-            ;     racOps += 1
-            ; if racOps > minOps:
-            ;     self.game.jihadistreserve = 0
-            ;     botprint('Set Jihadist Reserve to 0')
+            checkAutoWin(game)
+            var racOps : Int = 0
+            ; if use more than maxOps1, set reserve to 0
+            botprintln("Radicalization minOps=%_ maxOps=%_ spentUnits=%_" % [minOps maxOps spentUnits])
+            var roster = getRoster(game)
+            ; reduce by spentUnits
+            do( {   val [name unit] = _
+                    roster = reduceRoster(roster name "")
+                }
+                spentUnits
+            )
+            botprintln("Unit Roster=%_" % [roster])
+            while racOps < maxOps and contains?(roster "us") and contains?(plotAvailables(game) "w") :
+                ; plot in US with WMD
+                botprintln("Place WMD in US")
+                if rollOnce(game) <= getGovernNum(game "us") :
+                    placePlot(game "us" "w")
+                roster = reduceRoster(roster "us" "")
+                botprintln("Roster=%_" % [roster])
+                racOps = racOps + 1
+            botprintln("US Posture=%_ GWOTPenalty=%_" % [getPosture(game "us") getGWOTPenalty(game)])
+            label<False> break :
+                while racOps < maxOps and hard?(game "us") and getGWOTPenalty(game) == 0 and length(roster) > 0 :
+                    ; travel to untested non-Muslim
+                    val untestednonMuslim = 
+                        extract(game fn (x) : (not isMuslim(game x) and isUntested(game x) and x != "iran") )
+                    if empty?(untestednonMuslim) : break(false)
+                    
+                    val candidates-v = Vector<String>()
+                    val dstCandidates-v = Vector<String>()
+                    ; make a roster for movable units
+                    val movableCandidates = getMovableCandidates(game roster)
+                    botprintln("MovableCandidates=%_" % [movableCandidates])
+                    do( fn (source) :
+                            val dsts = filter( {isAdjacent(game source _ true)} untestednonMuslim )
+                            if not empty?(dsts) :
+                                add(candidates-v source)
+                                add-all(dstCandidates-v dsts)
+                        movableCandidates
+                    )
+                    val candidates = (unique $ candidates-v) when not empty?(candidates-v) else movableCandidates
+                    val dstCandidates = (unique $ dstCandidates-v) when not empty?(dstCandidates-v) else untestednonMuslim
+                    val dst = priorityTable(this dstCandidates "travelto")
+                    val src = opPriorityTravelFrom(this dst candidates)
+                    botprintln("From %_ to %_" % [src dst])
+                    if src == "" or dst == "" : break(false)
+                    val result = removeOneCell(game src)
+                    roster = reduceRoster(roster src result)
+                    travel(game [[src dst]])
+                    botprintln("Roster=%_" % [roster])
+                    racOps = racOps + 1
+
+            label<False> break2 :
+                while racOps < maxOps and soft?(game "us") :
+                    val candidates = map{{key(_)} _} $ to-tuple $ filter(
+                        {   val name = key(_) 
+                            not isMuslim(game name) and soft?(game name) } 
+                        roster
+                    )
+                    if empty?(candidates) : break2(false)
+                    ; Plot in soft non-Muslim
+                    val name = priorityTable(this candidates "plot")
+                    plot(game 3 [name])
+                    roster = reduceRoster(roster name "")
+                    botprintln("Roster=%_" % [roster])
+                    racOps = racOps + 1
+            ; recruit in one Muslim country with Cadre and best Jihad DRM. Use Priority Table
+            if racOps < maxOps and celltrack(game) > 0 :
+                val candidates = extract(game fn (x) : (isMuslim(game x) and isCadre(game x)))
+                if not empty?(candidates) :
+                    val [max-c max-v bestDRMs min-v] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) candidates)
+                    val name = priorityTable(this bestDRMs "recruit")
+                    addOneCell(game name "recruit" false)
+                    botprintln("Recruit in %_:%_" % [name (c $ countries $ game)[name]])
+                    racOps = racOps + 1
+            if racOps < minOps and jihadistreserve(game) < 2:
+                val canUse = minOps - racOps
+                val canAdd = 2 - jihadistreserve(game)
+                if canUse >= canAdd:
+                    val use = min(canUse, canAdd)
+                    changeJihadistReserve(game use)
+                    racOps = racOps + use
+                    botprintln("Jihadist Reserve to %_" % [jihadistreserve(game)])
+            label<False> break3 :
+                while racOps < minOps and not empty?(roster) :
+                    botprintln("Travel to US")
+                    val candidates = getMovableCandidates(game roster)
+                    val name = opPriorityTravelFrom(this "us" candidates)
+                    if name == "" : break3(false)
+                    botprintln("From %_ to US: %_" % [name c(countries(game))[name] c(countries(game))["us"]])
+                    val result = removeOneCell(game name)
+                    roster = reduceRoster(roster name result)
+                    travel(game [[name "us"]])
+                    botprintln("Roster=%_" % [roster])
+                    racOps = racOps + 1
+                if racOps > minOps :
+                    set-jihadistreserve(game 0)
+                    botprintln("Set Jihadist Reserve to 0")
 
         defmethod finishEvent (this card-id : Int) -> False :
             val [ops assoc title] = getCardInfo(card-id)

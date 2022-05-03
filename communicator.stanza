@@ -286,7 +286,7 @@ public defn queryCountry (comm : Communicator, who : String, msg : String, names
                 ; name = lower-case(wait_for_webanswer(comm, message, names, names, false))
                 false
             else if (who == "us" and usplayer(game) == "gui") or (who == "jihadist" and jihadistplayer(game) == "gui") :
-                match(gui-input(message gameBoard(game) game names false false "country")) :
+                match(gui-input(message gameBoard(game) game names map({upper-case(_)} names) false "country")) :
                     (country : String) : name = country
                     (f) : false
             else:

@@ -989,7 +989,7 @@ public defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False)
       queryRadicalization(comm(lab) as Communicator, "jihadist", "Do any actions", maxOps1, maxOps, spentUnits(lab))
    checkAutoWin(lab)
 
-defn travel (lab : Labyrinth, selections : Tuple<[String, String]>) :
+public defn travel (lab : Labyrinth selections : Tuple<[String String]>) :
    ; roll dice!
    for [fromname, toname] in selections do:
       if isAdjacent(lab, fromname, toname, true) and not (contains?(lapsing(lab), 169) and isSchengen(lab, toname)):
@@ -1017,7 +1017,7 @@ defn travel (lab : Labyrinth, selections : Tuple<[String, String]>) :
                set-celltrack(lab, celltrack(lab) + 1)
             gprintln("Cell Track has %_" % [celltrack(lab)])
 
-defn plot (lab : Labyrinth, ops : Int, selections : Tuple<String>) :
+public defn plot (lab : Labyrinth ops : Int selections : Tuple<String>) :
    for name in selections do :
       add(spentUnits(lab), [name, "activecell"])
       gprint("In %_ " % [name])
@@ -2267,28 +2267,24 @@ public defn getResource (lab : Labyrinth, name : String) -> Int :
    match(country):
       (country: Country) :
          val attrs = attrs(country)
-         var resources = attrs["resource"]
+         var resources = get?(attrs "resource")
          match(resources) :
             (r : Int) :
-               if isCaliphateCapital(lab, name):
-                     resources = resources + 1
-               if contains?(lapsing(lab), 356) and isOil(lab, name):
-                     resources = resources - 1
-               if contains?(lapsing(lab), 117) and isOil(lab, name):
-                     resources = resources + 1
-               if contains?(lapsing(lab), 118) and isOil(lab, name):
-                     resources = resources + 1
-               if contains?(lapsing(lab), 236) and isOil(lab, name):
-                     resources = resources + 1
-               if contains?(lapsing(lab), 289):
-                     val gang = ["iran", "iraq", "gulfstates", "saudiarabia"]
-                     if contains?(gang, name):
-                        resources = resources - 1
-                     else if isOil(lab, name):
-                        resources = resources + 1
-               if resources < 0: resources = 0
-               resources
-            (resources) : 0
+               var res : Int = r
+               (res = res + 1) when isCaliphateCapital(lab, name)
+               (res = res - 1) when contains?(lapsing(lab), 356) and isOil(lab, name)
+               (res = res + 1) when contains?(lapsing(lab), 117) and isOil(lab, name)
+               (res = res + 1) when contains?(lapsing(lab), 118) and isOil(lab, name)
+               (res = res + 1) when contains?(lapsing(lab), 236) and isOil(lab, name)
+               if contains?(lapsing(lab), 289) :
+                  val gang = ["iran", "iraq", "gulfstates", "saudiarabia"]
+                  if contains?(gang, name) :
+                     res = res - 1
+                  else if isOil(lab, name):
+                     res = res + 1
+               if res < 0: res = 0
+               res
+            (f) : 0
       (f) : 0
 
 public defn isOil (lab : Labyrinth, name : String) -> True|False :
@@ -2532,7 +2528,7 @@ defn isPirates (lab : Labyrinth) -> True|False :
    else :
       false
 
-defn checkAutoWin (lab : Labyrinth) -> True|False :
+public defn checkAutoWin (lab : Labyrinth) -> True|False :
    gprintln("Check AutoWin")
    val ir = getIslamResource(lab)
    if ir >= 6:
@@ -3246,17 +3242,17 @@ public defn getEventMarkers (lab : Labyrinth player : String|False) -> HashTable
 ;   extractValue(lab func false)
 
 public defn extractValue (lab : Labyrinth func : String -> Int candidates : Seqable<String>|False) -> [Tuple<String> Int Tuple<String> Int] :
-   gprintln("extractValue")
+   ; gprintln("extractValue")
    val countries = to-tuple $ (candidates as Seqable<String> when candidates is-not False else  seq({key(_)} c(countries(lab))))
-   gprintln("countries:%_" % [countries])
+   ; gprintln("countries:%_" % [countries])
    do(
       fn (x) : (mayEndTruce(lab x) when isMarker(lab x "truce")) 
       countries
    )
    val valid-countries = to-tuple $ filter({not isMarker(lab _ "truce")} countries)
-   gprintln("valid-countries:%_" % [valid-countries])
+   ; gprintln("valid-countries:%_" % [valid-countries])
    val mapped-values = map({func(_)} valid-countries)
-   gprintln("mapped-values:%_" % [mapped-values])
+   ; gprintln("mapped-values:%_" % [mapped-values])
    val max-value = maximum $ mapped-values
    val min-value = minimum $ mapped-values
    val max-countries = to-tuple $ filter({func(_) == max-value} valid-countries)
@@ -3273,3 +3269,40 @@ public defn chageUSReservce (lab : Labyrinth inc : Int) :
    set-usreserve(lab res)
    gprintln("US Reserve=%_" % [usreserve(lab)])
 
+ 
+
+public defn getRoster (lab : Labyrinth) -> Tuple<KeyValue<String [Int Int]>> :
+   val c = map{{key(_)} _} $ to-tuple $ filter( {getCell(lab key(_) true) > 0} c(countries(lab)))
+   gprintln("c=%_" % [c])
+   map( 
+      fn (name) : 
+         name => [getActiveCell(lab name true) getSleeperCell(lab name true)]
+      c
+   )
+      
+
+public defn reduceRoster (roster : Tuple<KeyValue<String [Int Int]>> name : String what : String) -> Tuple<KeyValue<String [Int Int]>> :
+   val r-v = to-vector<KeyValue<String [Int Int]>>(roster)
+   match(lookup?(r-v name)) :
+      (kv : [Int Int]) :
+         remove-item(r-v (name => kv))
+         var active = kv[0]
+         var sleeper = kv[1]
+
+         if what == "activecell":
+            if active > 0:
+               active = active - 1
+         else if what == "sleepercell":
+            if sleeper > 0:
+               sleeper = sleeper - 1
+         else:
+            if active > 0:
+               active = active - 1
+            else:
+               sleeper = sleeper -1
+         if active > 0 or sleeper > 0 :
+            add(r-v (name => [active sleeper]))
+      (f) : false
+   to-tuple(r-v)
+
+         
