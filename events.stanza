@@ -565,7 +565,7 @@ defn gazaWar (game : Labyrinth card-id : Int player : String isPlayable : True|F
         true
     else :
         discardOneCard(game "us" (- 2))
-        changeFunding(game (- 1))
+        changeFunding(game 1)
         changePrestige(game (- 1))
         false
 
@@ -1262,8 +1262,9 @@ defn playEvent (game : Labyrinth, player : String, card-id : Int
                     if cardInfo is [Int, String, String] :
                         val [ops assoc title]  = cardInfo as [Int String String]
                         evprintln(to-string("[%_] [%_] '%_':" % [ops assoc title]))
-                        evprintln(to-string("Prerequisite:%_" % [condition]))
-                        evprintln(to-string("Game Effect:%_" % [description]))
+                        evprintln $ showEvent(player card-id)
+                        ;evprintln(to-string("Prerequisite:%_" % [condition]))
+                        ;evprintln(to-string("Game Effect:%_" % [description]))
                         if func(game card-id player false true) :
                             if queryEventPlayable(comm(game) as Communicator player card-id):
                                 evprintln("Playing Event...")

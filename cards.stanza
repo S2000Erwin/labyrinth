@@ -84,7 +84,7 @@ val cards_tuple = [
    [60 2 "Jihadist" "Bhutto Shot" ["Play if Pakistan has a Cell"] ["Block Benazir Bhutto. MARK & REMOVE"] ]
    [63 2 "Jihadist" "Gaza War" [false] ["US discards a random card. +1 Funding. -1 Prestige"] ]
    [68 2 "Jihadist" "Jemaah Islamiya" [false] ["Place 2 Cells in Indonesia"] ]
-   [70 2 "Jihadist" "Lashkar-e-Tayyiba" [false] ["Place a Cell each in Pakistan an India. Blocked by Indo-Pakistani Talks"] ]
+   [70 2 "Jihadist" "Lashkar-e-Tayyiba" [false] ["Place a Cell each in Pakistan and India. Blocked by Indo-Pakistani Talks"] ]
    [72 2 "Jihadist" "Opium" ["Play if Afghanistan has a cell"]
       ["Place 3 more cells there. Then, if at Islamist Rule, place all available cells there."] ]
    [73 2 "Jihadist" "Pirates" ["Play if Somalia or Yemen under Islamist Rule"]
@@ -195,19 +195,19 @@ public defn getEventString (who : String, card-id : Int) -> [String|False String
       (card) : false
    [condition, description]
 
-public defn showEvent (who : String, card-id : Int):
+public defn showEvent (who : String, card-id : Int) -> String :
    val [ops, assoc, title] = getCardInfo(card-id)
-    val [condition description] = getEventString(who, card-id)
-    var msg : String = to-string("Event: %_ [%_] [%_] '%_'\n" % [card-id ops assoc title])
-    if condition is-not False:
-        msg = append(msg, "Prerequisite: ")
-        msg = append(msg, condition as String)
-        msg = append(msg, "\n")
-    if description is-not False :
-        msg = append(msg, "Game Effects: ")
-        msg = append(msg, description as String)
-        msg = append(msg, "\n")
-    print(msg)
+   val [condition description] = getEventString(who, card-id)
+   var msg : String = to-string("Event: %_ [%_] [%_] '%_'\n" % [card-id ops assoc title])
+   if condition is-not False:
+      msg = append(msg, "Prerequisite: ")
+      msg = append(msg, condition as String)
+      msg = append(msg, "\n")
+   if description is-not False :
+      msg = append(msg, "Game Effects: ")
+      msg = append(msg, description as String)
+      msg = append(msg, "\n")
+   msg 
 
 
       

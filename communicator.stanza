@@ -42,6 +42,11 @@ defn input ( msg : String, gbg : GameBoardGraphics game : Labyrinth ) -> String 
         (s : String) : s
         (s : Int) : to-string(s)
 
+defn update-gui (gbg : GameBoardGraphics game : Labyrinth) :
+    build-board(gbg game)
+    build-cards(gbg game)
+    show(gbg)
+
 defn gui-input ( msg : String, gbg : GameBoardGraphics game : Labyrinth
              validAnswers : Seqable<String|Int> displays : Seqable<String>|False tooltips : Seqable<String>|False
              color-hint : String|False) -> String|Int :
@@ -145,7 +150,7 @@ public defn queryGeneric (comm : Communicator, who : String, msg : String, valid
                         if to-int(card) is-not False:
                             val card-id = to-int(card)
                             if card-id is Int:
-                                showEvent(who, card-id as Int)
+                                cprintln $ showEvent(who, card-id as Int)
                 else if ans == "r":
                     print(game)
                 if who == "us" and usplayer(game) == "bot" :
@@ -280,7 +285,9 @@ public defn queryCountry (comm : Communicator, who : String, msg : String, names
                 ; name = queryCountry(usbot(comm), message, names, reason)
                 false
             else if who == "jihadist" and jihadistplayer(game) == "bot":
-                name = queryCountry(jbot(comm), message, names, reason)
+                match(queryCountry(jbot(comm), message, names, reason)) :
+                    (country : String) : name = country
+                    (f) : false
             else if (who == "us" and usplayer(game) == "web") or (who == "jihadist" and jihadistplayer(game) == "web") :
                 ; todo
                 ; name = lower-case(wait_for_webanswer(comm, message, names, names, false))
@@ -306,6 +313,8 @@ public defn endOneGame (comm : Communicator) :
 
 public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tuple<Int>) -> Int :
     val game = game(comm)
+    val gbg = gameBoard(game)
+    update-gui(gbg game)
     cprintln(to-string("validAnswers=%_" % [validAnswers]))
     val who = currentplayer(game)
     val message = append-all(["[" who "]" msg])
@@ -363,7 +372,7 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                     }
                     validAnswers
                 )
-                val gui-ans = gui-input(message gameBoard(game) game validAnswers displays tooltips "card")
+                val gui-ans = gui-input(message gbg game validAnswers displays tooltips "card")
                 match(gui-ans) :
                     (gui-ans : Int) : ans = gui-ans
                     (gui-ans : String) : 
@@ -409,7 +418,7 @@ public defn queryCardPlay (comm : Communicator, msg : String, validAnswers : Tup
                         if to-int(card-str as String) is-not False:
                             val card-id = to-int(card-str as String)
                             match(card-id):
-                                (card-id : Int) : showEvent(who,  card-id)
+                                (card-id : Int) : cprintln $ showEvent(who,  card-id)
                                 (f) : false
                 if ans-str == "r":
                     println(game)

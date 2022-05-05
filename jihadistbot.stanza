@@ -49,7 +49,7 @@ public deftype JihadistBot
 public defmulti queryCardPlay (jbot : JihadistBot msg : String validAnswers : Seq<Int> ) -> Int 
 public defmulti queryGeneric (jbot : JihadistBot msg : String validAnswers : Seqable<String> reason : String ) -> String
 public defmulti queryNumberBounds (jbot : JihadistBot msg : String lower : Int upper : Int reason : String) -> Int 
-public defmulti queryCountry (jbot : JihadistBot msg : String pre-validAnswers : Seqable<String> pre-reason : String) -> String
+public defmulti queryCountry (jbot : JihadistBot msg : String pre-validAnswers : Seqable<String> pre-reason : String) -> String|False
 public defmulti queryEventPlayable (jbot : JihadistBot msg : String validAnswer : Seqable<String> card : Int) -> String
 public defmulti queryNumber (jbot : JihadistBot msg : String validAnswers : Seqable<Int> reason : String) -> Int
 public defmulti queryPlot (jbot : JihadistBot msg : String validAnswers : Seqable<String|Int> reason : String|False) -> String|Int
@@ -94,7 +94,7 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
             card-id
 
         defmethod queryNumber (this msg : String validAnswers : Seqable<Int> reason : String) -> Int :
-            botprintln("JBot queryNumber")
+            botprintln("JBot queryNumber: validAnswers=%_ reason=%_" % [validAnswers reason])
             label<Int> return :
                 if reason == "event=186" :
                     if contains?(validAnswers 0) : return(0)
@@ -102,15 +102,28 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                     val t-v = to-tuple $ validAnswers
                     return(t-v[0])
                 else if contains?(["event=117" "event=118" "event=236"] reason) :
-                    val max-ops = maximum({val [ops assoc title] = getCardInfo(_) ops} validAnswers)
-                    val vs = filter({val [ops assoc title] = getCardInfo(_) ops == max-ops} validAnswers)
-                    val vss = filter({val [ops assoc title] = getCardInfo(_) assoc == "Jihadist"} vs)
+                    val max-ops = maximum $ map{{val [ops assoc title] = getCardInfo(_) ops} _} $ to-tuple $ validAnswers
+                    botprintln("max-ops=%_" % [max-ops])
+                    val vs = filter({
+                        val [ops assoc title] = getCardInfo(_) 
+                        ops == max-ops} 
+                        validAnswers)
+                    botprintln("vs=%_" % [vs])
+                    val vss = filter({
+                        val [ops assoc title] = getCardInfo(_) 
+                        assoc == "Jihadist"} 
+                        vs)
                     if not empty?(vss) :
+                        botprintln("vss=%_" % [vss])
                         return(choice $ to-tuple $ vss)
-                    val v2s = filter({val [ops assoc title] = getCardInfo(_) assoc == "Unassociated"} vs)
+                    val v2s = filter({
+                        val [ops assoc title] = getCardInfo(_) 
+                        assoc == "Unassociated"} 
+                        vs)
                     if not empty?(v2s) :
-                        return(choice $ to-tuple $ vss)
-                    return(choice $ to-tuple $ vs)
+                        botprintln("v2s=%_" % [v2s])
+                        return(choice $ to-tuple $ v2s)
+                    return(0)
                 else if reason == "event=353":
                     return(choice $ to-tuple $ validAnswers)
 
@@ -886,10 +899,10 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
             queryGeneric(this msg validAnswer "oporevent")
 
 
-        defmethod queryCountry (this msg : String pre-validAnswers : Seqable<String> pre-reason : String) -> String :
+        defmethod queryCountry (this msg : String pre-validAnswers : Seqable<String> pre-reason : String) -> String|False :
             var validAnswers : Tuple<String> = to-tuple(pre-validAnswers)
             var reason : String = pre-reason
-            label<String> return :
+            label<String|False> return :
                 botprintinfo("JBot Query Country %_ %_" % [validAnswers reason])
                 if contains?(["event=104" "event=105"] reason) :
                     val goods = extract(game {good?(game _)} validAnswers)
@@ -916,7 +929,7 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                 else if length(reason) >= 9 and reason[0 to 9] == "event=172" :
                     botprintln("Event 172")
                     validAnswers = extract(game {not islamrule?(game _)} validAnswers)
-                    return("") when empty?(validAnswers)
+                    return(false) when empty?(validAnswers)
                     return("somalia") when contains?(validAnswers "somalia")
                     return("sudan") when contains?(validAnswers "sudan")
                     reason = reason[10 to false]
@@ -926,7 +939,7 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                     validAnswers = extract(game fn (x) : fair?(game x) and ally?(game x) validAnswers)
                     if empty?(validAnswers) :
                         botprintln("No fair ally")
-                        return("")
+                        return(false)
                     val [max-c max-v min-c min-v] = extractValue(game {getResource(game _)} validAnswers)
                     botprintln("Max Resource:%_" % [max-v])
                     val v1 = extract(game {getTroopStrength(game _) == 0} max-c)
@@ -948,13 +961,13 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                     if empty?(v) :
                         v = extract(game {poor?(game _)} validAnswers)
                     if empty?(v) :
-                        return("")
+                        return(false)
                     validAnswers = v
                     reason = "eventminorjihad"
                     ; fall thru
                 else if reason == "event=196" :
                     val v = extract(game {getRecruitNum(game _) < 6} validAnswers)
-                    return("") when empty?(v)
+                    return(false) when empty?(v)
                     reason = "recruit"
                     validAnswers = v
                     ; fall thru
@@ -970,15 +983,15 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                         ; fall thru
                 else if reason == "event=207" :
                     return("us") when contains?(validAnswers "us")
-                    return("")
+                    return(false)
                 else if reason == "event=215 travelfrom" or reason == "event=342 travelfrom" :
                     return("track") when contains?(validAnswers "track")
-                    return("")
+                    return(false)
                 else if length(reason) >= 16 and reason[0 to 15] == "event=221 from=" :
                     val dst = reason[15 to false]
                     botprintln("dst=%_" % [dst])
                     val v = extract(game {getCell(game _ false) > 0} validAnswers)
-                    return("") when empty?(v)
+                    return(false) when empty?(v)
                     return $ opPriorityTravelFrom(this dst v)
                 else if reason == "event=230" :
                     val [v a b c] = extractValue(game {getCell(game _ true)} validAnswers)
@@ -1009,7 +1022,7 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                     var v = extract(game fn (x) : (ally?(game x) or neutral?(game x)) validAnswers)
                     if empty?(v) :
                         v = extract(game {not isMuslim(game _)} validAnswers)
-                        return("") when empty?(v)
+                        return(false) when empty?(v)
                         reason = "posture"
                     else:
                         reason = "align"
@@ -1040,10 +1053,11 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                     ans = choice(validAnswers)
                 else :
                     ans = opPriority(this validAnswers reason)
-                if reason == "travelto" :
+                if reason == "travelto" and ans != "" :
                     travelto = ans
-                botprintln("JBot answers %_" % [ans])
-                ans
+                botprintln("JBot answers Country=%_" % [ans])
+                false when ans == "" else ans
+                
 
         defmethod opPriority (this validAnswers : Seqable<String>&Lengthable reason : String) -> String :
             label<String> return :
@@ -1075,14 +1089,14 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                         botprintln("No")
                     ; Fair Muslim with best DRM
                     val v = extract(game fn (x) : (fair?(game x) and isMuslim(game x)) validAnswers)
-                    val [a b v2 c] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) v)
-                    candidates = v2
                     botprint("Fair Muslim with best DRM? ")
-                    if not empty?(candidates) :
-                        botprintln("Yes %_" % [candidates])
-                        return $ priorityTable(this candidates reason)
-                    else :
-                        botprintln("No")
+                    if not empty?(v) :
+                        val [a b v2 c] = extractValue(game fn (x) : (getAwaken(game x) - getReact(game x)) v)
+                        candidates = v2
+                        if not empty?(candidates) :
+                            botprintln("Yes %_" % [candidates])
+                            return $ priorityTable(this candidates reason)
+                    botprintln("No")
                     ; non-muslim
                     candidates = extract(game {not isMuslim(game _)} validAnswers)
                     botprint("Non-Muslim? ")
@@ -1146,11 +1160,9 @@ public defn JihadistBot (game : Labyrinth terminal : True|False verbose : Int) -
                     if empty?(candidates) :
                         candidates = muslim-poor(validAnswers)
                     if empty?(candidates) :
-                        candidates = muslim-poor(validAnswers)
-                    if empty?(candidates) :
-                        choice(to-tuple $ validAnswers)
+                        return $ choice $ to-tuple $ validAnswers
                     else :    
-                        priorityTable(this candidates reason)
+                        return $ priorityTable(this candidates reason)
                 fatal("Reason=%_ not found" % [reason])
                 
 

@@ -354,7 +354,7 @@ defmethod print (o : OutputStream, lab : Labyrinth) :
    println(o, "CurrentPhaseCountries=%_" % [ currentphaseCountries(lab) ] )
    println(o, "LastPhaseCountries=%_" % [ lastphaseCountries(lab) ] )
    print(o, countries(lab))
-   print(o, "Scenario=%_" % [ scenario(lab) ])
+   println(o, "Scenario=%_" % [ scenario(lab) ])
 
 defn doLog (lab : Labyrinth, log : Int) -> False :
    if log >= 1 :
@@ -981,6 +981,7 @@ public defn playJihadistOps (lab : Labyrinth, ops : Int, fromEvent : True|False)
       gprintln("Jihadist Reserve to 0")
    ; Radlicalization
    if jihadistplayer(lab) == "bot" and cardOps > usedOps:
+      gprintln("Radicalization")
       val maxOps1 = cardOps - usedOps  ; may be boosted
       var maxOps = maxOps1
       if maxOps < 3 and jihadistreserve(lab) > 0:
@@ -3046,6 +3047,10 @@ defn selectAndActivate (lab : Labyrinth, type : String, ops : Int, reason : Stri
          while length(selections) < ops:
             var validCountries = extract(lab, fn (x) : getCell(lab, x, true) > 0 and (
                      type == "p" or (type != "p" and isMuslim(lab, x) and getGovern(lab, x) != "islamrule")), false)
+            validCountries = extract(lab
+               fn (name) : (not ((type == "m" or type == "j") and name == "pakistan" and isMarker(lab, name "benazirbhutto")))
+               validCountries
+            )
             if type == "m":
                   validCountries = extract( lab,
                      fn (x): getCell(lab, x, true) - (getTroopStrength(lab, x, false) + getMilitia(lab, x)) >= 5, validCountries)
@@ -3282,10 +3287,13 @@ public defn getRoster (lab : Labyrinth) -> Tuple<KeyValue<String [Int Int]>> :
       
 
 public defn reduceRoster (roster : Tuple<KeyValue<String [Int Int]>> name : String what : String) -> Tuple<KeyValue<String [Int Int]>> :
+   gprintln("reduceRoster")
    val r-v = to-vector<KeyValue<String [Int Int]>>(roster)
    match(lookup?(r-v name)) :
       (kv : [Int Int]) :
-         remove-item(r-v (name => kv))
+         val kkv = name => kv
+         val result = remove-item(r-v kkv)
+         gprintln("remove-item:%_ result=%_" % [kkv result])
          var active = kv[0]
          var sleeper = kv[1]
 
@@ -3301,7 +3309,9 @@ public defn reduceRoster (roster : Tuple<KeyValue<String [Int Int]>> name : Stri
             else:
                sleeper = sleeper -1
          if active > 0 or sleeper > 0 :
-            add(r-v (name => [active sleeper]))
+            val new-kkv = name => [active sleeper]
+            gprintln("add back : %_" % [new-kkv] )
+            add(r-v new-kkv)
       (f) : false
    to-tuple(r-v)
 
