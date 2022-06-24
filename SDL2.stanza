@@ -83,7 +83,7 @@ extern SDL_SetWindowTitle: (long, ptr<byte>) -> int
 extern SDL_GetWindowID: (long) -> int
 extern SDL_DestroyWindow: (long) -> int
 extern SDL_GetWindowSurface: (long) -> long
-extern SDL_CreateRGBSurface: (int, int, int, int, int, int, int, int) -> int
+extern SDL_CreateRGBSurface: (int, int, int, int, int, int, int, int) -> long
 extern SDL_FreeSurface: (long) -> int
 extern SDL_ConvertSurface: (long, long, int) -> long
 extern SDL_UpperBlit: (long, ptr<SDL_Rect>, long, ptr<SDL_Rect>) -> int
