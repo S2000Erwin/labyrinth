@@ -147,10 +147,16 @@ lostanza defn call-SDL_GetWindowSurface (p : ref<Long>) -> ref<Long> :
    val ws = call-c SDL_GetWindowSurface(p.value)
    return new Long{ws}
 
+lostanza deftype SDL_Surface :
+   flags : int
+   pFormat : long
+   w       : int
+   h       : int
+
 lostanza defn SDL-surface-w (p : ref<Long>) -> ref<Int> :
-   return new Int{[(p.value + 16) as ptr<int>]}
+   return new Int{[p.value as ptr<SDL_Surface>].w}
 lostanza defn SDL-surface-h (p : ref<Long>) -> ref<Int> :
-   return new Int{[(p.value + 20) as ptr<int>]}
+   return new Int{[p.value as ptr<SDL_Surface>].h}
 
 lostanza defn call-SDL_FillRect (p : ref<Long>, rect : ref<SDL_Rect|False>, argb : ref<Int>) -> ref<Int> :
    var pRect : ptr<SDL_Rect>
@@ -173,15 +179,8 @@ lostanza defn call-SDL_FreeSurface (surface : ref<Long> ) -> ref<False> :
    return false
 
 lostanza defn call-SDL_ConvertSurface (surface : ref<Long>, dst_surface : ref<Long>) -> ref<Long> :
-   ; NOTE!!!!!! this function is not the same as that in SDL
-   ; the trick is
-   ; * format is right after Unit32 flags
-   ; dst_surface.value + 8 points to the *format pointer
-   ; [dst_surface.value+8] is the value we want
-   ; 
-   val ad = dst_surface.value + 8     ; skip the flags (internal). Assume 64-bit. Change this to 4 in 32-bit
-   val p : ptr<long> = ad as ptr<long>
-   val result = call-c SDL_ConvertSurface(surface.value, [p], 0)
+   val pF = [dst_surface.value as ptr<SDL_Surface>].pFormat
+   val result = call-c SDL_ConvertSurface(surface.value, pF, 0)
    return new Long{result}
 
 lostanza defn pRect (rect : ref<SDL_Rect|False>) -> ptr<SDL_Rect> :
