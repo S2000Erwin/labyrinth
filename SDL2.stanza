@@ -360,14 +360,8 @@ public defn sdl-free-surface (img-surface : Long) -> False :
    call-SDL_FreeSurface(img-surface)
 
 public defn sdl-load-image (name : String, win-surface : Long ) -> Long :
-   val img-surface = call-IMG_Load(name)
-   if img-surface != 0L :
-      val opt-surface = call-SDL_ConvertSurface(img-surface, win-surface)
-      call-SDL_FreeSurface(img-surface)
-      opt-surface
-   else :
-      0L
-
+   call-IMG_Load(name)
+   
 public defn sdl-clear-surface (surface : Long) :
    call-SDL_FillRect(surface, false, SDL_RGBA(0Y, 0Y, 0Y, 255Y))
 
