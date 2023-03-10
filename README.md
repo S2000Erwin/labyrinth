@@ -83,6 +83,15 @@ To convert it to HashTable, I use
 
 To run recursively.
 
+(edit: March 10, 2023:
+Actually, there is a way to do this with `import lang/util`.)
+
+```
+defn to-hashtable (kvs : Tuple<Keyvalue<? ?>> ) -> Hashtable<String HashTable<String ?>> :
+  val ht = to-hashtable<String HashTable<String ?>> $ for kv in kvs seq :
+    KeyValue<String ?>(key(kv) to-hashtable<String ?>(value(kv)))     ; key(kv) is the country name. value(kv) is the tuple
+```
+
 There must be a better way to do this in Stanza I have not explored.
 
 Later, I found that encapuslating the HashTable inside the struct might be a better approach.
